@@ -4,7 +4,7 @@ const CIRCLE_API_BASE_URL = "https://api.circle.com/v1/w3s";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { transactionId: string } }
+  { params }: { params: Promise<{ transactionId: string }> }  // ← Thêm Promise
 ) {
   try {
     const apiKey = process.env.CIRCLE_API_KEY;
@@ -15,7 +15,7 @@ export async function GET(
       );
     }
 
-    const transactionId = params?.transactionId;
+    const { transactionId } = await params;  // ← Thêm await và destructure
     if (!transactionId) {
       return NextResponse.json(
         { error: "Missing transactionId" },

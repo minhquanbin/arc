@@ -74,7 +74,12 @@ export default function IssuanceTab() {
             return;
           }
         } else if (txStatus.state === "FAILED") {
-          throw new Error("Transaction failed on-chain");
+          const reason =
+            txStatus.errorReason ||
+            txStatus.errorMessage ||
+            txStatus.errorCode ||
+            "Transaction failed on-chain";
+          throw new Error(`Deployment transaction failed: ${reason}`);
         }
 
         // Wait before next poll

@@ -10,7 +10,7 @@ export const ERC20_TEMPLATE_ID = "a1b74add-23e0-4712-88d1-6b3009e85a86";
 // Arc Testnet blockchain identifier
 export const ARC_TESTNET_BLOCKCHAIN = "ARC-TESTNET";
 
-// Circle API endpoints
+// Circle API endpoints (server-side only)
 export const CIRCLE_API_BASE_URL = "https://api.circle.com/v1/w3s";
 
 // =====================================================
@@ -233,18 +233,17 @@ export async function deployStablecoinWithCircle(params: {
     feeLevel: "MEDIUM",
   };
 
-  // Call Circle API
-  const response = await fetch(
-    `${CIRCLE_API_BASE_URL}/templates/${ERC20_TEMPLATE_ID}/deploy`,
-    {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_CIRCLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    }
-  );
+  // Call via server route (keeps API key secret + avoids browser CORS)
+  const response = await fetch("/api/circle/deploy", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      templateId: ERC20_TEMPLATE_ID,
+      requestBody,
+    }),
+  });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -264,28 +263,33 @@ export async function deployStablecoinWithCircle(params: {
  * Check deployment transaction status
  */
 export async function checkTransactionStatus(transactionId: string) {
-  const response = await fetch(
-    `${CIRCLE_API_BASE_URL}/transactions/${transactionId}`,
-    {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_CIRCLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  const response = await fetch(`/api/circle/transactions/${transactionId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
   if (!response.ok) {
-    throw new Error(`Failed to check transaction status: ${response.status}`);
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `Failed to check transaction status: ${response.status}. ${text || ""}`
+    );
   }
 
   const data = await response.json();
+
+  // Keep full transaction payload (Circle may include useful failure fields)
   return data.transaction as {
     id: string;
     state: "PENDING" | "COMPLETE" | "FAILED";
     contractAddress?: string;
     txHash?: string;
     blockHeight?: number;
+    errorReason?: string;
+    errorCode?: string;
+    errorMessage?: string;
+    [k: string]: any;
   };
 }
 
@@ -293,16 +297,12 @@ export async function checkTransactionStatus(transactionId: string) {
  * Get contract details after deployment
  */
 export async function getContractDetails(contractId: string) {
-  const response = await fetch(
-    `${CIRCLE_API_BASE_URL}/contracts/${contractId}`,
-    {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_CIRCLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  const response = await fetch(`/api/circle/contracts/${contractId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
   if (!response.ok) {
     throw new Error(`Failed to get contract details: ${response.status}`);

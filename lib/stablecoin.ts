@@ -225,7 +225,12 @@ export async function deployStablecoinWithCircle(params: {
     templateParameters.contractUri = contractURI;
   }
 
+  // ✅ Generate unique idempotency key for this request
+  const idempotencyKey = crypto.randomUUID();
+
   const requestBody = {
+    idempotencyKey, // ✅ Required by Circle API
+    entitySecretCiphertext: "SENSITIVE_FIELD", // ✅ Will be replaced server-side
     blockchain: ARC_TESTNET_BLOCKCHAIN,
     name: `${name} Contract`, // Offchain name (visible in Circle Console)
     walletId,

@@ -11,7 +11,7 @@ import {
   validateStablecoinParams,
   STABLECOIN_CONFIG,
   type StablecoinInfo,
-} from "./stablecoin";
+} from "../../stablecoin";
 
 type DeploymentStatus = "idle" | "deploying" | "polling" | "success" | "error";
 

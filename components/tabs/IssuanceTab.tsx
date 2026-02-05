@@ -420,7 +420,7 @@ export default function IssuanceTab() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
         {/* Left */}
         <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
-          <h2 className="text-2xl font-bold mb-6 text-gray-900">Issuance</h2>
+          
 
           {/* Deploy method */}
           <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -431,24 +431,24 @@ export default function IssuanceTab() {
               onClick={() => setDeployMode("wallet")}
               className={gradientButtonClass(deployMode !== "wallet", "px-4 py-2 text-sm")}
             >
-              Deploy with user wallet
+              User Wallet
             </button>
             <button
               type="button"
               onClick={() => setDeployMode("circle")}
               className={gradientButtonClass(deployMode !== "circle", "px-4 py-2 text-sm")}
             >
-              Deploy with Circle
+              Circle Wallet
             </button>
           </div>
           {deployMode === "wallet" && (
             <div className="mt-2 text-xs text-gray-600">
-              This option deploys an ERC-20 on ARC via the connected wallet (user pays gas). (Wiring bytecode/factory deployment UI is next.)
+              Deploys an ERC-20 on ARC via the connected wallet.
             </div>
           )}
           {deployMode === "circle" && (
             <div className="mt-2 text-xs text-gray-600">
-              This option deploys via Circle Smart Contract Platform (requires Circle Wallet ID).
+              Deploys via Circle Smart Contract Platform.
             </div>
           )}
         </div>

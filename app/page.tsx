@@ -204,7 +204,7 @@ export default function Home() {
           {/* Tabs */}
           <div className="border-b border-gray-200 bg-gray-50">
             <div className="flex">
-              {(["bridge", "swap", "liquidity", "payment", "issuance"] as TabType[]).map((t) => (
+              {(["bridge", "issuance", "liquidity", "swap", "payment"] as TabType[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}

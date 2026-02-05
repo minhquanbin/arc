@@ -20,7 +20,6 @@ type DeploymentStatus = "idle" | "deploying" | "polling" | "success" | "error";
 export default function IssuanceTab() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
-  const publicClient = usePublicClient();
 
   // Form state
   const [name, setName] = useState("");

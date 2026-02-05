@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { parseUnits, keccak256, toHex } from "viem";
 import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
 import {
-  ARC_STABLECOIN_BYTECODE,
-  ARC_STABLECOIN_DEPLOY_ABI,
   deployStablecoinWithCircle,
   checkTransactionStatus,
   getContractDetails,
@@ -33,6 +31,33 @@ const rolePresetToBytes32 = (preset: Exclude<RolePreset, "CUSTOM">): string => {
   }
   return keccak256(toHex(preset));
 };
+
+// ✅ Factory ABI - simple inline version
+const FACTORY_ABI = [
+  {
+    type: "function",
+    name: "createStablecoin",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "name", type: "string" },
+      { name: "symbol", type: "string" },
+      { name: "platformFeeRecipient", type: "address" },
+      { name: "platformFeePercent", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "event",
+    name: "StablecoinCreated",
+    inputs: [
+      { name: "token", type: "address", indexed: true },
+      { name: "creator", type: "address", indexed: true },
+      { name: "name", type: "string", indexed: false },
+      { name: "symbol", type: "string", indexed: false },
+      { name: "timestamp", type: "uint256", indexed: false },
+    ],
+  },
+] as const;
 
 export default function IssuanceTab() {
   const { address, isConnected } = useAccount();
@@ -76,6 +101,9 @@ export default function IssuanceTab() {
   const [rolePreset, setRolePreset] = useState<RolePreset>("MINTER_ROLE");
   const [roleHex, setRoleHex] = useState(rolePresetToBytes32("MINTER_ROLE"));
   const [roleAccount, setRoleAccount] = useState("");
+
+  // ✅ Get Factory Address from env
+  const FACTORY_ADDRESS = process.env.NEXT_PUBLIC_FACTORY_ADDRESS as `0x${string}` | undefined;
 
   useEffect(() => {
     if (rolePreset === "CUSTOM") return;
@@ -153,7 +181,7 @@ export default function IssuanceTab() {
     setSymbol(generatedSymbol);
   };
 
-  // Poll deployment status
+  // Poll deployment status (for Circle mode)
   const pollDeploymentStatus = async (txId: string, ctId: string): Promise<void> => {
     let attempts = 0;
     const maxAttempts = STABLECOIN_CONFIG.MAX_POLL_ATTEMPTS;
@@ -219,10 +247,15 @@ export default function IssuanceTab() {
     throw new Error("Deployment timeout - transaction status check exceeded maximum attempts");
   };
 
-  // Deploy stablecoin
-  const handleDeploy = async () => {
-    if (!isConnected || !address) {
+  // ✅ NEW: Deploy via Factory
+  const handleWalletDeploy = async () => {
+    if (!isConnected || !address || !walletClient || !publicClient) {
       setError("Please connect your wallet first");
+      return;
+    }
+
+    if (!FACTORY_ADDRESS) {
+      setError("Factory address not configured. Add NEXT_PUBLIC_FACTORY_ADDRESS to .env.local");
       return;
     }
 
@@ -240,72 +273,118 @@ export default function IssuanceTab() {
       setTransactionId(null);
       setContractId(null);
 
-      if (deployMode === "wallet") {
-        if (!walletClient || !publicClient) {
-          throw new Error("Wallet client not ready. Please reconnect your wallet.");
-        }
-        if (!ARC_STABLECOIN_BYTECODE) {
-          throw new Error(
-            "Missing NEXT_PUBLIC_ARC_STABLECOIN_BYTECODE env var (compiled bytecode required for wallet deployment)."
-          );
-        }
+      console.log("🚀 Deploying via Factory:", FACTORY_ADDRESS);
 
-        const platformFeeBps = BigInt(Math.round(Number(platformFeePercent || 0) * 100));
-
-        const deployHash = await walletClient.deployContract({
-          abi: ARC_STABLECOIN_DEPLOY_ABI,
-          bytecode: ARC_STABLECOIN_BYTECODE,
-          args: [
-            name,
-            symbol,
-            address,
-            address,
-            address,
-            platformFeeBps,
-            STABLECOIN_CONFIG.DEFAULT_CONTRACT_URI,
-          ],
-        });
-
-        const receipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
-        if (!receipt.contractAddress) {
-          throw new Error("Deployment failed: missing contractAddress in receipt");
-        }
-
-        const contractInfo: StablecoinInfo = {
-          contractId: deployHash,
-          contractAddress: receipt.contractAddress,
+      // Call factory.createStablecoin
+      const hash = await walletClient.writeContract({
+        address: FACTORY_ADDRESS,
+        abi: FACTORY_ABI,
+        functionName: "createStablecoin",
+        args: [
           name,
           symbol,
-          decimals: STABLECOIN_CONFIG.DECIMALS,
-          totalSupply: "0",
-          balance: "0",
-          isPaused: false,
-          deployTx: deployHash,
-          transactionId: deployHash,
-          timestamp: new Date().toISOString(),
-        };
+          address, // Fee recipient = deployer
+          BigInt(Math.floor(platformFeePercent)),
+        ],
+      });
 
-        setDeployedContract(contractInfo);
-        setSelectedContractAddress(contractInfo.contractAddress);
+      console.log("📝 Transaction sent:", hash);
 
-        const nextSaved = [
-          contractInfo,
-          ...savedContracts.filter(
-            (c) => c.contractAddress.toLowerCase() !== contractInfo.contractAddress.toLowerCase()
-          ),
-        ];
-        persistSavedContracts(nextSaved);
+      // Wait for confirmation
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash,
+        confirmations: 1,
+      });
 
-        setStatus("success");
-        return;
+      console.log("✅ Transaction confirmed");
+
+      // Parse event to get token address
+      let tokenAddress: string | undefined;
+
+      for (const log of receipt.logs) {
+        try {
+          const decoded = publicClient.decodeEventLog({
+            abi: FACTORY_ABI,
+            data: log.data,
+            topics: log.topics,
+          });
+
+          if (decoded.eventName === "StablecoinCreated") {
+            tokenAddress = (decoded.args as any).token;
+            break;
+          }
+        } catch (e) {
+          // Skip non-matching logs
+          continue;
+        }
       }
 
-      // Circle Wallet mode
-      if (!walletId) {
-        setError("Please enter your Circle Wallet ID");
-        setStatus("idle");
-        return;
+      if (!tokenAddress) {
+        throw new Error("Could not find token address in transaction logs");
       }
+
+      console.log("🎉 Token deployed at:", tokenAddress);
+
+      // Create contract info
+      const contractInfo: StablecoinInfo = {
+        contractId: tokenAddress,
+        contractAddress: tokenAddress,
+        name,
+        symbol,
+        decimals: 18,
+        totalSupply: "0",
+        balance: "0",
+        isPaused: false,
+        deployTx: hash,
+        transactionId: hash,
+        timestamp: new Date().toISOString(),
+      };
+
+      setDeployedContract(contractInfo);
+      setSelectedContractAddress(contractInfo.contractAddress);
+
+      // Save to localStorage (de-dupe by contractAddress)
+      const nextSaved = [
+        contractInfo,
+        ...savedContracts.filter(
+          (c) => c.contractAddress.toLowerCase() !== contractInfo.contractAddress.toLowerCase()
+        ),
+      ];
+      persistSavedContracts(nextSaved);
+
+      setStatus("success");
+    } catch (err: any) {
+      console.error("❌ Deployment failed:", err);
+      setError(err?.shortMessage || err?.message || "Deployment failed");
+      setStatus("error");
+    }
+  };
+
+  // Circle Wallet Deploy (existing code)
+  const handleCircleDeploy = async () => {
+    if (!isConnected || !address) {
+      setError("Please connect your wallet first");
+      return;
+    }
+
+    if (!walletId) {
+      setError("Please enter your Circle Wallet ID");
+      return;
+    }
+
+    try {
+      // Validate inputs
+      validateStablecoinParams({
+        name,
+        symbol,
+        platformFeePercent,
+      });
+
+      setStatus("deploying");
+      setError(null);
+      setDeployedContract(null);
+      setTransactionId(null);
+      setContractId(null);
 
       // Deploy via Circle API
       const result = await deployStablecoinWithCircle({
@@ -461,510 +540,431 @@ export default function IssuanceTab() {
     }
   };
 
-  // Reset form
-  const handleReset = () => {
-    setName("");
-    setSymbol("");
-    setWalletId("");
-    setPlatformFeePercent(0);
-    setStatus("idle");
-    setError(null);
-    setDeployedContract(null);
-    setSelectedContractAddress("");
-    setTransactionId(null);
-    setContractId(null);
-    setActionError(null);
-    setLastActionTx(null);
-    try {
-      localStorage.removeItem("arc:selectedStablecoin");
-    } catch {
-      // ignore
-    }
-  };
-
   return (
-    <div className="w-full py-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
-        {/* Left */}
-        <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Deploy tokens</h3>
+    <div className="w-full px-4 py-6 mx-auto max-w-6xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left column: Deploy form */}
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-xl font-bold text-gray-900">Deploy tokens</h3>
 
-          {/* Deploy method */}
-          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-          
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => setDeployMode("wallet")}
-              className={gradientButtonClass(deployMode !== "wallet", "px-4 py-2 text-sm")}
-            >
-              User Wallet
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeployMode("circle")}
-              className={gradientButtonClass(deployMode !== "circle", "px-4 py-2 text-sm")}
-            >
-              Circle Wallet
-            </button>
-          </div>
-          {deployMode === "wallet" && (
-            <div className="mt-2 text-xs text-gray-600">
-              Deploys an ERC-20 on ARC via the connected wallet.
-            </div>
-          )}
-          {deployMode === "circle" && (
-            <div className="mt-2 text-xs text-gray-600">
-              Deploys via Circle Smart Contract Platform.
-            </div>
-          )}
-        </div>
-
-        {/* Form */}
-        <div className="space-y-4">
-          {deployMode === "circle" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Circle Wallet ID *
-              </label>
-              <input
-                type="text"
-                value={walletId}
-                onChange={(e) => setWalletId(e.target.value)}
-                placeholder="e.g., 45692c3e-2ffa-5c5b-a99c-61366939114c"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ff7582] focus:border-transparent"
-                disabled={status === "deploying" || status === "polling"}
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Your Circle Dev-Controlled Wallet ID from the Circle Console
-              </p>
-            </div>
-          )}
-
-          {/* Token Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Token Name *
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., ArcUSD"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={status === "deploying" || status === "polling"}
-              />
+            {/* Mode Toggle */}
+            <div className="mb-6 flex gap-3">
               <button
-                onClick={handleAutoGenerate}
-                className={gradientButtonClass(status === "deploying" || status === "polling", "px-4 py-2 text-sm")}
-                disabled={status === "deploying" || status === "polling"}
+                onClick={() => setDeployMode("wallet")}
+                className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+                  deployMode === "wallet"
+                    ? "bg-gradient-to-r from-[#ff7582] to-[#725a7a] text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
               >
-                Random
+                User Wallet
+              </button>
+              <button
+                onClick={() => setDeployMode("circle")}
+                className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+                  deployMode === "circle"
+                    ? "bg-gradient-to-r from-[#ff7582] to-[#725a7a] text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Circle Wallet
               </button>
             </div>
-          </div>
 
-          {/* Token Symbol */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Token Symbol *
-            </label>
-            <input
-              type="text"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              placeholder="e.g., AUSD"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ff7582] focus:border-transparent"
-              disabled={status === "deploying" || status === "polling"}
-            />
-          </div>
-
-          {/* Platform Fee (Optional) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Platform Fee (%) - Optional
-            </label>
-            <input
-              type="number"
-              value={platformFeePercent}
-              onChange={(e) => setPlatformFeePercent(parseFloat(e.target.value) || 0)}
-              min="0"
-              max="10"
-              step="0.1"
-              placeholder="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={status === "deploying" || status === "polling"}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Platform fee percentage (0-10%). If set, you'll receive this percentage on
-              token sales.
-            </p>
-          </div>
-
-
-
-          {/* Error Message */}
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800">
-                <strong>Error:</strong> {error}
-              </p>
-            </div>
-          )}
-
-          {/* Status Messages */}
-          {status === "deploying" && (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                {deployMode === "circle"
-                  ? "Initiating deployment via Circle API..."
-                  : "Deploying contract via your wallet..."}
-              </p>
-            </div>
-          )}
-
-          {status === "polling" && transactionId && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 mb-2">
-                Waiting for transaction confirmation...
-              </p>
-              <p className="text-xs text-blue-600 font-mono break-all">
-                Transaction ID: {transactionId}
-              </p>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {status === "success" && deployedContract && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
-              <p className="text-sm text-green-800 font-medium">
-                Stablecoin deployed successfully!
-              </p>
-              <div className="space-y-1 text-xs text-green-700">
-                <p>
-                  <strong>Contract:</strong>{" "}
-                  <a
-                    href={`https://testnet.arcscan.app/address/${deployedContract.contractAddress}?tab=write_proxy`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline font-mono"
+            <div className="space-y-4">
+              {/* Token Name */}
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Token Name <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. TimgUSD"
+                    className="flex-1 px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                  <button
+                    onClick={handleAutoGenerate}
+                    className="px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-sm font-medium rounded-lg hover:from-pink-600 hover:to-purple-700 transition-colors"
                   >
-                    {deployedContract.contractAddress}
-                  </a>
-                </p>
-                <p>
-                  <strong>Name:</strong> {deployedContract.name} ({deployedContract.symbol})
-                </p>
-                <p>
-                  <strong>TX Hash:</strong>{" "}
-                  <a
-                    href={`https://testnet.arcscan.app/tx/${deployedContract.deployTx}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline font-mono"
-                  >
-                    {deployedContract.deployTx.slice(0, 10)}...
-                    {deployedContract.deployTx.slice(-8)}
-                  </a>
+                    Random
+                  </button>
+                </div>
+              </div>
+
+              {/* Token Symbol */}
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Token Symbol <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value)}
+                  placeholder="e.g. TUSD"
+                  className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                />
+              </div>
+
+              {/* Platform Fee */}
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Platform Fee (%) - Optional
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={platformFeePercent}
+                  onChange={(e) => setPlatformFeePercent(parseFloat(e.target.value) || 0)}
+                  placeholder="0.01"
+                  className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Platform fee percentage (0-10%). If set, you'll receive this percentage on token sales.
                 </p>
               </div>
-            </div>
-          )}
 
-
-
-          {/* Deploy Button */}
-          <div>
-            <button
-              onClick={handleDeploy}
-              disabled={
-                !isConnected ||
-                (deployMode === "wallet" && !walletClient) ||
-                (deployMode === "circle" && !walletId) ||
-                !name ||
-                !symbol ||
-                status === "deploying" ||
-                status === "polling"
-              }
-              className={gradientButtonClass(
-                !isConnected ||
-                  (deployMode === "wallet" && !walletClient) ||
-                  (deployMode === "circle" && !walletId) ||
-                  !name ||
-                  !symbol ||
-                  status === "deploying" ||
-                  status === "polling",
-                "w-full px-6 py-3"
+              {/* Circle Wallet ID (only for Circle mode) */}
+              {deployMode === "circle" && (
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-700">
+                    Circle Wallet ID <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={walletId}
+                    onChange={(e) => setWalletId(e.target.value)}
+                    placeholder="Your Circle Wallet ID"
+                    className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
               )}
-            >
-              {status === "deploying" ? (
-                "Deploying..."
-              ) : status === "polling" ? (
-                "Confirming..."
-              ) : deployMode === "wallet" ? (
-                "Deploy via Wallet"
+
+              {/* ✅ Factory Info (only for User Wallet mode) */}
+              {deployMode === "wallet" && FACTORY_ADDRESS && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    <span className="font-medium">Factory Contract:</span>{" "}
+                    <code className="text-[11px] break-all">{FACTORY_ADDRESS}</code>
+                  </p>
+                </div>
+              )}
+
+              {deployMode === "wallet" && !FACTORY_ADDRESS && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs text-red-700">
+                    ⚠️ Factory address not configured. Add{" "}
+                    <code className="bg-red-100 px-1 rounded">NEXT_PUBLIC_FACTORY_ADDRESS</code> to
+                    .env.local
+                  </p>
+                </div>
+              )}
+
+              {/* Error Display */}
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800">
+                    <strong>Error:</strong> {error}
+                  </p>
+                </div>
+              )}
+
+              {/* Status Display */}
+              {status === "deploying" && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    🚀 Deploying stablecoin... Please confirm in your wallet.
+                  </p>
+                </div>
+              )}
+
+              {status === "polling" && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">⏳ Waiting for transaction confirmation...</p>
+                  {transactionId && (
+                    <p className="mt-1 text-xs text-blue-600 font-mono break-all">
+                      TX: {transactionId}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Deploy Buttons */}
+              {deployMode === "wallet" ? (
+                <button
+                  onClick={handleWalletDeploy}
+                  disabled={
+                    !isConnected || 
+                    status === "deploying" || 
+                    status === "polling" ||
+                    !FACTORY_ADDRESS
+                  }
+                  className={gradientButtonClass(
+                    !isConnected || status === "deploying" || status === "polling" || !FACTORY_ADDRESS,
+                    "w-full px-6 py-4 text-base"
+                  )}
+                >
+                  {!isConnected
+                    ? "Connect Wallet First"
+                    : status === "deploying"
+                    ? "Deploying..."
+                    : "Deploy via Wallet"}
+                </button>
               ) : (
-                "Deploy Stablecoin"
+                <button
+                  onClick={handleCircleDeploy}
+                  disabled={!isConnected || status === "deploying" || status === "polling"}
+                  className={gradientButtonClass(
+                    !isConnected || status === "deploying" || status === "polling",
+                    "w-full px-6 py-4 text-base"
+                  )}
+                >
+                  {!isConnected
+                    ? "Connect Wallet First"
+                    : status === "deploying"
+                    ? "Deploying..."
+                    : status === "polling"
+                    ? "Confirming..."
+                    : "Deploy via Circle"}
+                </button>
               )}
-            </button>
+
+              <p className="text-xs text-gray-500 text-center">
+                {deployMode === "wallet"
+                  ? "Deploys an ERC-20 on ARC via the connected wallet."
+                  : "Dùng Circle Smart Contract Platform để deploy"}
+              </p>
+            </div>
           </div>
         </div>
 
-          {/* Setup Instructions */}
-          {deployMode === "circle" && (
-            <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                Setup Instructions
-            </h3>
-            <ol className="text-xs text-gray-700 space-y-1 list-decimal list-inside">
-              <li>
-                Create a Circle account at{" "}
-                <a
-                  href="https://console.circle.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  console.circle.com
-                </a>
-              </li>
-              <li>Create an API key (Keys → Create a key → API key → Standard Key)</li>
-              <li>Register your Entity Secret for wallet creation</li>
-              <li>Create a Dev-Controlled Wallet on Arc Testnet</li>
-              <li>
-                Fund it with testnet USDC at{" "}
-                <a
-                  href="https://faucet.circle.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline"
-                >
-                  faucet.circle.com
-                </a>
-              </li>
-              <li>Add your Circle API key to your .env.local file</li>
-              <li>Copy your Wallet ID and paste it above</li>
-            </ol>
-          </div>
-          )}
-        </div>
+        {/* Right column: Deployed tokens */}
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-xl font-bold text-gray-900">Your deployed tokens</h3>
 
-        {/* Right */}
-        <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Your deployed tokens</h3>
-
-          {savedContracts.length > 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {savedContracts.length > 0 ? (
+              <div className="space-y-3">
                 <select
                   value={selectedContractAddress}
                   onChange={(e) => selectSavedContract(e.target.value)}
-                  className="w-full sm:flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                  className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
                 >
-                  <option value="">Select a token…</option>
+                  <option value="">Select a token...</option>
                   {savedContracts.map((c) => (
                     <option key={c.contractAddress} value={c.contractAddress}>
-                      {c.name} ({c.symbol}) — {c.contractAddress.slice(0, 8)}…{c.contractAddress.slice(-6)}
+                      {c.name} ({c.symbol}) - {c.contractAddress.slice(0, 8)}...
+                      {c.contractAddress.slice(-6)}
                     </option>
                   ))}
                 </select>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedContractAddress("");
-                    setDeployedContract(null);
-                    setStatus("idle");
-                    try {
-                      localStorage.removeItem("arc:selectedStablecoin");
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  className={gradientButtonClass(false, "px-4 py-2 text-sm")}
-                >
-                  Clear
-                </button>
-              </div>
-
-              <div className="mt-2 text-xs text-gray-600">
-                Tip: these are saved in your browser (localStorage), so they’ll still be here after refresh.
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-              No deployed tokens found yet.
-            </div>
-          )}
-
-          {/* Contract Actions */}
-          {status === "success" && deployedContract && (
-            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-gray-900">Contract actions</h4>
-                <span className="text-xs text-gray-500">Decimals: {STABLECOIN_CONFIG.DECIMALS}</span>
-              </div>
-
-              {actionError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-xs text-red-800">
-                    <strong>Error:</strong> {actionError}
-                  </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedContractAddress("");
+                      setDeployedContract(null);
+                      setStatus("idle");
+                      try {
+                        localStorage.removeItem("arc:selectedStablecoin");
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className={gradientButtonClass(false, "px-4 py-2 text-sm")}
+                  >
+                    Clear
+                  </button>
                 </div>
-              )}
 
-              {lastActionTx && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs text-blue-800">
-                    <strong>Last TX:</strong>{" "}
-                    <a
-                      className="underline font-mono"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      href={`https://testnet.arcscan.app/tx/${lastActionTx}`}
+                <div className="mt-2 text-xs text-gray-600">
+                  Tip: these are saved in your browser (localStorage), so they'll still be here after
+                  refresh.
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                No deployed tokens found yet.
+              </div>
+            )}
+
+            {/* Contract Actions */}
+            {status === "success" && deployedContract && (
+              <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-gray-900">Contract actions</h4>
+                  <span className="text-xs text-gray-500">
+                    Decimals: {STABLECOIN_CONFIG.DECIMALS}
+                  </span>
+                </div>
+
+                {actionError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-xs text-red-800">
+                      <strong>Error:</strong> {actionError}
+                    </p>
+                  </div>
+                )}
+
+                {lastActionTx && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs text-blue-800">
+                      <strong>Last TX:</strong>{" "}
+                      <a
+                        className="underline font-mono"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href={`https://testnet.arcscan.app/tx/${lastActionTx}`}
+                      >
+                        {lastActionTx.slice(0, 10)}...{lastActionTx.slice(-8)}
+                      </a>
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Mint */}
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                    <div className="text-xs font-semibold text-gray-900">Mint</div>
+                    <input
+                      type="text"
+                      value={mintTo}
+                      onChange={(e) => setMintTo(e.target.value)}
+                      placeholder="Recipient address (0x...)"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    />
+                    <input
+                      type="text"
+                      value={mintAmount}
+                      onChange={(e) => setMintAmount(e.target.value)}
+                      placeholder='Amount (e.g. "100")'
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    />
+                    <button
+                      onClick={handleMint}
+                      disabled={isWriting}
+                      className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
                     >
-                      {lastActionTx.slice(0, 10)}...{lastActionTx.slice(-8)}
-                    </a>
-                  </p>
-                </div>
-              )}
+                      {isWriting ? "Sending..." : "Mint"}
+                    </button>
+                  </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                {/* Mint */}
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-                  <div className="text-xs font-semibold text-gray-900">Mint</div>
-                  <input
-                    type="text"
-                    value={mintTo}
-                    onChange={(e) => setMintTo(e.target.value)}
-                    placeholder="Recipient address (0x...)"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                  />
-                  <input
-                    type="text"
-                    value={mintAmount}
-                    onChange={(e) => setMintAmount(e.target.value)}
-                    placeholder='Amount (e.g. "100")'
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                  />
-                  <button
-                    onClick={handleMint}
-                    disabled={isWriting}
-                    className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
-                  >
-                    {isWriting ? "Sending..." : "Mint"}
-                  </button>
-                </div>
+                  {/* Burn */}
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                    <div className="text-xs font-semibold text-gray-900">Burn</div>
+                    <input
+                      type="text"
+                      value={burnAmount}
+                      onChange={(e) => setBurnAmount(e.target.value)}
+                      placeholder='Amount (e.g. "10")'
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    />
 
-                {/* Burn */}
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-                  <div className="text-xs font-semibold text-gray-900">Burn</div>
-                  <input
-                    type="text"
-                    value={burnAmount}
-                    onChange={(e) => setBurnAmount(e.target.value)}
-                    placeholder='Amount (e.g. "10")'
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                  />
+                    <button
+                      onClick={handleBurn}
+                      disabled={isWriting}
+                      className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
+                    >
+                      {isWriting ? "Sending..." : "Burn"}
+                    </button>
+                  </div>
 
-                	<button
-                    onClick={handleBurn}
-                    disabled={isWriting}
-                    className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
-                  >
-                    {isWriting ? "Sending..." : "Burn"}
-                  </button>
-                </div>
+                  {/* Transfer */}
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                    <div className="text-xs font-semibold text-gray-900">Transfer</div>
+                    <input
+                      type="text"
+                      value={transferTo}
+                      onChange={(e) => setTransferTo(e.target.value)}
+                      placeholder="Recipient address (0x...)"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    />
+                    <input
+                      type="text"
+                      value={transferAmount}
+                      onChange={(e) => setTransferAmount(e.target.value)}
+                      placeholder='Amount (e.g. "1")'
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    />
+                    <button
+                      onClick={handleTransfer}
+                      disabled={isWriting}
+                      className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
+                    >
+                      {isWriting ? "Sending..." : "Transfer"}
+                    </button>
+                  </div>
 
-                {/* Transfer */}
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-                  <div className="text-xs font-semibold text-gray-900">Transfer</div>
-                  <input
-                    type="text"
-                    value={transferTo}
-                    onChange={(e) => setTransferTo(e.target.value)}
-                    placeholder="Recipient address (0x...)"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                  />
-                  <input
-                    type="text"
-                    value={transferAmount}
-                    onChange={(e) => setTransferAmount(e.target.value)}
-                    placeholder='Amount (e.g. "1")'
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                  />
-                  <button
-                    onClick={handleTransfer}
-                    disabled={isWriting}
-                    className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
-                  >
-                    {isWriting ? "Sending..." : "Transfer"}
-                  </button>
-                </div>
+                  {/* Approve */}
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                    <div className="text-xs font-semibold text-gray-900">Approve</div>
+                    <input
+                      type="text"
+                      value={approveSpender}
+                      onChange={(e) => setApproveSpender(e.target.value)}
+                      placeholder="Spender address (0x...)"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    />
+                    <input
+                      type="text"
+                      value={approveAmount}
+                      onChange={(e) => setApproveAmount(e.target.value)}
+                      placeholder='Amount (e.g. "100")'
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                    />
+                    <button
+                      onClick={handleApprove}
+                      disabled={isWriting}
+                      className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
+                    >
+                      {isWriting ? "Sending..." : "Approve"}
+                    </button>
+                  </div>
 
-                {/* Approve */}
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-                  <div className="text-xs font-semibold text-gray-900">Approve</div>
-                  <input
-                    type="text"
-                    value={approveSpender}
-                    onChange={(e) => setApproveSpender(e.target.value)}
-                    placeholder="Spender address (0x...)"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                  />
-                  <input
-                    type="text"
-                    value={approveAmount}
-                    onChange={(e) => setApproveAmount(e.target.value)}
-                    placeholder='Amount (e.g. "100")'
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                  />
-                  <button
-                    onClick={handleApprove}
-                    disabled={isWriting}
-                    className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
-                  >
-                    {isWriting ? "Sending..." : "Approve"}
-                  </button>
-                </div>
+                  {/* GrantRole (advanced) */}
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                    <div className="text-xs font-semibold text-amber-900">
+                      GrantRole (advanced)
+                    </div>
 
-                {/* GrantRole (advanced) */}
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
-                  <div className="text-xs font-semibold text-amber-900">GrantRole (advanced)</div>
+                    <select
+                      value={rolePreset}
+                      onChange={(e) => setRolePreset(e.target.value as RolePreset)}
+                      className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg bg-white"
+                    >
+                      <option value="MINTER_ROLE">Role Mint (MINTER_ROLE)</option>
+                      <option value="BURNER_ROLE">Role Burn (BURNER_ROLE)</option>
+                      <option value="PAUSER_ROLE">Role Pause (PAUSER_ROLE)</option>
+                      <option value="DEFAULT_ADMIN_ROLE">
+                        Role Admin (DEFAULT_ADMIN_ROLE)
+                      </option>
+                    </select>
 
-                  <select
-                    value={rolePreset}
-                    onChange={(e) => setRolePreset(e.target.value as RolePreset)}
-                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg bg-white"
-                  >
-                    <option value="MINTER_ROLE">Role Mint (MINTER_ROLE)</option>
-                    <option value="BURNER_ROLE">Role Burn (BURNER_ROLE)</option>
-                    <option value="PAUSER_ROLE">Role Pause (PAUSER_ROLE)</option>
-                    <option value="DEFAULT_ADMIN_ROLE">Role Admin (DEFAULT_ADMIN_ROLE)</option>
-                  </select>
-
-                  <input
-                    type="text"
-                    value={roleAccount}
-                    onChange={(e) => setRoleAccount(e.target.value)}
-                    placeholder="Account address (0x...)"
-                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
-                  />
-                  <button
-                    onClick={handleGrantRole}
-                    disabled={isWriting}
-                    className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
-                  >
-                    {isWriting ? "Sending..." : "GrantRole"}
-                  </button>
-                  <p className="text-[11px] text-amber-800">
-                    If your deployed template doesn’t support AccessControl, this call will fail.
-                  </p>
+                    <input
+                      type="text"
+                      value={roleAccount}
+                      onChange={(e) => setRoleAccount(e.target.value)}
+                      placeholder="Account address (0x...)"
+                      className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
+                    />
+                    <button
+                      onClick={handleGrantRole}
+                      disabled={isWriting}
+                      className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}
+                    >
+                      {isWriting ? "Sending..." : "GrantRole"}
+                    </button>
+                    <p className="text-[11px] text-amber-800">
+                      If your deployed template doesn't support AccessControl, this call will fail.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

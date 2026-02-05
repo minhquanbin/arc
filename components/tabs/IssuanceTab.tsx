@@ -898,9 +898,9 @@ export default function IssuanceTab() {
                     </button>
                   </div>
 
-                  {/* Approve */}
+                  {/* Approve Spending Limit */}
                   <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-                    <div className="text-xs font-semibold text-gray-900">Approve</div>
+                    <div className="text-xs font-semibold text-gray-900">Approve Spending Limit</div>
                     <input
                       type="text"
                       value={approveSpender}

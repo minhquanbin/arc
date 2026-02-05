@@ -223,6 +223,14 @@ export default function IssuanceTab() {
       return;
     }
 
+    if (deployMode === "wallet") {
+      setError(
+        "User Wallet deployment is not implemented yet. Please switch to Circle Wallet mode for now."
+      );
+      setStatus("error");
+      return;
+    }
+
     if (!walletId) {
       setError("Please enter your Circle Wallet ID");
       return;
@@ -611,7 +619,7 @@ export default function IssuanceTab() {
               onClick={handleDeploy}
               disabled={
                 !isConnected ||
-                !walletId ||
+                (deployMode === "circle" && !walletId) ||
                 !name ||
                 !symbol ||
                 status === "deploying" ||
@@ -619,7 +627,7 @@ export default function IssuanceTab() {
               }
               className={gradientButtonClass(
                 !isConnected ||
-                  !walletId ||
+                  (deployMode === "circle" && !walletId) ||
                   !name ||
                   !symbol ||
                   status === "deploying" ||
@@ -635,9 +643,10 @@ export default function IssuanceTab() {
         </div>
 
           {/* Setup Instructions */}
-          <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">
-              Setup Instructions
+          {deployMode === "circle" && (
+            <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Setup Instructions
             </h3>
             <ol className="text-xs text-gray-700 space-y-1 list-decimal list-inside">
               <li>
@@ -669,6 +678,7 @@ export default function IssuanceTab() {
               <li>Copy your Wallet ID and paste it above</li>
             </ol>
           </div>
+          )}
         </div>
 
         {/* Right */}

@@ -24,6 +24,7 @@ export default function IssuanceTab() {
   // Form state
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
+  const [deployMode, setDeployMode] = useState<"wallet" | "circle">("wallet");
   const [walletId, setWalletId] = useState("");
   const [platformFeePercent, setPlatformFeePercent] = useState(0);
 
@@ -396,9 +397,7 @@ export default function IssuanceTab() {
   return (
     <div className="max-w-2xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900">
-          Deploy Stablecoin (Circle Template)
-        </h2>
+        <h2 className="text-2xl font-bold mb-6 text-gray-900">Issuance</h2>
 
         {/* Saved tokens */}
         {savedContracts.length > 0 && (
@@ -430,7 +429,7 @@ export default function IssuanceTab() {
                     // ignore
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                className={gradientButtonClass(false, "px-4 py-2 text-sm")}
               >
                 Clear
               </button>
@@ -442,42 +441,59 @@ export default function IssuanceTab() {
           </div>
         )}
 
-        {/* Info Banner */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>ℹ️ Using Circle Contracts:</strong> This deployment uses Circle's
-            pre-audited ERC-20 template. You need a Circle Dev-Controlled Wallet funded
-            with testnet USDC.{" "}
-            <a
-              href="https://docs.arc.network/arc/tutorials/deploy-contracts"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline font-medium"
+
+
+        {/* Deploy method */}
+        <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="text-sm font-semibold text-gray-900 mb-2">Deploy method</div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setDeployMode("wallet")}
+              className={gradientButtonClass(deployMode !== "wallet", "px-4 py-2 text-sm")}
             >
-              Learn more →
-            </a>
-          </p>
+              Deploy with user wallet
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeployMode("circle")}
+              className={gradientButtonClass(deployMode !== "circle", "px-4 py-2 text-sm")}
+            >
+              Deploy with Circle
+            </button>
+          </div>
+          {deployMode === "wallet" && (
+            <div className="mt-2 text-xs text-gray-600">
+              This option deploys an ERC-20 on ARC via the connected wallet (user pays gas). (Wiring bytecode/factory deployment UI is next.)
+            </div>
+          )}
+          {deployMode === "circle" && (
+            <div className="mt-2 text-xs text-gray-600">
+              This option deploys via Circle Smart Contract Platform (requires Circle Wallet ID).
+            </div>
+          )}
         </div>
 
         {/* Form */}
-        <div className="space-y-4">
-          {/* Wallet ID */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Circle Wallet ID *
-            </label>
-            <input
-              type="text"
-              value={walletId}
-              onChange={(e) => setWalletId(e.target.value)}
-              placeholder="e.g., 45692c3e-2ffa-5c5b-a99c-61366939114c"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ff7582] focus:border-transparent"
-              disabled={status === "deploying" || status === "polling"}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Your Circle Dev-Controlled Wallet ID from the Circle Console
-            </p>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {deployMode === "circle" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Circle Wallet ID *
+              </label>
+              <input
+                type="text"
+                value={walletId}
+                onChange={(e) => setWalletId(e.target.value)}
+                placeholder="e.g., 45692c3e-2ffa-5c5b-a99c-61366939114c"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ff7582] focus:border-transparent"
+                disabled={status === "deploying" || status === "polling"}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Your Circle Dev-Controlled Wallet ID from the Circle Console
+              </p>
+            </div>
+          )}
 
           {/* Token Name */}
           <div>
@@ -495,10 +511,10 @@ export default function IssuanceTab() {
               />
               <button
                 onClick={handleAutoGenerate}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                className={gradientButtonClass(status === "deploying" || status === "polling", "px-4 py-2 text-sm")}
                 disabled={status === "deploying" || status === "polling"}
               >
-                🎲 Random
+                Random
               </button>
             </div>
           </div>

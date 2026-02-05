@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { parseUnits } from "viem";
+import { parseUnits, keccak256, toHex } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import {
   deployStablecoinWithCircle,
@@ -16,6 +16,21 @@ import {
 } from "../../lib/stablecoin";
 
 type DeploymentStatus = "idle" | "deploying" | "polling" | "success" | "error";
+
+type RolePreset =
+  | "MINTER_ROLE"
+  | "BURNER_ROLE"
+  | "PAUSER_ROLE"
+  | "DEFAULT_ADMIN_ROLE"
+  | "CUSTOM";
+
+const rolePresetToBytes32 = (preset: Exclude<RolePreset, "CUSTOM">): string => {
+  if (preset === "DEFAULT_ADMIN_ROLE") {
+    // OpenZeppelin AccessControl default admin role is 0x00..00
+    return "0x0000000000000000000000000000000000000000000000000000000000000000";
+  }
+  return keccak256(toHex(preset));
+};
 
 export default function IssuanceTab() {
   const { address, isConnected } = useAccount();
@@ -55,8 +70,14 @@ export default function IssuanceTab() {
   const [approveSpender, setApproveSpender] = useState("");
   const [approveAmount, setApproveAmount] = useState("");
 
-  const [roleHex, setRoleHex] = useState("");
+  const [rolePreset, setRolePreset] = useState<RolePreset>("MINTER_ROLE");
+  const [roleHex, setRoleHex] = useState(rolePresetToBytes32("MINTER_ROLE"));
   const [roleAccount, setRoleAccount] = useState("");
+
+  useEffect(() => {
+    if (rolePreset === "CUSTOM") return;
+    setRoleHex(rolePresetToBytes32(rolePreset));
+  }, [rolePreset]);
 
   useEffect(() => {
     try {
@@ -395,55 +416,13 @@ export default function IssuanceTab() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900">Issuance</h2>
+    <div className="mx-auto max-w-6xl p-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Left */}
+        <div className="bg-white rounded-2xl shadow-md p-6">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900">Issuance</h2>
 
-        {/* Saved tokens */}
-        {savedContracts.length > 0 && (
-          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <div className="text-sm font-semibold text-gray-900 mb-2">Your deployed tokens</div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <select
-                value={selectedContractAddress}
-                onChange={(e) => selectSavedContract(e.target.value)}
-                className="w-full sm:flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
-              >
-                <option value="">Select a token…</option>
-                {savedContracts.map((c) => (
-                  <option key={c.contractAddress} value={c.contractAddress}>
-                    {c.name} ({c.symbol}) — {c.contractAddress.slice(0, 8)}…{c.contractAddress.slice(-6)}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedContractAddress("");
-                  setDeployedContract(null);
-                  setStatus("idle");
-                  try {
-                    localStorage.removeItem("arc:selectedStablecoin");
-                  } catch {
-                    // ignore
-                  }
-                }}
-                className={gradientButtonClass(false, "px-4 py-2 text-sm")}
-              >
-                Clear
-              </button>
-            </div>
-
-            <div className="mt-2 text-xs text-gray-600">
-              Tip: these are saved in your browser (localStorage), so they’ll still be here after refresh.
-            </div>
-          </div>
-        )}
-
-
-
-        {/* Deploy method */}
+          {/* Deploy method */}
         <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
           <div className="text-sm font-semibold text-gray-900 mb-2">Deploy method</div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -578,7 +557,7 @@ export default function IssuanceTab() {
           {status === "deploying" && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                ⏳ Initiating deployment via Circle API...
+                Initiating deployment via Circle API...
               </p>
             </div>
           )}
@@ -586,7 +565,7 @@ export default function IssuanceTab() {
           {status === "polling" && transactionId && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800 mb-2">
-                ⏳ Waiting for transaction confirmation...
+                Waiting for transaction confirmation...
               </p>
               <p className="text-xs text-blue-600 font-mono break-all">
                 Transaction ID: {transactionId}
@@ -598,7 +577,7 @@ export default function IssuanceTab() {
           {status === "success" && deployedContract && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
               <p className="text-sm text-green-800 font-medium">
-                ✅ Stablecoin deployed successfully!
+                Stablecoin deployed successfully!
               </p>
               <div className="space-y-1 text-xs text-green-700">
                 <p>
@@ -631,14 +610,133 @@ export default function IssuanceTab() {
             </div>
           )}
 
+
+
+          {/* Deploy Button */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleDeploy}
+              disabled={
+                !isConnected ||
+                !walletId ||
+                !name ||
+                !symbol ||
+                status === "deploying" ||
+                status === "polling"
+              }
+              className={gradientButtonClass(
+                !isConnected ||
+                  !walletId ||
+                  !name ||
+                  !symbol ||
+                  status === "deploying" ||
+                  status === "polling",
+                "flex-1 px-6 py-3"
+              )}
+            >
+              {status === "deploying" && "Deploying..."}
+              {status === "polling" && "Confirming..."}
+              {status !== "deploying" && status !== "polling" && "Deploy Stablecoin"}
+            </button>
+
+            {(status === "success" || status === "error") && (
+              <button
+                onClick={handleReset}
+                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+          {/* Setup Instructions */}
+          <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              Setup Instructions
+            </h3>
+            <ol className="text-xs text-gray-700 space-y-1 list-decimal list-inside">
+              <li>
+                Create a Circle account at{" "}
+                <a
+                  href="https://console.circle.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline"
+                >
+                  console.circle.com
+                </a>
+              </li>
+              <li>Create an API key (Keys → Create a key → API key → Standard Key)</li>
+              <li>Register your Entity Secret for wallet creation</li>
+              <li>Create a Dev-Controlled Wallet on Arc Testnet</li>
+              <li>
+                Fund it with testnet USDC at{" "}
+                <a
+                  href="https://faucet.circle.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline"
+                >
+                  faucet.circle.com
+                </a>
+              </li>
+              <li>Add your Circle API key to your .env.local file</li>
+              <li>Copy your Wallet ID and paste it above</li>
+            </ol>
+          </div>
+        </div>
+
+        {/* Right */}
+        <div className="space-y-6">
+          {/* Saved tokens */}
+          {savedContracts.length > 0 && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="text-sm font-semibold text-gray-900 mb-2">Your deployed tokens</div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  value={selectedContractAddress}
+                  onChange={(e) => selectSavedContract(e.target.value)}
+                  className="w-full sm:flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                >
+                  <option value="">Select a token…</option>
+                  {savedContracts.map((c) => (
+                    <option key={c.contractAddress} value={c.contractAddress}>
+                      {c.name} ({c.symbol}) — {c.contractAddress.slice(0, 8)}…{c.contractAddress.slice(-6)}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedContractAddress("");
+                    setDeployedContract(null);
+                    setStatus("idle");
+                    try {
+                      localStorage.removeItem("arc:selectedStablecoin");
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className={gradientButtonClass(false, "px-4 py-2 text-sm")}
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div className="mt-2 text-xs text-gray-600">
+                Tip: these are saved in your browser (localStorage), so they’ll still be here after refresh.
+              </div>
+            </div>
+          )}
+
           {/* Contract Actions */}
           {status === "success" && deployedContract && (
-            <div className="p-4 bg-white border border-gray-200 rounded-lg space-y-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">🧩 Contract actions</h3>
-                <span className="text-xs text-gray-500">
-                  Decimals: {STABLECOIN_CONFIG.DECIMALS}
-                </span>
+                <h3 className="text-sm font-semibold text-gray-900">Contract actions</h3>
+                <span className="text-xs text-gray-500">Decimals: {STABLECOIN_CONFIG.DECIMALS}</span>
               </div>
 
               {actionError && (
@@ -767,13 +865,33 @@ export default function IssuanceTab() {
                 {/* GrantRole (advanced) */}
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
                   <div className="text-xs font-semibold text-amber-900">GrantRole (advanced)</div>
-                  <input
-                    type="text"
-                    value={roleHex}
-                    onChange={(e) => setRoleHex(e.target.value)}
-                    placeholder="Role bytes32 (0x...)"
-                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
-                  />
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <select
+                      value={rolePreset}
+                      onChange={(e) => setRolePreset(e.target.value as RolePreset)}
+                      className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg bg-white"
+                    >
+                      <option value="MINTER_ROLE">Role Mint (MINTER_ROLE)</option>
+                      <option value="BURNER_ROLE">Role Burn (BURNER_ROLE)</option>
+                      <option value="PAUSER_ROLE">Role Pause (PAUSER_ROLE)</option>
+                      <option value="DEFAULT_ADMIN_ROLE">Role Admin (DEFAULT_ADMIN_ROLE)</option>
+                      <option value="CUSTOM">Custom bytes32</option>
+                    </select>
+
+                    <input
+                      type="text"
+                      value={roleHex}
+                      onChange={(e) => setRoleHex(e.target.value)}
+                      placeholder={rolePreset === "CUSTOM" ? "Role bytes32 (0x...)" : "Role bytes32 (auto)"}
+                      className={
+                        "w-full px-3 py-2 text-sm border border-amber-300 rounded-lg" +
+                        (rolePreset === "CUSTOM" ? " bg-white" : " bg-amber-100")
+                      }
+                      readOnly={rolePreset !== "CUSTOM"}
+                    />
+                  </div>
+
                   <input
                     type="text"
                     value={roleAccount}
@@ -792,83 +910,9 @@ export default function IssuanceTab() {
                     If your deployed template doesn’t support AccessControl, this call will fail.
                   </p>
                 </div>
-
               </div>
             </div>
           )}
-
-          {/* Deploy Button */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleDeploy}
-              disabled={
-                !isConnected ||
-                !walletId ||
-                !name ||
-                !symbol ||
-                status === "deploying" ||
-                status === "polling"
-              }
-              className={gradientButtonClass(
-                !isConnected ||
-                  !walletId ||
-                  !name ||
-                  !symbol ||
-                  status === "deploying" ||
-                  status === "polling",
-                "flex-1 px-6 py-3"
-              )}
-            >
-              {status === "deploying" && "⏳ Deploying..."}
-              {status === "polling" && "⏳ Confirming..."}
-              {status !== "deploying" && status !== "polling" && "🚀 Deploy Stablecoin"}
-            </button>
-
-            {(status === "success" || status === "error") && (
-              <button
-                onClick={handleReset}
-                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Setup Instructions */}
-        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">
-            📚 Setup Instructions
-          </h3>
-          <ol className="text-xs text-gray-700 space-y-1 list-decimal list-inside">
-            <li>
-              Create a Circle account at{" "}
-              <a
-                href="https://console.circle.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline"
-              >
-                console.circle.com
-              </a>
-            </li>
-            <li>Create an API key (Keys → Create a key → API key → Standard Key)</li>
-            <li>Register your Entity Secret for wallet creation</li>
-            <li>Create a Dev-Controlled Wallet on Arc Testnet</li>
-            <li>
-              Fund it with testnet USDC at{" "}
-              <a
-                href="https://faucet.circle.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline"
-              >
-                faucet.circle.com
-              </a>
-            </li>
-            <li>Add your Circle API key to your .env.local file</li>
-            <li>Copy your Wallet ID and paste it above</li>
-          </ol>
         </div>
       </div>
     </div>

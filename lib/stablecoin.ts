@@ -99,6 +99,39 @@ export const STABLECOIN_ABI = [
     inputs: [],
     outputs: [{ name: "", type: "bool" }],
   },
+
+  // AccessControl (optional; only works if the template includes it)
+  {
+    type: "function",
+    name: "grantRole",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "revokeRole",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "hasRole",
+    stateMutability: "view",
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+
   {
     type: "event",
     name: "TokensMinted",

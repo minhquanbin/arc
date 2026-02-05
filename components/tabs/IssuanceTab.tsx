@@ -609,6 +609,34 @@ export default function IssuanceTab() {
                   </button>
                 </div>
 
+                {/* GrantRole (advanced) */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-amber-900">GrantRole (advanced)</div>
+                  <input
+                    type="text"
+                    value={roleHex}
+                    onChange={(e) => setRoleHex(e.target.value)}
+                    placeholder="Role bytes32 (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={roleAccount}
+                    onChange={(e) => setRoleAccount(e.target.value)}
+                    placeholder="Account address (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
+                  />
+                  <button
+                    onClick={handleGrantRole}
+                    disabled={isWriting}
+                    className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg"
+                  >
+                    {isWriting ? "Sending..." : "GrantRole"}
+                  </button>
+                  <p className="text-[11px] text-amber-800">
+                    If your deployed template doesn’t support AccessControl, this call will fail.
+                  </p>
+                </div>
 
               </div>
             </div>

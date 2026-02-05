@@ -420,11 +420,11 @@ export default function IssuanceTab() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
         {/* Left */}
         <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
-          
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Deploy tokens</h3>
 
           {/* Deploy method */}
           <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-          <div className="text-sm font-semibold text-gray-900 mb-2">Deploy method</div>
+          
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"

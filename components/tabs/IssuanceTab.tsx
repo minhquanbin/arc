@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { parseUnits } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
 import {
@@ -53,6 +53,25 @@ export default function IssuanceTab() {
   const [roleHex, setRoleHex] = useState("");
   const [roleAccount, setRoleAccount] = useState("");
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("arc:savedStablecoins");
+      const parsed = raw ? (JSON.parse(raw) as StablecoinInfo[]) : [];
+      if (Array.isArray(parsed)) setSavedContracts(parsed);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const persistSavedContracts = (items: StablecoinInfo[]) => {
+    setSavedContracts(items);
+    try {
+      localStorage.setItem("arc:savedStablecoins", JSON.stringify(items));
+    } catch {
+      // ignore
+    }
+  };
+
   // Auto-generate name and symbol
   const handleAutoGenerate = () => {
     const generatedName = generateStablecoinName();
@@ -92,6 +111,17 @@ export default function IssuanceTab() {
             };
 
             setDeployedContract(contractInfo);
+            setSelectedContractAddress(contractInfo.contractAddress);
+
+            // Save (de-dupe by contractAddress)
+            const nextSaved = [
+              contractInfo,
+              ...savedContracts.filter(
+                (c) => c.contractAddress.toLowerCase() !== contractInfo.contractAddress.toLowerCase()
+              ),
+            ];
+            persistSavedContracts(nextSaved);
+
             setStatus("success");
             return;
           }
@@ -314,6 +344,144 @@ export default function IssuanceTab() {
           </p>
         </div>
 
+        {/* Saved tokens */}
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">Previously deployed tokens</div>
+              <div className="text-xs text-gray-600">Saved in this browser (localStorage)</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedContractAddress("");
+                setDeployedContract(null);
+                setStatus("idle");
+              }}
+              className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
+            >
+              Clear selection
+            </button>
+          </div>
+
+          <div className="mt-3 flex gap-2">
+            <select
+              value={selectedContractAddress}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSelectedContractAddress(v);
+                const found = savedContracts.find(
+                  (c) => c.contractAddress.toLowerCase() === v.toLowerCase()
+                );
+                if (found) {
+                  setDeployedContract(found);
+                  setStatus("success");
+                  setError(null);
+                }
+              }}
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg"
+            >
+              <option value="">Select a token...</option>
+              {savedContracts.map((c) => (
+                <option key={c.contractAddress} value={c.contractAddress}>
+                  {c.symbol} — {c.contractAddress.slice(0, 8)}...{c.contractAddress.slice(-6)}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!selectedContractAddress) return;
+                const next = savedContracts.filter(
+                  (c) => c.contractAddress.toLowerCase() !== selectedContractAddress.toLowerCase()
+                );
+                persistSavedContracts(next);
+                setSelectedContractAddress("");
+                if (
+                  deployedContract?.contractAddress &&
+                  deployedContract.contractAddress.toLowerCase() === selectedContractAddress.toLowerCase()
+                ) {
+                  setDeployedContract(null);
+                  setStatus("idle");
+                }
+              }}
+              className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+
+        {/* Saved tokens */}
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">Previously deployed tokens</div>
+              <div className="text-xs text-gray-600">Saved in this browser (localStorage)</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedContractAddress("");
+                setDeployedContract(null);
+                setStatus("idle");
+              }}
+              className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
+            >
+              Clear selection
+            </button>
+          </div>
+
+          <div className="mt-3 flex gap-2">
+            <select
+              value={selectedContractAddress}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSelectedContractAddress(v);
+                const found = savedContracts.find(
+                  (c) => c.contractAddress.toLowerCase() === v.toLowerCase()
+                );
+                if (found) {
+                  setDeployedContract(found);
+                  setStatus("success");
+                  setError(null);
+                }
+              }}
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg"
+            >
+              <option value="">Select a token...</option>
+              {savedContracts.map((c) => (
+                <option key={c.contractAddress} value={c.contractAddress}>
+                  {c.symbol} — {c.contractAddress.slice(0, 8)}...{c.contractAddress.slice(-6)}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!selectedContractAddress) return;
+                const next = savedContracts.filter(
+                  (c) => c.contractAddress.toLowerCase() !== selectedContractAddress.toLowerCase()
+                );
+                persistSavedContracts(next);
+                setSelectedContractAddress("");
+                if (
+                  deployedContract?.contractAddress &&
+                  deployedContract.contractAddress.toLowerCase() === selectedContractAddress.toLowerCase()
+                ) {
+                  setDeployedContract(null);
+                  setStatus("idle");
+                }
+              }}
+              className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+
         {/* Form */}
         <div className="space-y-4">
           {/* Wallet ID */}
@@ -326,7 +494,7 @@ export default function IssuanceTab() {
               value={walletId}
               onChange={(e) => setWalletId(e.target.value)}
               placeholder="e.g., 45692c3e-2ffa-5c5b-a99c-61366939114c"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ff7582] focus:border-transparent"
               disabled={status === "deploying" || status === "polling"}
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -368,7 +536,7 @@ export default function IssuanceTab() {
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               placeholder="e.g., AUSD"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ff7582] focus:border-transparent"
               disabled={status === "deploying" || status === "polling"}
             />
           </div>
@@ -654,7 +822,7 @@ export default function IssuanceTab() {
                 status === "deploying" ||
                 status === "polling"
               }
-              className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+              className="flex-1 px-6 py-3 bg-[#ff7582] hover:bg-[#e96b77] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
             >
               {status === "deploying" && "⏳ Deploying..."}
               {status === "polling" && "⏳ Confirming..."}

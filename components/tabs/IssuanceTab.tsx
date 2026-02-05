@@ -224,10 +224,7 @@ export default function IssuanceTab() {
     }
 
     if (deployMode === "wallet") {
-      setError(
-        "User Wallet deployment is not implemented yet. Please switch to Circle Wallet mode for now."
-      );
-      setStatus("error");
+      // Wallet deployment not implemented yet (button is disabled in UI)
       return;
     }
 
@@ -619,6 +616,7 @@ export default function IssuanceTab() {
               onClick={handleDeploy}
               disabled={
                 !isConnected ||
+                deployMode === "wallet" ||
                 (deployMode === "circle" && !walletId) ||
                 !name ||
                 !symbol ||
@@ -627,6 +625,7 @@ export default function IssuanceTab() {
               }
               className={gradientButtonClass(
                 !isConnected ||
+                  deployMode === "wallet" ||
                   (deployMode === "circle" && !walletId) ||
                   !name ||
                   !symbol ||
@@ -635,9 +634,15 @@ export default function IssuanceTab() {
                 "w-full px-6 py-3"
               )}
             >
-              {status === "deploying" && "Deploying..."}
-              {status === "polling" && "Confirming..."}
-              {status !== "deploying" && status !== "polling" && "Deploy Stablecoin"}
+              {deployMode === "wallet" ? (
+                "User Wallet (Coming soon)"
+              ) : status === "deploying" ? (
+                "Deploying..."
+              ) : status === "polling" ? (
+                "Confirming..."
+              ) : (
+                "Deploy Stablecoin"
+              )}
             </button>
           </div>
         </div>

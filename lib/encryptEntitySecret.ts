@@ -34,8 +34,13 @@ async function getCirclePublicKey(apiKey: string): Promise<string> {
   }
 
   const { data } = await response.json();
-  cachedPublicKey = data.publicKey.publicKey;
+  const publicKey = data.publicKey.publicKey;
   
+  if (!publicKey) {
+    throw new Error("Public key not found in response");
+  }
+  
+  cachedPublicKey = publicKey;
   return cachedPublicKey;
 }
 

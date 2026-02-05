@@ -254,47 +254,7 @@ export default function IssuanceTab() {
     }
   };
 
-  const handleGrantRole = async () => {
-    try {
-      setActionError(null);
-      setLastActionTx(null);
 
-      const addr = requireDeployed();
-      if (!roleHex || !roleAccount) throw new Error("Enter role (bytes32) + account");
-
-      const hash = await writeContractAsync({
-        address: addr,
-        abi: STABLECOIN_ABI,
-        functionName: "grantRole",
-        args: [roleHex as `0x${string}`, roleAccount as `0x${string}`],
-      });
-
-      setLastActionTx(hash);
-    } catch (e: any) {
-      setActionError(e?.shortMessage || e?.message || "GrantRole failed");
-    }
-  };
-
-  const handleGrantRole = async () => {
-    try {
-      setActionError(null);
-      setLastActionTx(null);
-
-      const addr = requireDeployed();
-      if (!roleHex || !roleAccount) throw new Error("Enter role (bytes32) + account");
-
-      const hash = await writeContractAsync({
-        address: addr,
-        abi: STABLECOIN_ABI,
-        functionName: "grantRole",
-        args: [roleHex as `0x${string}`, roleAccount as `0x${string}`],
-      });
-
-      setLastActionTx(hash);
-    } catch (e: any) {
-      setActionError(e?.shortMessage || e?.message || "GrantRole failed");
-    }
-  };
 
   // Reset form
   const handleReset = () => {

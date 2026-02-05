@@ -416,14 +416,14 @@ export default function IssuanceTab() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
         {/* Left */}
-        <div className="bg-white rounded-2xl shadow-md p-6">
+        <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
           <h2 className="text-2xl font-bold mb-6 text-gray-900">Issuance</h2>
 
           {/* Deploy method */}
-        <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
           <div className="text-sm font-semibold text-gray-900 mb-2">Deploy method</div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
@@ -688,11 +688,11 @@ export default function IssuanceTab() {
         </div>
 
         {/* Right */}
-        <div className="space-y-6">
-          {/* Saved tokens */}
-          {savedContracts.length > 0 && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="text-sm font-semibold text-gray-900 mb-2">Your deployed tokens</div>
+        <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Your deployed tokens</h3>
+
+          {savedContracts.length > 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <select
                   value={selectedContractAddress}
@@ -729,13 +729,17 @@ export default function IssuanceTab() {
                 Tip: these are saved in your browser (localStorage), so they’ll still be here after refresh.
               </div>
             </div>
+          ) : (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+              No deployed tokens found yet.
+            </div>
           )}
 
           {/* Contract Actions */}
           {status === "success" && deployedContract && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Contract actions</h3>
+                <h4 className="text-sm font-semibold text-gray-900">Contract actions</h4>
                 <span className="text-xs text-gray-500">Decimals: {STABLECOIN_CONFIG.DECIMALS}</span>
               </div>
 
@@ -801,7 +805,7 @@ export default function IssuanceTab() {
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                   />
 
-                  <button
+                	<button
                     onClick={handleBurn}
                     disabled={isWriting}
                     className={gradientButtonClass(isWriting, "w-full px-4 py-2 text-sm")}

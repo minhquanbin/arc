@@ -337,9 +337,11 @@ export async function checkTransactionStatus(transactionId: string) {
 
   const data = await response.json();
 
-  // ✅ Handle response with or without 'data' wrapper
-  const transaction = data.transaction || data;
-  
+  // ✅ Handle response with or without 'data' wrapper(s)
+  // Circle often returns: { data: { transaction: {...} } }
+  const envelope = (data as any)?.data ?? data;
+  const transaction = (envelope as any)?.transaction ?? envelope;
+
   // Keep full transaction payload (Circle may include useful failure fields)
   return transaction as {
     id: string;
@@ -370,10 +372,12 @@ export async function getContractDetails(contractId: string) {
   }
 
   const data = await response.json();
-  
-  // ✅ Handle response with or without 'data' wrapper  
-  const contract = data.contract || data;
-  
+
+  // ✅ Handle response with or without 'data' wrapper(s)
+  // Circle often returns: { data: { contract: {...} } }
+  const envelope = (data as any)?.data ?? data;
+  const contract = (envelope as any)?.contract ?? envelope;
+
   return contract as {
     id: string;
     contractAddress: string;
@@ -391,7 +395,7 @@ export const STABLECOIN_CONFIG = {
   
   // Polling config for deployment status
   POLL_INTERVAL_MS: 3000,
-  MAX_POLL_ATTEMPTS: 60, // 3 minutes total (60 * 3s)
+  MAX_POLL_ATTEMPTS: 180, // 9 minutes total (180 * 3s)
 };
 
 // =====================================================

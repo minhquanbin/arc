@@ -508,7 +508,7 @@ export default function BridgeTab() {
               ) : isWrongNetwork ? (
                 "Wrong network"
               ) : (
-                "Bridge USDC"
+                "Send USDC"
               )}
             </button>
 

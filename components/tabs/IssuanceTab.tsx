@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "wagmi";
+import { parseUnits } from "viem";
+import { useAccount, useWriteContract } from "wagmi";
 import {
   deployStablecoinWithCircle,
   checkTransactionStatus,
@@ -9,6 +10,7 @@ import {
   generateStablecoinName,
   generateStablecoinSymbol,
   validateStablecoinParams,
+  STABLECOIN_ABI,
   STABLECOIN_CONFIG,
   type StablecoinInfo,
 } from "../../lib/stablecoin";
@@ -30,6 +32,40 @@ export default function IssuanceTab() {
   const [deployedContract, setDeployedContract] = useState<StablecoinInfo | null>(null);
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [contractId, setContractId] = useState<string | null>(null);
+
+  // Contract interaction state (after deploy)
+  const { writeContractAsync, isPending: isWriting } = useWriteContract();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [lastActionTx, setLastActionTx] = useState<string | null>(null);
+
+  const [mintTo, setMintTo] = useState("");
+  const [mintAmount, setMintAmount] = useState("");
+
+  const [burnAmount, setBurnAmount] = useState("");
+  const [burnRedeemId, setBurnRedeemId] = useState("redeem-1");
+
+  const [transferTo, setTransferTo] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+
+  const [approveSpender, setApproveSpender] = useState("");
+  const [approveAmount, setApproveAmount] = useState("");
+
+  // Contract interaction state (after deploy)
+  const { writeContractAsync, isPending: isWriting } = useWriteContract();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [lastActionTx, setLastActionTx] = useState<string | null>(null);
+
+  const [mintTo, setMintTo] = useState("");
+  const [mintAmount, setMintAmount] = useState("");
+
+  const [burnAmount, setBurnAmount] = useState("");
+  const [burnRedeemId, setBurnRedeemId] = useState("redeem-1");
+
+  const [transferTo, setTransferTo] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+
+  const [approveSpender, setApproveSpender] = useState("");
+  const [approveAmount, setApproveAmount] = useState("");
 
   // Auto-generate name and symbol
   const handleAutoGenerate = () => {
@@ -143,6 +179,95 @@ export default function IssuanceTab() {
     }
   };
 
+  const requireDeployed = () => {
+    if (!deployedContract?.contractAddress) throw new Error("Missing contract address");
+    return deployedContract.contractAddress as `0x${string}`;
+  };
+
+  const handleMint = async () => {
+    try {
+      setActionError(null);
+      setLastActionTx(null);
+
+      const addr = requireDeployed();
+      if (!mintTo || !mintAmount) throw new Error("Enter mint recipient + amount");
+
+      const hash = await writeContractAsync({
+        address: addr,
+        abi: STABLECOIN_ABI,
+        functionName: "mintTo",
+        args: [mintTo as `0x${string}`, parseUnits(mintAmount, STABLECOIN_CONFIG.DECIMALS)],
+      });
+
+      setLastActionTx(hash);
+    } catch (e: any) {
+      setActionError(e?.shortMessage || e?.message || "Mint failed");
+    }
+  };
+
+  const handleBurn = async () => {
+    try {
+      setActionError(null);
+      setLastActionTx(null);
+
+      const addr = requireDeployed();
+      if (!burnAmount || !burnRedeemId) throw new Error("Enter burn amount + redeemId");
+
+      const hash = await writeContractAsync({
+        address: addr,
+        abi: STABLECOIN_ABI,
+        functionName: "burn",
+        args: [parseUnits(burnAmount, STABLECOIN_CONFIG.DECIMALS), burnRedeemId],
+      });
+
+      setLastActionTx(hash);
+    } catch (e: any) {
+      setActionError(e?.shortMessage || e?.message || "Burn failed");
+    }
+  };
+
+  const handleTransfer = async () => {
+    try {
+      setActionError(null);
+      setLastActionTx(null);
+
+      const addr = requireDeployed();
+      if (!transferTo || !transferAmount) throw new Error("Enter transfer recipient + amount");
+
+      const hash = await writeContractAsync({
+        address: addr,
+        abi: STABLECOIN_ABI,
+        functionName: "transfer",
+        args: [transferTo as `0x${string}`, parseUnits(transferAmount, STABLECOIN_CONFIG.DECIMALS)],
+      });
+
+      setLastActionTx(hash);
+    } catch (e: any) {
+      setActionError(e?.shortMessage || e?.message || "Transfer failed");
+    }
+  };
+
+  const handleApprove = async () => {
+    try {
+      setActionError(null);
+      setLastActionTx(null);
+
+      const addr = requireDeployed();
+      if (!approveSpender || !approveAmount) throw new Error("Enter spender + amount");
+
+      const hash = await writeContractAsync({
+        address: addr,
+        abi: STABLECOIN_ABI,
+        functionName: "approve",
+        args: [approveSpender as `0x${string}`, parseUnits(approveAmount, STABLECOIN_CONFIG.DECIMALS)],
+      });
+
+      setLastActionTx(hash);
+    } catch (e: any) {
+      setActionError(e?.shortMessage || e?.message || "Approve failed");
+    }
+  };
+
   // Reset form
   const handleReset = () => {
     setName("");
@@ -154,6 +279,8 @@ export default function IssuanceTab() {
     setDeployedContract(null);
     setTransactionId(null);
     setContractId(null);
+    setActionError(null);
+    setLastActionTx(null);
   };
 
   return (
@@ -170,7 +297,7 @@ export default function IssuanceTab() {
             pre-audited ERC-20 template. You need a Circle Dev-Controlled Wallet funded
             with testnet USDC.{" "}
             <a
-              href="https://docs.arc.network/developer/quickstart/deploy-contracts"
+              href="https://docs.arc.network/arc/tutorials/deploy-contracts"
               target="_blank"
               rel="noopener noreferrer"
               className="underline font-medium"
@@ -309,7 +436,7 @@ export default function IssuanceTab() {
                 <p>
                   <strong>Contract:</strong>{" "}
                   <a
-                    href={`https://testnet.arcscan.app/address/${deployedContract.contractAddress}`}
+                    href={`https://testnet.arcscan.app/address/${deployedContract.contractAddress}?tab=write_proxy`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="underline font-mono"
@@ -332,6 +459,148 @@ export default function IssuanceTab() {
                     {deployedContract.deployTx.slice(-8)}
                   </a>
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Contract Actions */}
+          {status === "success" && deployedContract && (
+            <div className="p-4 bg-white border border-gray-200 rounded-lg space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-900">🧩 Contract actions</h3>
+                <span className="text-xs text-gray-500">
+                  Decimals: {STABLECOIN_CONFIG.DECIMALS}
+                </span>
+              </div>
+
+              {actionError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs text-red-800">
+                    <strong>Error:</strong> {actionError}
+                  </p>
+                </div>
+              )}
+
+              {lastActionTx && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-800">
+                    <strong>Last TX:</strong>{" "}
+                    <a
+                      className="underline font-mono"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      href={`https://testnet.arcscan.app/tx/${lastActionTx}`}
+                    >
+                      {lastActionTx.slice(0, 10)}...{lastActionTx.slice(-8)}
+                    </a>
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-4">
+                {/* Mint */}
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-gray-900">Mint</div>
+                  <input
+                    type="text"
+                    value={mintTo}
+                    onChange={(e) => setMintTo(e.target.value)}
+                    placeholder="Recipient address (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={mintAmount}
+                    onChange={(e) => setMintAmount(e.target.value)}
+                    placeholder='Amount (e.g. "100")'
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <button
+                    onClick={handleMint}
+                    disabled={isWriting}
+                    className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg"
+                  >
+                    {isWriting ? "Sending..." : "Mint"}
+                  </button>
+                </div>
+
+                {/* Burn */}
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-gray-900">Burn</div>
+                  <input
+                    type="text"
+                    value={burnAmount}
+                    onChange={(e) => setBurnAmount(e.target.value)}
+                    placeholder='Amount (e.g. "10")'
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={burnRedeemId}
+                    onChange={(e) => setBurnRedeemId(e.target.value)}
+                    placeholder='redeemId (e.g. "redeem-1")'
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <button
+                    onClick={handleBurn}
+                    disabled={isWriting}
+                    className="w-full px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg"
+                  >
+                    {isWriting ? "Sending..." : "Burn"}
+                  </button>
+                </div>
+
+                {/* Transfer */}
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-gray-900">Transfer</div>
+                  <input
+                    type="text"
+                    value={transferTo}
+                    onChange={(e) => setTransferTo(e.target.value)}
+                    placeholder="Recipient address (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    placeholder='Amount (e.g. "1")'
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <button
+                    onClick={handleTransfer}
+                    disabled={isWriting}
+                    className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg"
+                  >
+                    {isWriting ? "Sending..." : "Transfer"}
+                  </button>
+                </div>
+
+                {/* Approve */}
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-gray-900">Approve</div>
+                  <input
+                    type="text"
+                    value={approveSpender}
+                    onChange={(e) => setApproveSpender(e.target.value)}
+                    placeholder="Spender address (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={approveAmount}
+                    onChange={(e) => setApproveAmount(e.target.value)}
+                    placeholder='Amount (e.g. "100")'
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                  />
+                  <button
+                    onClick={handleApprove}
+                    disabled={isWriting}
+                    className="w-full px-4 py-2 bg-gray-900 hover:bg-black disabled:bg-gray-300 text-white text-sm font-medium rounded-lg"
+                  >
+                    {isWriting ? "Sending..." : "Approve"}
+                  </button>
+                </div>
               </div>
             </div>
           )}

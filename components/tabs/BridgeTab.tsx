@@ -365,7 +365,7 @@ export default function BridgeTab() {
     <div className="w-full py-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
         {/* Left */}
-        <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
+        <div className="h-full rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
           <div className="space-y-5">
             {/* Destination Chain */}
             <div>
@@ -553,7 +553,7 @@ export default function BridgeTab() {
         </div>
 
         {/* Right */}
-        <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
+        <div className="h-full rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-sm font-semibold text-gray-900">Bridge history</div>
             <div className="flex items-center gap-2">

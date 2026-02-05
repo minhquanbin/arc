@@ -75,6 +75,8 @@ export default function Home() {
   const { address, isConnected, chain } = useAccount();
   const [tab, setTab] = useState<TabType>("bridge");
 
+  const containerWidthClass = tab === "issuance" ? "max-w-6xl" : "max-w-4xl";
+
   const expectedChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
   const isWrongNetwork = isConnected && chain?.id !== expectedChainId;
 
@@ -118,7 +120,7 @@ export default function Home() {
 
   return (
     <main className="arc-app min-h-screen">
-      <div className="container mx-auto max-w-4xl px-4 py-6">
+      <div className={`container mx-auto ${containerWidthClass} px-4 py-6`}>
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -226,7 +228,7 @@ export default function Home() {
           </div>
 
           {/* Content */}
-          <div className="p-5">
+          <div className={tab === "issuance" ? "p-0" : "p-5"}>
             {isConnected ? (
               <>
                 {tab === "bridge" && <BridgeTab />}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { parseUnits, keccak256, toHex } from "viem";
+import { parseUnits, keccak256, toHex, decodeEventLog } from "viem";
 import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
 import {
   deployStablecoinWithCircle,
@@ -303,7 +303,7 @@ export default function IssuanceTab() {
 
       for (const log of receipt.logs) {
         try {
-          const decoded = publicClient.decodeEventLog({
+          const decoded = decodeEventLog({
             abi: FACTORY_ABI,
             data: log.data,
             topics: log.topics,

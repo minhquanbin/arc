@@ -4,7 +4,7 @@ import { parseUnits } from "viem";
 // CIRCLE CONTRACTS CONFIGURATION
 // =====================================================
 
-// ERC-20 Template ID for Circle Contracts (docs Arc)
+// ERC-20 Template ID for Circle Contracts (theo tài liệu Arc)
 export const ERC20_TEMPLATE_ID = "a1b74add-23e0-4712-88d1-6b3009e85a86";
 
 // Arc Testnet blockchain identifier

@@ -46,7 +46,7 @@ export default function IssuanceTab() {
   const [mintAmount, setMintAmount] = useState("");
 
   const [burnAmount, setBurnAmount] = useState("");
-  const [burnRedeemId, setBurnRedeemId] = useState("redeem-1");
+  const [burnRedeemId, setBurnRedeemId] = useState(() => `redeem-${Date.now()}`);
 
   const [transferTo, setTransferTo] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
@@ -285,6 +285,8 @@ export default function IssuanceTab() {
       });
 
       setLastActionTx(hash);
+      setBurnRedeemId(`redeem-${Date.now()}`);
+      setBurnRedeemId(`redeem-${Date.now()}`);
     } catch (e: any) {
       setActionError(e?.shortMessage || e?.message || "Burn failed");
     }

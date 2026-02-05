@@ -250,7 +250,7 @@ export default function IssuanceTab() {
           );
         }
 
-        const platformFeeBps = Math.round(Number(platformFeePercent || 0) * 100);
+        const platformFeeBps = BigInt(Math.round(Number(platformFeePercent || 0) * 100));
 
         const deployHash = await walletClient.deployContract({
           abi: ARC_STABLECOIN_DEPLOY_ABI,

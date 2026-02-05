@@ -210,26 +210,53 @@ export default function Home() {
           }
         >
           {/* Tabs */}
-          <div className="border-b border-gray-200 bg-gray-50">
-            <div className="flex">
-              {(["bridge", "issuance", "liquidity", "swap", "payment"] as TabType[]).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  disabled={t !== "bridge" && t !== "issuance"}
-                  className={[
-                    "flex-1 px-6 py-4 text-lg font-semibold transition-all",
-                    tab === t
-                      ? "border-b-2 border-purple-600 bg-white text-purple-600"
-                      : t === "bridge" || t === "issuance"
-                      ? "text-gray-600 hover:bg-gray-100"
-                      : "cursor-not-allowed text-gray-400",
-                  ].join(" ")}
-                >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                  {t !== "bridge" && t !== "issuance" && <span className="ml-2 text-xs">(Soon)</span>}
-                </button>
-              ))}
+          <div
+            className={
+              tab === "issuance"
+                ? "rounded-2xl bg-gradient-to-r from-[#ff7582] to-[#725a7a] p-[1px] shadow-xl"
+                : "border-b border-gray-200 bg-gray-50"
+            }
+          >
+            <div
+              className={
+                tab === "issuance"
+                  ? "flex rounded-2xl bg-white/85 backdrop-blur"
+                  : "flex"
+              }
+            >
+              {(["bridge", "issuance", "liquidity", "swap", "payment"] as TabType[]).map((t) => {
+                const enabled = t === "bridge" || t === "issuance";
+                const active = tab === t;
+
+                const base =
+                  tab === "issuance"
+                    ? "flex-1 px-6 py-4 text-lg font-semibold transition-all rounded-2xl"
+                    : "flex-1 px-6 py-4 text-lg font-semibold transition-all";
+
+                const stateClass = active
+                  ? tab === "issuance"
+                    ? "bg-white text-purple-700 shadow-sm"
+                    : "border-b-2 border-purple-600 bg-white text-purple-600"
+                  : enabled
+                  ? tab === "issuance"
+                    ? "text-gray-700 hover:bg-white/60"
+                    : "text-gray-600 hover:bg-gray-100"
+                  : tab === "issuance"
+                  ? "cursor-not-allowed text-gray-400 opacity-60"
+                  : "cursor-not-allowed text-gray-400";
+
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    disabled={!enabled}
+                    className={[base, stateClass].join(" ")}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                    {!enabled && <span className="ml-2 text-xs">(Soon)</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

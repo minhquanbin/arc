@@ -854,31 +854,16 @@ export default function IssuanceTab() {
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
                   <div className="text-xs font-semibold text-amber-900">GrantRole (advanced)</div>
 
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <select
-                      value={rolePreset}
-                      onChange={(e) => setRolePreset(e.target.value as RolePreset)}
-                      className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg bg-white"
-                    >
-                      <option value="MINTER_ROLE">Role Mint (MINTER_ROLE)</option>
-                      <option value="BURNER_ROLE">Role Burn (BURNER_ROLE)</option>
-                      <option value="PAUSER_ROLE">Role Pause (PAUSER_ROLE)</option>
-                      <option value="DEFAULT_ADMIN_ROLE">Role Admin (DEFAULT_ADMIN_ROLE)</option>
-                      <option value="CUSTOM">Custom bytes32</option>
-                    </select>
-
-                    <input
-                      type="text"
-                      value={roleHex}
-                      onChange={(e) => setRoleHex(e.target.value)}
-                      placeholder={rolePreset === "CUSTOM" ? "Role bytes32 (0x...)" : "Role bytes32 (auto)"}
-                      className={
-                        "w-full px-3 py-2 text-sm border border-amber-300 rounded-lg" +
-                        (rolePreset === "CUSTOM" ? " bg-white" : " bg-amber-100")
-                      }
-                      readOnly={rolePreset !== "CUSTOM"}
-                    />
-                  </div>
+                  <select
+                    value={rolePreset}
+                    onChange={(e) => setRolePreset(e.target.value as RolePreset)}
+                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg bg-white"
+                  >
+                    <option value="MINTER_ROLE">Role Mint (MINTER_ROLE)</option>
+                    <option value="BURNER_ROLE">Role Burn (BURNER_ROLE)</option>
+                    <option value="PAUSER_ROLE">Role Pause (PAUSER_ROLE)</option>
+                    <option value="DEFAULT_ADMIN_ROLE">Role Admin (DEFAULT_ADMIN_ROLE)</option>
+                  </select>
 
                   <input
                     type="text"

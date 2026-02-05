@@ -46,7 +46,6 @@ export default function IssuanceTab() {
   const [mintAmount, setMintAmount] = useState("");
 
   const [burnAmount, setBurnAmount] = useState("");
-  const [burnRedeemId, setBurnRedeemId] = useState(() => `redeem-${Date.now()}`);
 
   const [transferTo, setTransferTo] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
@@ -275,18 +274,16 @@ export default function IssuanceTab() {
       setLastActionTx(null);
 
       const addr = requireDeployed();
-      if (!burnAmount || !burnRedeemId) throw new Error("Enter burn amount + redeemId");
+      if (!burnAmount) throw new Error("Enter burn amount");
 
       const hash = await writeContractAsync({
         address: addr,
         abi: STABLECOIN_ABI,
         functionName: "burn",
-        args: [parseUnits(burnAmount, STABLECOIN_CONFIG.DECIMALS), burnRedeemId],
+        args: [parseUnits(burnAmount, STABLECOIN_CONFIG.DECIMALS)],
       });
 
       setLastActionTx(hash);
-      setBurnRedeemId(`redeem-${Date.now()}`);
-      setBurnRedeemId(`redeem-${Date.now()}`);
     } catch (e: any) {
       setActionError(e?.shortMessage || e?.message || "Burn failed");
     }
@@ -669,13 +666,7 @@ export default function IssuanceTab() {
                     placeholder='Amount (e.g. "10")'
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                   />
-                  <input
-                    type="text"
-                    value={burnRedeemId}
-                    onChange={(e) => setBurnRedeemId(e.target.value)}
-                    placeholder='redeemId (e.g. "redeem-1")'
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                  />
+
                   <button
                     onClick={handleBurn}
                     disabled={isWriting}

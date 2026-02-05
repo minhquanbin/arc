@@ -66,10 +66,7 @@ export const STABLECOIN_ABI = [
     type: "function",
     name: "burn",
     stateMutability: "nonpayable",
-    inputs: [
-      { name: "_amount", type: "uint256" },
-      { name: "_redeemId", type: "string" },
-    ],
+    inputs: [{ name: "amount", type: "uint256" }],
     outputs: [],
   },
   {

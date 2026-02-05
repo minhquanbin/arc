@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { parseUnits, keccak256, toHex } from "viem";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
 import {
+  ARC_STABLECOIN_BYTECODE,
+  ARC_STABLECOIN_DEPLOY_ABI,
   deployStablecoinWithCircle,
   checkTransactionStatus,
   getContractDetails,
@@ -35,6 +37,8 @@ const rolePresetToBytes32 = (preset: Exclude<RolePreset, "CUSTOM">): string => {
 export default function IssuanceTab() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const { data: walletClient } = useWalletClient();
 
   // Form state
   const [name, setName] = useState("");
@@ -223,16 +227,6 @@ export default function IssuanceTab() {
       return;
     }
 
-    if (deployMode === "wallet") {
-      // Wallet deployment not implemented yet (button is disabled in UI)
-      return;
-    }
-
-    if (!walletId) {
-      setError("Please enter your Circle Wallet ID");
-      return;
-    }
-
     try {
       // Validate inputs
       validateStablecoinParams({
@@ -244,6 +238,75 @@ export default function IssuanceTab() {
       setStatus("deploying");
       setError(null);
       setDeployedContract(null);
+      setTransactionId(null);
+      setContractId(null);
+
+      if (deployMode === "wallet") {
+        if (!walletClient || !publicClient) {
+          throw new Error("Wallet client not ready. Please reconnect your wallet.");
+        }
+        if (!ARC_STABLECOIN_BYTECODE) {
+          throw new Error(
+            "Missing NEXT_PUBLIC_ARC_STABLECOIN_BYTECODE env var (compiled bytecode required for wallet deployment)."
+          );
+        }
+
+        const platformFeeBps = Math.round(Number(platformFeePercent || 0) * 100);
+
+        const deployHash = await walletClient.deployContract({
+          abi: ARC_STABLECOIN_DEPLOY_ABI,
+          bytecode: ARC_STABLECOIN_BYTECODE,
+          args: [
+            name,
+            symbol,
+            address,
+            address,
+            address,
+            platformFeeBps,
+            STABLECOIN_CONFIG.DEFAULT_CONTRACT_URI,
+          ],
+        });
+
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
+        if (!receipt.contractAddress) {
+          throw new Error("Deployment failed: missing contractAddress in receipt");
+        }
+
+        const contractInfo: StablecoinInfo = {
+          contractId: deployHash,
+          contractAddress: receipt.contractAddress,
+          name,
+          symbol,
+          decimals: STABLECOIN_CONFIG.DECIMALS,
+          totalSupply: "0",
+          balance: "0",
+          isPaused: false,
+          deployTx: deployHash,
+          transactionId: deployHash,
+          timestamp: new Date().toISOString(),
+        };
+
+        setDeployedContract(contractInfo);
+        setSelectedContractAddress(contractInfo.contractAddress);
+
+        const nextSaved = [
+          contractInfo,
+          ...savedContracts.filter(
+            (c) => c.contractAddress.toLowerCase() !== contractInfo.contractAddress.toLowerCase()
+          ),
+        ];
+        persistSavedContracts(nextSaved);
+
+        setStatus("success");
+        return;
+      }
+
+      // Circle Wallet mode
+      if (!walletId) {
+        setError("Please enter your Circle Wallet ID");
+        setStatus("idle");
+        return;
+      }
 
       // Deploy via Circle API
       const result = await deployStablecoinWithCircle({
@@ -555,7 +618,9 @@ export default function IssuanceTab() {
           {status === "deploying" && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                Initiating deployment via Circle API...
+                {deployMode === "circle"
+                  ? "Initiating deployment via Circle API..."
+                  : "Deploying contract via your wallet..."}
               </p>
             </div>
           )}
@@ -616,7 +681,7 @@ export default function IssuanceTab() {
               onClick={handleDeploy}
               disabled={
                 !isConnected ||
-                deployMode === "wallet" ||
+                (deployMode === "wallet" && !walletClient) ||
                 (deployMode === "circle" && !walletId) ||
                 !name ||
                 !symbol ||
@@ -625,7 +690,7 @@ export default function IssuanceTab() {
               }
               className={gradientButtonClass(
                 !isConnected ||
-                  deployMode === "wallet" ||
+                  (deployMode === "wallet" && !walletClient) ||
                   (deployMode === "circle" && !walletId) ||
                   !name ||
                   !symbol ||
@@ -634,12 +699,12 @@ export default function IssuanceTab() {
                 "w-full px-6 py-3"
               )}
             >
-              {deployMode === "wallet" ? (
-                "User Wallet (Coming soon)"
-              ) : status === "deploying" ? (
+              {status === "deploying" ? (
                 "Deploying..."
               ) : status === "polling" ? (
                 "Confirming..."
+              ) : deployMode === "wallet" ? (
+                "Deploy via Wallet"
               ) : (
                 "Deploy Stablecoin"
               )}

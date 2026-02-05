@@ -15,7 +15,7 @@ import {
   STABLECOIN_ABI,
   STABLECOIN_CONFIG,
   type StablecoinInfo,
-} from "./stablecoin";
+} from "../../lib/stablecoin";
 
 type DeploymentStatus = "idle" | "deploying" | "polling" | "success" | "error";
 

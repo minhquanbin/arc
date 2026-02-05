@@ -12,6 +12,28 @@ export const ARC_TESTNET_BLOCKCHAIN = "ARC-TESTNET";
 
 // Circle API endpoints (server-side only)
 export const CIRCLE_API_BASE_URL = "https://api.circle.com/v1/w3s";
+// =====================================================
+// WALLET (ON-CHAIN) DEPLOY CONFIG
+// =====================================================
+
+export const ARC_STABLECOIN_BYTECODE =
+  (process.env.NEXT_PUBLIC_ARC_STABLECOIN_BYTECODE as `0x${string}` | undefined);
+
+export const ARC_STABLECOIN_DEPLOY_ABI = [
+  {
+    type: "constructor",
+    inputs: [
+      { name: "name", type: "string" },
+      { name: "symbol", type: "string" },
+      { name: "defaultAdmin", type: "address" },
+      { name: "primarySaleRecipient", type: "address" },
+      { name: "platformFeeRecipient", type: "address" },
+      { name: "platformFeeBps", type: "uint256" },
+      { name: "contractUri", type: "string" },
+    ],
+    stateMutability: "nonpayable",
+  },
+] as const;
 
 // =====================================================
 // STABLECOIN CONTRACT ABI (for interacting after deployment)

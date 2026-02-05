@@ -13,7 +13,8 @@ let cachedPublicKey: string | null = null;
  * Get Circle's public key (cached to reduce API calls)
  */
 async function getCirclePublicKey(apiKey: string): Promise<string> {
-  if (cachedPublicKey) {
+  // Return cached key if available
+  if (cachedPublicKey !== null) {
     return cachedPublicKey;
   }
 
@@ -34,14 +35,15 @@ async function getCirclePublicKey(apiKey: string): Promise<string> {
   }
 
   const { data } = await response.json();
-  const publicKey = data.publicKey.publicKey;
+  const publicKeyPem: string = data?.publicKey?.publicKey;
   
-  if (!publicKey) {
+  if (!publicKeyPem || typeof publicKeyPem !== 'string') {
     throw new Error("Public key not found in response");
   }
   
-  cachedPublicKey = publicKey;
-  return cachedPublicKey;
+  // Cache and return
+  cachedPublicKey = publicKeyPem;
+  return publicKeyPem;
 }
 
 /**
@@ -76,15 +78,16 @@ export async function encryptEntitySecret(
     );
 
     return encryptedBuffer.toString('base64');
-  } catch (error: any) {
-    console.error("Encryption error:", error.message);
-    throw new Error(`Failed to encrypt entity secret: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("Encryption error:", errorMessage);
+    throw new Error(`Failed to encrypt entity secret: ${errorMessage}`);
   }
 }
 
 /**
  * Clear cached public key (useful for testing or key rotation)
  */
-export function clearPublicKeyCache() {
+export function clearPublicKeyCache(): void {
   cachedPublicKey = null;
 }

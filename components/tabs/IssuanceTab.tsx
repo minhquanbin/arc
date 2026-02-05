@@ -50,22 +50,8 @@ export default function IssuanceTab() {
   const [approveSpender, setApproveSpender] = useState("");
   const [approveAmount, setApproveAmount] = useState("");
 
-  // Contract interaction state (after deploy)
-  const { writeContractAsync, isPending: isWriting } = useWriteContract();
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [lastActionTx, setLastActionTx] = useState<string | null>(null);
-
-  const [mintTo, setMintTo] = useState("");
-  const [mintAmount, setMintAmount] = useState("");
-
-  const [burnAmount, setBurnAmount] = useState("");
-  const [burnRedeemId, setBurnRedeemId] = useState("redeem-1");
-
-  const [transferTo, setTransferTo] = useState("");
-  const [transferAmount, setTransferAmount] = useState("");
-
-  const [approveSpender, setApproveSpender] = useState("");
-  const [approveAmount, setApproveAmount] = useState("");
+  const [roleHex, setRoleHex] = useState("");
+  const [roleAccount, setRoleAccount] = useState("");
 
   // Auto-generate name and symbol
   const handleAutoGenerate = () => {
@@ -265,6 +251,48 @@ export default function IssuanceTab() {
       setLastActionTx(hash);
     } catch (e: any) {
       setActionError(e?.shortMessage || e?.message || "Approve failed");
+    }
+  };
+
+  const handleGrantRole = async () => {
+    try {
+      setActionError(null);
+      setLastActionTx(null);
+
+      const addr = requireDeployed();
+      if (!roleHex || !roleAccount) throw new Error("Enter role (bytes32) + account");
+
+      const hash = await writeContractAsync({
+        address: addr,
+        abi: STABLECOIN_ABI,
+        functionName: "grantRole",
+        args: [roleHex as `0x${string}`, roleAccount as `0x${string}`],
+      });
+
+      setLastActionTx(hash);
+    } catch (e: any) {
+      setActionError(e?.shortMessage || e?.message || "GrantRole failed");
+    }
+  };
+
+  const handleGrantRole = async () => {
+    try {
+      setActionError(null);
+      setLastActionTx(null);
+
+      const addr = requireDeployed();
+      if (!roleHex || !roleAccount) throw new Error("Enter role (bytes32) + account");
+
+      const hash = await writeContractAsync({
+        address: addr,
+        abi: STABLECOIN_ABI,
+        functionName: "grantRole",
+        args: [roleHex as `0x${string}`, roleAccount as `0x${string}`],
+      });
+
+      setLastActionTx(hash);
+    } catch (e: any) {
+      setActionError(e?.shortMessage || e?.message || "GrantRole failed");
     }
   };
 
@@ -600,6 +628,64 @@ export default function IssuanceTab() {
                   >
                     {isWriting ? "Sending..." : "Approve"}
                   </button>
+                </div>
+
+                {/* GrantRole (advanced) */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-amber-900">GrantRole (advanced)</div>
+                  <input
+                    type="text"
+                    value={roleHex}
+                    onChange={(e) => setRoleHex(e.target.value)}
+                    placeholder="Role bytes32 (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={roleAccount}
+                    onChange={(e) => setRoleAccount(e.target.value)}
+                    placeholder="Account address (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
+                  />
+                  <button
+                    onClick={handleGrantRole}
+                    disabled={isWriting}
+                    className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg"
+                  >
+                    {isWriting ? "Sending..." : "GrantRole"}
+                  </button>
+                  <p className="text-[11px] text-amber-800">
+                    Only admin can grant roles. Wrong role/account can permanently change who can mint.
+                  </p>
+                </div>
+
+                {/* GrantRole (advanced) */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                  <div className="text-xs font-semibold text-amber-900">GrantRole (advanced)</div>
+                  <input
+                    type="text"
+                    value={roleHex}
+                    onChange={(e) => setRoleHex(e.target.value)}
+                    placeholder="Role bytes32 (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={roleAccount}
+                    onChange={(e) => setRoleAccount(e.target.value)}
+                    placeholder="Account address (0x...)"
+                    className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg"
+                  />
+                  <button
+                    onClick={handleGrantRole}
+                    disabled={isWriting}
+                    className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg"
+                  >
+                    {isWriting ? "Sending..." : "GrantRole"}
+                  </button>
+                  <p className="text-[11px] text-amber-800">
+                    Only admin can grant roles. Wrong role/account can permanently change who can mint.
+                  </p>
                 </div>
               </div>
             </div>

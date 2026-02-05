@@ -241,11 +241,7 @@ export default function Home() {
           <div className={tab === "issuance" || tab === "bridge" ? "pt-6" : "p-5"}>
             {isConnected ? (
               <>
-                {tab === "bridge" && (
-                  <div className="mx-auto max-w-4xl">
-                    <BridgeTab />
-                  </div>
-                )}
+                {tab === "bridge" && <BridgeTab />}
                 {tab === "issuance" && <IssuanceTab />}
                 {tab !== "bridge" && tab !== "issuance" && (
                   <div className="py-12 text-center">

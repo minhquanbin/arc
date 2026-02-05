@@ -257,10 +257,63 @@ export async function deployStablecoinWithCircle(params: {
     );
   }
 
-  const data = await response.json();
-  return data as {
-    contractIds: string[];
-    transactionId: string;
+  const responseData = await response.json();
+  
+  // ✅ FIX: Handle different response structures
+  console.log("📦 Deploy API Response:", JSON.stringify(responseData, null, 2));
+  
+  // Circle API can return response in two formats:
+  // Format 1: { data: { contractIds: [...], transactionId: "..." } }
+  // Format 2: { contractIds: [...], transactionId: "..." }
+  // Format 3: { data: { contractId: "...", transactionId: "..." } } (for bytecode deploy)
+  
+  let contractIds: string[];
+  let transactionId: string;
+  
+  if (responseData.data) {
+    // Has 'data' wrapper
+    const data = responseData.data;
+    
+    if (data.contractIds && Array.isArray(data.contractIds)) {
+      // Template deployment: { data: { contractIds: [...] } }
+      contractIds = data.contractIds;
+    } else if (data.contractId && typeof data.contractId === 'string') {
+      // Bytecode deployment: { data: { contractId: "..." } }
+      contractIds = [data.contractId];
+    } else {
+      console.error("❌ Unexpected response structure:", responseData);
+      throw new Error(`Unexpected response structure: ${JSON.stringify(responseData)}`);
+    }
+    
+    transactionId = data.transactionId;
+  } else {
+    // No 'data' wrapper - direct response
+    if (responseData.contractIds && Array.isArray(responseData.contractIds)) {
+      contractIds = responseData.contractIds;
+    } else if (responseData.contractId && typeof responseData.contractId === 'string') {
+      contractIds = [responseData.contractId];
+    } else {
+      console.error("❌ Unexpected response structure:", responseData);
+      throw new Error(`Unexpected response structure: ${JSON.stringify(responseData)}`);
+    }
+    
+    transactionId = responseData.transactionId;
+  }
+  
+  // Validate we got what we need
+  if (!contractIds || contractIds.length === 0) {
+    throw new Error("No contractIds returned from deployment API");
+  }
+  
+  if (!transactionId) {
+    throw new Error("No transactionId returned from deployment API");
+  }
+  
+  console.log("✅ Parsed deployment response:", { contractIds, transactionId });
+  
+  return {
+    contractIds,
+    transactionId,
   };
 }
 
@@ -284,8 +337,11 @@ export async function checkTransactionStatus(transactionId: string) {
 
   const data = await response.json();
 
+  // ✅ Handle response with or without 'data' wrapper
+  const transaction = data.transaction || data;
+  
   // Keep full transaction payload (Circle may include useful failure fields)
-  return data.transaction as {
+  return transaction as {
     id: string;
     state: "PENDING" | "COMPLETE" | "FAILED";
     contractAddress?: string;
@@ -314,7 +370,11 @@ export async function getContractDetails(contractId: string) {
   }
 
   const data = await response.json();
-  return data.contract as {
+  
+  // ✅ Handle response with or without 'data' wrapper  
+  const contract = data.contract || data;
+  
+  return contract as {
     id: string;
     contractAddress: string;
     blockchain: string;

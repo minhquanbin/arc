@@ -38,7 +38,6 @@ export default function IssuanceTab() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
-  const { data: walletClient } = useWalletClient();
 
   // Form state
   const [name, setName] = useState("");

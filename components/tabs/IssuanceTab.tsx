@@ -33,6 +33,10 @@ export default function IssuanceTab() {
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [contractId, setContractId] = useState<string | null>(null);
 
+  // Persist deployed contracts locally so refresh won't lose them
+  const [savedContracts, setSavedContracts] = useState<StablecoinInfo[]>([]);
+  const [selectedContractAddress, setSelectedContractAddress] = useState<string>("");
+
   // Contract interaction state (after deploy)
   const { writeContractAsync, isPending: isWriting } = useWriteContract();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -342,144 +346,6 @@ export default function IssuanceTab() {
               Learn more →
             </a>
           </p>
-        </div>
-
-        {/* Saved tokens */}
-        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-gray-900">Previously deployed tokens</div>
-              <div className="text-xs text-gray-600">Saved in this browser (localStorage)</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedContractAddress("");
-                setDeployedContract(null);
-                setStatus("idle");
-              }}
-              className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
-            >
-              Clear selection
-            </button>
-          </div>
-
-          <div className="mt-3 flex gap-2">
-            <select
-              value={selectedContractAddress}
-              onChange={(e) => {
-                const v = e.target.value;
-                setSelectedContractAddress(v);
-                const found = savedContracts.find(
-                  (c) => c.contractAddress.toLowerCase() === v.toLowerCase()
-                );
-                if (found) {
-                  setDeployedContract(found);
-                  setStatus("success");
-                  setError(null);
-                }
-              }}
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg"
-            >
-              <option value="">Select a token...</option>
-              {savedContracts.map((c) => (
-                <option key={c.contractAddress} value={c.contractAddress}>
-                  {c.symbol} — {c.contractAddress.slice(0, 8)}...{c.contractAddress.slice(-6)}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (!selectedContractAddress) return;
-                const next = savedContracts.filter(
-                  (c) => c.contractAddress.toLowerCase() !== selectedContractAddress.toLowerCase()
-                );
-                persistSavedContracts(next);
-                setSelectedContractAddress("");
-                if (
-                  deployedContract?.contractAddress &&
-                  deployedContract.contractAddress.toLowerCase() === selectedContractAddress.toLowerCase()
-                ) {
-                  setDeployedContract(null);
-                  setStatus("idle");
-                }
-              }}
-              className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
-            >
-              Remove
-            </button>
-          </div>
-        </div>
-
-        {/* Saved tokens */}
-        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-gray-900">Previously deployed tokens</div>
-              <div className="text-xs text-gray-600">Saved in this browser (localStorage)</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedContractAddress("");
-                setDeployedContract(null);
-                setStatus("idle");
-              }}
-              className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
-            >
-              Clear selection
-            </button>
-          </div>
-
-          <div className="mt-3 flex gap-2">
-            <select
-              value={selectedContractAddress}
-              onChange={(e) => {
-                const v = e.target.value;
-                setSelectedContractAddress(v);
-                const found = savedContracts.find(
-                  (c) => c.contractAddress.toLowerCase() === v.toLowerCase()
-                );
-                if (found) {
-                  setDeployedContract(found);
-                  setStatus("success");
-                  setError(null);
-                }
-              }}
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg"
-            >
-              <option value="">Select a token...</option>
-              {savedContracts.map((c) => (
-                <option key={c.contractAddress} value={c.contractAddress}>
-                  {c.symbol} — {c.contractAddress.slice(0, 8)}...{c.contractAddress.slice(-6)}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (!selectedContractAddress) return;
-                const next = savedContracts.filter(
-                  (c) => c.contractAddress.toLowerCase() !== selectedContractAddress.toLowerCase()
-                );
-                persistSavedContracts(next);
-                setSelectedContractAddress("");
-                if (
-                  deployedContract?.contractAddress &&
-                  deployedContract.contractAddress.toLowerCase() === selectedContractAddress.toLowerCase()
-                ) {
-                  setDeployedContract(null);
-                  setStatus("idle");
-                }
-              }}
-              className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-100"
-            >
-              Remove
-            </button>
-          </div>
         </div>
 
         {/* Form */}

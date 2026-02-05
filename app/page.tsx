@@ -75,8 +75,6 @@ export default function Home() {
   const { address, isConnected, chain } = useAccount();
   const [tab, setTab] = useState<TabType>("bridge");
 
-  const containerWidthClass = tab === "issuance" ? "max-w-6xl" : "max-w-4xl";
-
   const expectedChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
   const isWrongNetwork = isConnected && chain?.id !== expectedChainId;
 
@@ -120,7 +118,7 @@ export default function Home() {
 
   return (
     <main className="arc-app min-h-screen">
-      <div className={`container mx-auto ${containerWidthClass} px-4 py-6`}>
+      <div className="container mx-auto max-w-6xl px-4 py-6">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -210,40 +208,19 @@ export default function Home() {
           }
         >
           {/* Tabs */}
-          <div
-            className={
-              tab === "issuance"
-                ? "rounded-2xl bg-gradient-to-r from-[#ff7582] to-[#725a7a] p-[1px] shadow-xl"
-                : "border-b border-gray-200 bg-gray-50"
-            }
-          >
-            <div
-              className={
-                tab === "issuance"
-                  ? "flex rounded-2xl bg-white/85 backdrop-blur"
-                  : "flex"
-              }
-            >
+          <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl p-2">
+            <div className="flex gap-2">
               {(["bridge", "issuance", "liquidity", "swap", "payment"] as TabType[]).map((t) => {
                 const enabled = t === "bridge" || t === "issuance";
                 const active = tab === t;
 
-                const base =
-                  tab === "issuance"
-                    ? "flex-1 px-6 py-4 text-lg font-semibold transition-all rounded-2xl"
-                    : "flex-1 px-6 py-4 text-lg font-semibold transition-all";
+                const base = "flex-1 px-6 py-4 text-lg font-semibold transition-all rounded-xl";
 
                 const stateClass = active
-                  ? tab === "issuance"
-                    ? "bg-white text-purple-700 shadow-sm"
-                    : "border-b-2 border-purple-600 bg-white text-purple-600"
+                  ? "bg-gradient-to-r from-[#ff7582] to-[#725a7a] text-white shadow"
                   : enabled
-                  ? tab === "issuance"
-                    ? "text-gray-700 hover:bg-white/60"
-                    : "text-gray-600 hover:bg-gray-100"
-                  : tab === "issuance"
-                  ? "cursor-not-allowed text-gray-400 opacity-60"
-                  : "cursor-not-allowed text-gray-400";
+                  ? "bg-white text-gray-800 hover:bg-gray-50"
+                  : "cursor-not-allowed bg-gray-100 text-gray-400";
 
                 return (
                   <button
@@ -261,10 +238,14 @@ export default function Home() {
           </div>
 
           {/* Content */}
-          <div className={tab === "issuance" ? "p-0" : "p-5"}>
+          <div className={tab === "issuance" ? "pt-6" : "p-5"}>
             {isConnected ? (
               <>
-                {tab === "bridge" && <BridgeTab />}
+                {tab === "bridge" && (
+                  <div className="mx-auto max-w-4xl">
+                    <BridgeTab />
+                  </div>
+                )}
                 {tab === "issuance" && <IssuanceTab />}
                 {tab !== "bridge" && tab !== "issuance" && (
                   <div className="py-12 text-center">

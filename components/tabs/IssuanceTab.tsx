@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { parseUnits } from "viem";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import {
   deployStablecoinWithCircle,
   checkTransactionStatus,
@@ -19,6 +19,8 @@ type DeploymentStatus = "idle" | "deploying" | "polling" | "success" | "error";
 
 export default function IssuanceTab() {
   const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const publicClient = usePublicClient();
 
   // Form state
   const [name, setName] = useState("");
@@ -253,13 +255,15 @@ export default function IssuanceTab() {
       setLastActionTx(null);
 
       const addr = requireDeployed();
-      if (!mintTo || !mintAmount) throw new Error("Enter mint recipient + amount");
+      if (!mintAmount) throw new Error("Enter mint amount");
+      const to = (mintTo?.trim() ? mintTo.trim() : address) as `0x${string}`;
+      if (!to) throw new Error("Connect wallet first");
 
       const hash = await writeContractAsync({
         address: addr,
         abi: STABLECOIN_ABI,
         functionName: "mintTo",
-        args: [mintTo as `0x${string}`, parseUnits(mintAmount, STABLECOIN_CONFIG.DECIMALS)],
+        args: [to, parseUnits(mintAmount, STABLECOIN_CONFIG.DECIMALS)],
       });
 
       setLastActionTx(hash);
@@ -275,12 +279,29 @@ export default function IssuanceTab() {
 
       const addr = requireDeployed();
       if (!burnAmount) throw new Error("Enter burn amount");
+      if (!address) throw new Error("Connect wallet first");
+
+      const burnQty = parseUnits(burnAmount, STABLECOIN_CONFIG.DECIMALS);
+      if (publicClient) {
+        const bal = (await publicClient.readContract({
+          address: addr,
+          abi: STABLECOIN_ABI,
+          functionName: "balanceOf",
+          args: [address],
+        })) as bigint;
+
+        if (burnQty > bal) {
+          throw new Error(
+            `ERC20: burn amount exceeds balance. Balance: ${bal.toString()} (base units), burn: ${burnQty.toString()} (base units).`
+          );
+        }
+      }
 
       const hash = await writeContractAsync({
         address: addr,
         abi: STABLECOIN_ABI,
         functionName: "burn",
-        args: [parseUnits(burnAmount, STABLECOIN_CONFIG.DECIMALS)],
+        args: [burnQty],
       });
 
       setLastActionTx(hash);

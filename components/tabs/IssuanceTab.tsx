@@ -454,7 +454,7 @@ export default function IssuanceTab() {
         </div>
 
         {/* Form */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-4">
           {deployMode === "circle" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -535,14 +535,7 @@ export default function IssuanceTab() {
             </p>
           </div>
 
-          {/* Connected Wallet Info */}
-          {isConnected && address && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800">
-                <strong>Connected:</strong> {address.slice(0, 8)}...{address.slice(-6)}
-              </p>
-            </div>
-          )}
+
 
           {/* Error Message */}
           {error && (
@@ -613,7 +606,7 @@ export default function IssuanceTab() {
 
 
           {/* Deploy Button */}
-          <div className="flex gap-3">
+          <div>
             <button
               onClick={handleDeploy}
               disabled={
@@ -631,22 +624,13 @@ export default function IssuanceTab() {
                   !symbol ||
                   status === "deploying" ||
                   status === "polling",
-                "flex-1 px-6 py-3"
+                "w-full px-6 py-3"
               )}
             >
               {status === "deploying" && "Deploying..."}
               {status === "polling" && "Confirming..."}
               {status !== "deploying" && status !== "polling" && "Deploy Stablecoin"}
             </button>
-
-            {(status === "success" || status === "error") && (
-              <button
-                onClick={handleReset}
-                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
-              >
-                Reset
-              </button>
-            )}
           </div>
         </div>
 

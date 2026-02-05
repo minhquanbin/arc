@@ -202,7 +202,13 @@ export default function Home() {
         )}
 
         {/* Main Card */}
-        <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div
+          className={
+            tab === "issuance"
+              ? "rounded-2xl bg-transparent shadow-none"
+              : "overflow-hidden rounded-2xl bg-white shadow-xl"
+          }
+        >
           {/* Tabs */}
           <div className="border-b border-gray-200 bg-gray-50">
             <div className="flex">

@@ -362,10 +362,10 @@ export default function BridgeTab() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      {/* Left: Bridge panel */}
-      <div className="space-y-6 lg:col-span-2">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-lg">
+    <div className="w-full py-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
+        {/* Left */}
+        <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
           <div className="space-y-5">
             {/* Destination Chain */}
             <div>
@@ -544,70 +544,70 @@ export default function BridgeTab() {
                 </div>
               </div>
             )}
+
+            {/* Donate */}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-md">
+              <div className="text-xs text-gray-600">Donate: 0xA87Bd559fd6F2646225AcE941bA6648Ec1BAA9AF</div>
+            </div>
           </div>
         </div>
 
-        {/* Donate */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-md">
-          <div className="text-xs text-gray-600">Donate: 0xA87Bd559fd6F2646225AcE941bA6648Ec1BAA9AF</div>
-        </div>
-      </div>
-
-      {/* Right: Bridge History */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-lg">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-semibold text-gray-900">Bridge history</div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setHistoryPage((p) => Math.max(0, p - 1))}
-              disabled={historyPage === 0}
-              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => setHistoryPage((p) => p + 1)}
-              disabled={(historyPage + 1) * 10 >= history.length}
-              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
+        {/* Right */}
+        <div className="rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-semibold text-gray-900">Bridge history</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setHistoryPage((p) => Math.max(0, p - 1))}
+                disabled={historyPage === 0}
+                className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryPage((p) => p + 1)}
+                disabled={(historyPage + 1) * 10 >= history.length}
+                className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
 
-        {history.length === 0 ? (
-          <div className="text-sm text-gray-500">No transactions yet.</div>
-        ) : (
-          <div className="space-y-2">
-            {history.slice(historyPage * 10, historyPage * 10 + 10).map((h) => (
-              <div key={`${h.txHash}-${h.ts}`} className="rounded-lg bg-gray-50 p-3 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs text-gray-600">{new Date(h.ts).toLocaleString()}</div>
-                  <a
-                    href={`https://testnet.arcscan.app/tx/${h.txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-semibold text-[#725a7a] underline"
-                  >
-                    TX
-                  </a>
+          {history.length === 0 ? (
+            <div className="text-sm text-gray-500">No transactions yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {history.slice(historyPage * 10, historyPage * 10 + 10).map((h) => (
+                <div key={`${h.txHash}-${h.ts}`} className="rounded-lg bg-gray-50 p-3 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs text-gray-600">{new Date(h.ts).toLocaleString()}</div>
+                    <a
+                      href={`https://testnet.arcscan.app/tx/${h.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-[#725a7a] underline"
+                    >
+                      TX
+                    </a>
+                  </div>
+                  <div className="mt-1 text-sm text-gray-900">
+                    <span className="font-semibold">
+                      {h.from.slice(0, 6)}…{h.from.slice(-4)}
+                    </span>
+                    <span className="mx-2 text-gray-400">→</span>
+                    <span className="font-semibold">
+                      {h.to.slice(0, 6)}…{h.to.slice(-4)}
+                    </span>
+                  </div>
+                  {h.memo && <div className="mt-1 text-xs text-gray-600">Message: {h.memo}</div>}
                 </div>
-                <div className="mt-1 text-sm text-gray-900">
-                  <span className="font-semibold">
-                    {h.from.slice(0, 6)}…{h.from.slice(-4)}
-                  </span>
-                  <span className="mx-2 text-gray-400">→</span>
-                  <span className="font-semibold">
-                    {h.to.slice(0, 6)}…{h.to.slice(-4)}
-                  </span>
-                </div>
-                {h.memo && <div className="mt-1 text-xs text-gray-600">Message: {h.memo}</div>}
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

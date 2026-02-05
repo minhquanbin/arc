@@ -202,7 +202,7 @@ export default function Home() {
         {/* Main Card */}
         <div
           className={
-            tab === "issuance"
+            tab === "issuance" || tab === "bridge"
               ? "rounded-2xl bg-transparent shadow-none"
               : "overflow-hidden rounded-2xl bg-white shadow-xl"
           }
@@ -238,7 +238,7 @@ export default function Home() {
           </div>
 
           {/* Content */}
-          <div className={tab === "issuance" ? "pt-6" : "p-5"}>
+          <div className={tab === "issuance" || tab === "bridge" ? "pt-6" : "p-5"}>
             {isConnected ? (
               <>
                 {tab === "bridge" && (

@@ -120,37 +120,6 @@ export default function IssuanceTab() {
       .filter(Boolean)
       .join(" ");
 
-  const selectSavedContract = (contractAddress: string) => {
-    setSelectedContractAddress(contractAddress);
-    try {
-      localStorage.setItem("arc:selectedStablecoin", contractAddress);
-    } catch {
-      // ignore
-    }
-
-    const found = savedContracts.find(
-      (c) => c.contractAddress?.toLowerCase() === contractAddress.toLowerCase()
-    );
-    if (found) {
-      setDeployedContract(found);
-      setStatus("success");
-      setError(null);
-      setActionError(null);
-      setLastActionTx(null);
-    }
-  };
-
-  const gradientButtonClass = (disabled: boolean, extra: string = "") =>
-    [
-      extra,
-      "rounded-xl font-semibold text-white shadow-lg transition-all",
-      disabled
-        ? "cursor-not-allowed bg-gray-300"
-        : "bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:from-[#ff5f70] hover:to-[#664f6e] active:scale-[0.98]",
-    ]
-      .filter(Boolean)
-      .join(" ");
-
   // Auto-generate name and symbol
   const handleAutoGenerate = () => {
     const generatedName = generateStablecoinName();
@@ -411,48 +380,6 @@ export default function IssuanceTab() {
         <h2 className="text-2xl font-bold mb-6 text-gray-900">
           Deploy Stablecoin (Circle Template)
         </h2>
-
-        {/* Saved tokens */}
-        {savedContracts.length > 0 && (
-          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <div className="text-sm font-semibold text-gray-900 mb-2">Your deployed tokens</div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <select
-                value={selectedContractAddress}
-                onChange={(e) => selectSavedContract(e.target.value)}
-                className="w-full sm:flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
-              >
-                <option value="">Select a token…</option>
-                {savedContracts.map((c) => (
-                  <option key={c.contractAddress} value={c.contractAddress}>
-                    {c.name} ({c.symbol}) — {c.contractAddress.slice(0, 8)}…{c.contractAddress.slice(-6)}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedContractAddress("");
-                  setDeployedContract(null);
-                  setStatus("idle");
-                  try {
-                    localStorage.removeItem("arc:selectedStablecoin");
-                  } catch {
-                    // ignore
-                  }
-                }}
-                className="px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-100"
-              >
-                Clear
-              </button>
-            </div>
-
-            <div className="mt-2 text-xs text-gray-600">
-              Tip: these are saved in your browser (localStorage), so they’ll still be here after refresh.
-            </div>
-          </div>
-        )}
 
         {/* Saved tokens */}
         {savedContracts.length > 0 && (

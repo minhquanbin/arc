@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { DESTS } from "@/lib/chains";
 import {
@@ -101,6 +101,30 @@ export default function BridgeTab() {
 
   const [history, setHistory] = useState<BridgeHistoryItem[]>([]);
   const [historyPage, setHistoryPage] = useState(0);
+
+  // Load history từ localStorage khi component mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("bridge_history");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setHistory(parsed);
+      }
+    } catch (error) {
+      console.error("Failed to load bridge history:", error);
+    }
+  }, []);
+
+  // Save history vào localStorage mỗi khi history thay đổi
+  useEffect(() => {
+    try {
+      if (history.length > 0) {
+        localStorage.setItem("bridge_history", JSON.stringify(history));
+      }
+    } catch (error) {
+      console.error("Failed to save bridge history:", error);
+    }
+  }, [history]);
 
   const dest = useMemo(() => DESTS.find((d) => d.key === destKey) || DESTS[0], [destKey]);
 

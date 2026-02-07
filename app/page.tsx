@@ -5,6 +5,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 import BridgeTab from "@/components/tabs/BridgeTab";
 import IssuanceTab from "@/components/tabs/IssuanceTab";
+import LiquidityTab from "@/components/tabs/LiquidityTab";
 
 type TabType = "swap" | "bridge" | "liquidity" | "payment" | "issuance";
 
@@ -124,7 +125,7 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <ArcLogoIcon className="h-10 w-10" />
             <h1 className="bg-gradient-to-r from-[#ff7582] to-[#725a7a] bg-clip-text text-4xl font-bold text-transparent">
-              Arc Bridge
+              Arc [testnet]
             </h1>
           </div>
           <ConnectButton.Custom>
@@ -211,7 +212,7 @@ export default function Home() {
           <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl p-2">
             <div className="flex gap-2">
               {(["bridge", "issuance", "liquidity", "swap", "payment"] as TabType[]).map((t) => {
-                const enabled = t === "bridge" || t === "issuance";
+                const enabled = t === "bridge" || t === "issuance" || t === "liquidity";
                 const active = tab === t;
 
                 const base = "flex-1 px-6 py-4 text-lg font-semibold transition-all rounded-xl";
@@ -243,7 +244,8 @@ export default function Home() {
               <>
                 {tab === "bridge" && <BridgeTab />}
                 {tab === "issuance" && <IssuanceTab />}
-                {tab !== "bridge" && tab !== "issuance" && (
+                {tab === "liquidity" && <LiquidityTab />}
+                {tab !== "bridge" && tab !== "issuance" && tab !== "liquidity" && (
                   <div className="py-12 text-center">
                     <div className="mb-4 text-4xl">🚧</div>
                     <p className="text-gray-600">This feature is coming soon!</p>
@@ -252,7 +254,7 @@ export default function Home() {
               </>
             ) : (
               <div className="py-12 text-center">
-                <div className="mb-4 text-4xl">👛</div>
+                
                 <p className="text-gray-600">Connect your wallet to start</p>
               </div>
             )}

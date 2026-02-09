@@ -85,27 +85,11 @@ export default function BatchPayment() {
 
   const BATCH_PAYMENTS_ADDRESS = (process.env.NEXT_PUBLIC_ARC_BATCH_PAYMENTS ||
     "0x0000000000000000000000000000000000000000") as Address;
-  const BATCH_PAYMENTS_ADDRESS = (process.env.NEXT_PUBLIC_ARC_BATCH_PAYMENTS ||
-    "0x0000000000000000000000000000000000000000") as Address;
 
   // Get USDC balance
   const { data: usdcBalance } = useBalance({
     address,
     token: USDC_ADDRESS,
-  });
-
-  const { data: allowance } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: address && BATCH_PAYMENTS_ADDRESS ? [address, BATCH_PAYMENTS_ADDRESS] : undefined,
-    query: {
-      enabled:
-        Boolean(address) &&
-        Boolean(BATCH_PAYMENTS_ADDRESS) &&
-        BATCH_PAYMENTS_ADDRESS !==
-          ("0x0000000000000000000000000000000000000000" as Address),
-    },
   });
 
   const { data: allowance } = useReadContract({

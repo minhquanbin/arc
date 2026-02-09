@@ -103,7 +103,7 @@ export default function StreamingPayment() {
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-[#ff7582] hover:bg-[#ff6575] rounded-lg font-medium transition-colors"
+          className="px-4 py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity"
         >
           {showCreateForm ? "✕ Cancel" : "➕ New Stream"}
         </button>

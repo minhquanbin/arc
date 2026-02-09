@@ -244,14 +244,6 @@ export default function BatchPayment() {
       return;
     }
 
-    const confirmed = confirm(
-      `Approve USDC for BatchPayments?\n\n` +
-        `Spender: ${BATCH_PAYMENTS_ADDRESS}\n` +
-        `Amount: ${formatUSDC(summary.totalAmount)} USDC\n\n` +
-        `This allows the contract to transfer USDC from your wallet for this batch.`
-    );
-    if (!confirmed) return;
-
     await writeContract({
       address: USDC_ADDRESS,
       abi: ERC20_ABI,
@@ -297,16 +289,6 @@ export default function BatchPayment() {
       ]);
       return;
     }
-
-    // Confirm with user
-    const confirmed = confirm(
-      `Execute batch payment in ONE transaction?\n\n` +
-        `Recipients: ${summary.totalRecipients}\n` +
-        `Total: ${formatUSDC(summary.totalAmount)} USDC\n\n` +
-        `This will send a single transaction calling the BatchPayments contract.`
-    );
-
-    if (!confirmed) return;
 
     setIsProcessing(true);
     setCurrentRecipientIndex(0);
@@ -415,7 +397,7 @@ export default function BatchPayment() {
               htmlFor="csv-upload"
               className="flex flex-col items-center justify-center cursor-pointer"
             >
-              <img src="/chain-icons/usdc.svg" alt="USDC" className="h-12 w-12 mb-2" />
+              <img src="/chain-icons/browser.svg" alt="Upload" className="h-12 w-12 mb-2" />
               <p className="text-lg font-medium">Drop CSV file or click to upload</p>
               <p className="text-sm text-gray-400 mt-2">
                 Format: address, amount, label
@@ -490,7 +472,7 @@ export default function BatchPayment() {
 
             <button
               onClick={handleAddRecipient}
-              className="w-full py-3 bg-[#ff7582] hover:bg-[#ff6575] rounded-lg font-medium transition-colors"
+              className="w-full py-3 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity"
             >
               ➕ Add Recipient
             </button>
@@ -600,7 +582,7 @@ export default function BatchPayment() {
                 isConfirming ||
                 summary.errors.length > 0
               }
-              className="w-full py-3 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-white/10 hover:bg-gray-200/20 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending || isConfirming ? "Confirming..." : "Approve"}
             </button>

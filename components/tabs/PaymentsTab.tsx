@@ -10,7 +10,7 @@ type PaymentMode = "batch" | "recurring" | "streaming";
 export default function PaymentsTab() {
   const [mode, setMode] = useState<PaymentMode>("batch");
 
-  const USDC_LOGO_SRC = "/chain-icons/usdc.svg";
+  const USDC_LOGO_SRC = "/chain-icons/usdc.svg"; // icon used inside cards
 
   const modes = [
     {
@@ -46,7 +46,7 @@ export default function PaymentsTab() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <img src={USDC_LOGO_SRC} alt="USDC" className="h-8 w-8" />
+          <img src="/chain-icons/payment.svg" alt="Payments" className="h-8 w-8" />
           <h1 className="text-3xl font-bold">Payments</h1>
         </div>
       </div>
@@ -64,7 +64,7 @@ export default function PaymentsTab() {
                 p-6 rounded-lg border-2 transition-all text-left
                 ${
                   mode === m.id
-                    ? "border-[#ff7582] bg-[#ff7582]/10"
+                    ? "border-[#ff7582]/60 bg-gradient-to-br from-[#ff7582]/20 to-[#725a7a]/20"
                     : "border-white/10 bg-white/5 hover:border-white/20"
                 }
               `}

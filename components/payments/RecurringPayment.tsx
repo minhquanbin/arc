@@ -185,16 +185,13 @@ export default function RecurringPayment() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">⚙️ Recurring Payments</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            Set up automated payroll and scheduled transfers
-          </p>
+          <h2 className="text-2xl font-bold">Recurring Payments</h2>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="px-4 py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity"
         >
-          {showCreateForm ? "✕ Cancel" : "➕ New Schedule"}
+          {showCreateForm ? "Cancel" : "New Schedule"}
         </button>
       </div>
 

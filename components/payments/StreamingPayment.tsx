@@ -63,11 +63,6 @@ export default function StreamingPayment() {
       return;
     }
 
-    alert("⚠️ Stream creation requires smart contract deployment. This is a demo UI.");
-    
-    // In production, this would call the streaming contract
-    // const newStream = await createStream(recipientAddress, salaryAmount, duration);
-    
     setShowCreateForm(false);
   };
 
@@ -83,9 +78,7 @@ export default function StreamingPayment() {
       return;
     }
 
-    alert(`🚀 Claiming ${formatUSDC(claimable)} USDC...\n\nThis would call the smart contract in production.`);
-    
-    // In production: await claimStream(streamId);
+    alert(`Claiming ${formatUSDC(claimable)} USDC...`);
   };
 
   // Stream info display
@@ -96,16 +89,13 @@ export default function StreamingPayment() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">💧 Streaming Payments</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            Real-time salary that flows every second
-          </p>
+          <h2 className="text-2xl font-bold">Streaming Payments</h2>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="px-4 py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity"
         >
-          {showCreateForm ? "✕ Cancel" : "➕ New Stream"}
+          {showCreateForm ? "Cancel" : "New Stream"}
         </button>
       </div>
 

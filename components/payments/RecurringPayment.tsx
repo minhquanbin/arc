@@ -7,8 +7,31 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
-import { decodeEventLog, parseUnits, type Address } from "viem";
-import { type PaymentRecipient, formatUSDC } from "@/lib/payments";
+import { parseUnits, type Address } from "viem";
+import { type PaymentRecipient, formatAddress, formatUSDC } from "@/lib/payments";
+
+const ERC20_ABI = [
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
 
 const RECURRING_ABI = [
   {
@@ -70,21 +93,12 @@ const RECURRING_ABI = [
     inputs: [{ name: "scheduleId", type: "uint256" }],
     outputs: [],
   },
-  {
-    type: "event",
-    name: "ScheduleCreated",
-    inputs: [
-      { name: "scheduleId", type: "uint256", indexed: true },
-      { name: "payer", type: "address", indexed: true },
-      { name: "token", type: "address", indexed: true },
-    ],
-    anonymous: false,
-  },
 ] as const;
 
 type OnchainSchedule = {
   id: bigint;
   name: string;
+  payer: Address;
   token: Address;
   intervalSeconds: bigint;
   nextRun: bigint;
@@ -109,6 +123,13 @@ function getLocalScheduleName(id: bigint): string {
   }
 }
 
+function intervalSecondsFromFrequency(freq: "daily" | "weekly" | "biweekly" | "monthly"): number {
+  if (freq === "daily") return 24 * 60 * 60;
+  if (freq === "weekly") return 7 * 24 * 60 * 60;
+  if (freq === "biweekly") return 14 * 24 * 60 * 60;
+  return 30 * 24 * 60 * 60; // simple month
+}
+
 export default function RecurringPayment() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
@@ -120,210 +141,263 @@ export default function RecurringPayment() {
     process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
     "0x3600000000000000000000000000000000000000") as Address;
 
+  const isConfigured =
+    RECURRING_PAYMENTS_ADDRESS !== ("0x0000000000000000000000000000000000000000" as Address);
+
   const [scheduledPayments, setScheduledPayments] = useState<OnchainSchedule[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
-
   const [status, setStatus] = useState<string>("");
 
-  const { writeContract, data: txHash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed, data: receipt } =
-    useWaitForTransactionReceipt({
-      hash: txHash,
-    });
-  
-  // Form state
+  // form
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<"daily" | "weekly" | "biweekly" | "monthly">("monthly");
-  const [dayOfWeek, setDayOfWeek] = useState(1); // Monday
-  const [dayOfMonth, setDayOfMonth] = useState(1);
   const [time, setTime] = useState("09:00");
   const [recipients, setRecipients] = useState<PaymentRecipient[]>([]);
-  
-  // Load scheduled payments
-  useEffect(() => {
-    const payments = getScheduledPayments();
-    setScheduledPayments(payments);
-  }, []);
 
-  // Calculate next run time
-  const calculateNextRun = (): number => {
-    const now = new Date();
-    const [hours, minutes] = time.split(":").map(Number);
-    
-    let nextRun = new Date();
-    nextRun.setHours(hours, minutes, 0, 0);
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
 
-    switch (frequency) {
-      case "daily":
-        if (nextRun <= now) {
-          nextRun.setDate(nextRun.getDate() + 1);
-        }
-        break;
-        
-      case "weekly":
-        nextRun.setDate(nextRun.getDate() + ((dayOfWeek + 7 - nextRun.getDay()) % 7));
-        if (nextRun <= now) {
-          nextRun.setDate(nextRun.getDate() + 7);
-        }
-        break;
-        
-      case "biweekly":
-        nextRun.setDate(nextRun.getDate() + ((dayOfWeek + 7 - nextRun.getDay()) % 7));
-        if (nextRun <= now) {
-          nextRun.setDate(nextRun.getDate() + 14);
-        }
-        break;
-        
-      case "monthly":
-        nextRun.setDate(dayOfMonth);
-        if (nextRun <= now) {
-          nextRun.setMonth(nextRun.getMonth() + 1);
-        }
-        break;
+  const isBusy = isPending || isConfirming;
+
+  const totalPerRun = useMemo(() => {
+    try {
+      return recipients.reduce((acc, r) => acc + parseUnits(r.amount || "0", 6), 0n);
+    } catch {
+      return 0n;
+    }
+  }, [recipients]);
+
+  const [allowance, setAllowance] = useState<bigint>(0n);
+
+  async function refreshAllowance() {
+    if (!publicClient || !address || !isConfigured) return;
+    try {
+      const a = (await publicClient.readContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "allowance",
+        args: [address as Address, RECURRING_PAYMENTS_ADDRESS],
+      })) as bigint;
+      setAllowance(a);
+    } catch {
+      setAllowance(0n);
+    }
+  }
+
+  async function loadSchedules() {
+    if (!publicClient || !address || !isConfigured) return;
+    setStatus("Loading schedules...");
+
+    const count = (await publicClient.readContract({
+      address: RECURRING_PAYMENTS_ADDRESS,
+      abi: RECURRING_ABI,
+      functionName: "scheduleCount",
+    })) as bigint;
+
+    const items: OnchainSchedule[] = [];
+    for (let i = 1n; i <= count; i++) {
+      const [payer, token, intervalSeconds, nextRun, active, recs, amts] =
+        (await publicClient.readContract({
+          address: RECURRING_PAYMENTS_ADDRESS,
+          abi: RECURRING_ABI,
+          functionName: "getSchedule",
+          args: [i],
+        })) as [Address, Address, bigint, bigint, boolean, Address[], bigint[]];
+
+      if (payer.toLowerCase() !== (address as Address).toLowerCase()) continue;
+
+      items.push({
+        id: i,
+        name: getLocalScheduleName(i) || `Schedule #${i.toString()}`,
+        payer,
+        token,
+        intervalSeconds,
+        nextRun,
+        active,
+        recipients: recs,
+        amounts: amts,
+      });
     }
 
-    return nextRun.getTime();
-  };
+    setScheduledPayments(items);
+    setStatus("");
+  }
 
-  // Handle create scheduled payment
-  const handleCreate = () => {
+  useEffect(() => {
+    if (!isConfigured) return;
+    loadSchedules();
+    refreshAllowance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, isConfigured]);
+
+  useEffect(() => {
+    if (!isConfirmed) return;
+    loadSchedules();
+    refreshAllowance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfirmed]);
+
+  function addRecipientPrompt() {
+    const addr = prompt("Recipient address (0x...):") || "";
+    if (!addr) return;
+    const amt = prompt("Amount (USDC):") || "";
+    if (!amt) return;
+    const label = prompt("Label (optional):") || "";
+    setRecipients((prev) => [
+      ...prev,
+      {
+        address: addr as Address,
+        amount: amt,
+        label: label || undefined,
+        id: `${Date.now()}-${Math.random()}`,
+      },
+    ]);
+  }
+
+  function computeFirstRunUnix(): bigint {
+    const now = new Date();
+    const [hh, mm] = time.split(":").map(Number);
+
+    const first = new Date();
+    first.setHours(hh, mm, 0, 0);
+
+    if (first <= now) {
+      if (frequency === "daily") first.setDate(first.getDate() + 1);
+      if (frequency === "weekly") first.setDate(first.getDate() + 7);
+      if (frequency === "biweekly") first.setDate(first.getDate() + 14);
+      if (frequency === "monthly") first.setDate(first.getDate() + 30);
+    }
+
+    return BigInt(Math.floor(first.getTime() / 1000));
+  }
+
+  async function onApprove() {
+    if (!isConfigured) return;
+    // approve max uint256
+    const max = (1n << 256n) - 1n;
+    writeContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [RECURRING_PAYMENTS_ADDRESS, max],
+    });
+  }
+
+  async function onCreateSchedule() {
+    if (!publicClient || !address) return;
+    if (!isConfigured) return;
+
     if (!name || recipients.length === 0) {
       alert("Please enter a name and add recipients");
       return;
     }
 
-    const newSchedule: ScheduledPayment = {
-      id: generateId(),
-      name,
-      recipients,
-      schedule: {
-        frequency,
-        dayOfWeek: frequency === "weekly" || frequency === "biweekly" ? dayOfWeek : undefined,
-        dayOfMonth: frequency === "monthly" ? dayOfMonth : undefined,
-        time,
-      },
-      nextRun: calculateNextRun(),
-      isActive: true,
-      createdAt: Date.now(),
-    };
+    const recs = recipients.map((r) => r.address as Address);
+    const amts = recipients.map((r) => parseUnits(r.amount, 6));
 
-    saveScheduledPayment(newSchedule);
-    setScheduledPayments([...scheduledPayments, newSchedule]);
-    
-    // Reset form
+    const interval = BigInt(intervalSecondsFromFrequency(frequency));
+    const firstRun = computeFirstRunUnix();
+
+    setStatus("Creating schedule...");
+
+    writeContract({
+      address: RECURRING_PAYMENTS_ADDRESS,
+      abi: RECURRING_ABI,
+      functionName: "createSchedule",
+      args: [USDC_ADDRESS, recs, amts, interval, firstRun],
+    });
+
+    // We don't get the scheduleId easily without parsing logs; store name after next reload if it appears.
+    // Best-effort: set name for the next id (count+1) after confirmation.
+    try {
+      const count = (await publicClient.readContract({
+        address: RECURRING_PAYMENTS_ADDRESS,
+        abi: RECURRING_ABI,
+        functionName: "scheduleCount",
+      })) as bigint;
+      setLocalScheduleName(count + 1n, name);
+    } catch {
+      // ignore
+    }
+
+    setShowCreateForm(false);
     setName("");
     setRecipients([]);
-    setShowCreateForm(false);
-    
-    alert("✅ Scheduled payment created!");
-  };
+  }
 
-  // Toggle active status
-  const handleToggleActive = (id: string) => {
-    const updated = scheduledPayments.map((p) => {
-      if (p.id === id) {
-        const toggled = { ...p, isActive: !p.isActive };
-        saveScheduledPayment(toggled);
-        return toggled;
-      }
-      return p;
+  function onToggleActive(scheduleId: bigint, active: boolean) {
+    writeContract({
+      address: RECURRING_PAYMENTS_ADDRESS,
+      abi: RECURRING_ABI,
+      functionName: "toggleActive",
+      args: [scheduleId, active],
     });
-    setScheduledPayments(updated);
-  };
+  }
 
-  // Delete scheduled payment
-  const handleDelete = (id: string) => {
-    if (!confirm("Delete this scheduled payment?")) return;
-    
-    deleteScheduledPayment(id);
-    setScheduledPayments(scheduledPayments.filter((p) => p.id !== id));
-  };
+  function onDelete(scheduleId: bigint) {
+    if (!confirm("Delete this schedule?")) return;
+    writeContract({
+      address: RECURRING_PAYMENTS_ADDRESS,
+      abi: RECURRING_ABI,
+      functionName: "deleteSchedule",
+      args: [scheduleId],
+    });
+  }
 
-  // Add recipient to form
-  const handleAddRecipient = () => {
-    const address = prompt("Recipient address (0x...):");
-    if (!address) return;
-    
-    const amount = prompt("Amount (USDC):");
-    if (!amount) return;
-    
-    const label = prompt("Label (optional):");
-    
-    setRecipients([
-      ...recipients,
-      {
-        address: address as any,
-        amount,
-        label: label || undefined,
-        id: generateId(),
-      },
-    ]);
-  };
+  function onExecute(scheduleId: bigint) {
+    writeContract({
+      address: RECURRING_PAYMENTS_ADDRESS,
+      abi: RECURRING_ABI,
+      functionName: "execute",
+      args: [scheduleId],
+    });
+  }
 
-  // Format frequency for display
-  const formatFrequency = (schedule: ScheduledPayment["schedule"]): string => {
-    const { frequency, dayOfWeek, dayOfMonth, time } = schedule;
-    
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    
-    switch (frequency) {
-      case "daily":
-        return `Daily at ${time}`;
-      case "weekly":
-        return `Every ${days[dayOfWeek!]} at ${time}`;
-      case "biweekly":
-        return `Every 2 weeks on ${days[dayOfWeek!]} at ${time}`;
-      case "monthly":
-        return `Monthly on day ${dayOfMonth} at ${time}`;
-    }
-  };
-
-  // Format next run time
-  const formatNextRun = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = date.getTime() - now.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
-    if (days > 0) return `in ${days}d ${hours}h`;
-    if (hours > 0) return `in ${hours}h`;
-    return "soon";
-  };
+  const needsApproval = allowance === 0n;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Recurring Payments</h2>
+        <h2 className="text-2xl font-bold">Recurring Payments</h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="px-4 py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity"
+            disabled={!isConfigured || isBusy}
+          >
+            {showCreateForm ? "Cancel" : "New Schedule"}
+          </button>
         </div>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity"
-        >
-          {showCreateForm ? "Cancel" : "New Schedule"}
-        </button>
       </div>
 
-      {/* Create Form */}
+      {!isConfigured && (
+        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+          <p className="text-sm text-yellow-300">
+            RecurringPayments contract not configured.
+          </p>
+        </div>
+      )}
+
+      {status && (
+        <div className="text-sm text-gray-400">{status}</div>
+      )}
+
       {showCreateForm && (
         <div className="p-6 bg-white/5 border border-white/10 rounded-lg space-y-4">
-          <h3 className="text-lg font-medium">Create Scheduled Payment</h3>
-          
-          {/* Name */}
+          <h3 className="text-lg font-medium">Create Schedule (On-chain)</h3>
+
           <div>
             <label className="block text-sm font-medium mb-2">Schedule Name</label>
             <input
               type="text"
-              placeholder="e.g., Monthly Payroll"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
             />
           </div>
 
-          {/* Frequency */}
           <div>
             <label className="block text-sm font-medium mb-2">Frequency</label>
             <select
@@ -338,41 +412,6 @@ export default function RecurringPayment() {
             </select>
           </div>
 
-          {/* Day selection */}
-          {(frequency === "weekly" || frequency === "biweekly") && (
-            <div>
-              <label className="block text-sm font-medium mb-2">Day of Week</label>
-              <select
-                value={dayOfWeek}
-                onChange={(e) => setDayOfWeek(Number(e.target.value))}
-                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
-              >
-                <option value={1}>Monday</option>
-                <option value={2}>Tuesday</option>
-                <option value={3}>Wednesday</option>
-                <option value={4}>Thursday</option>
-                <option value={5}>Friday</option>
-                <option value={6}>Saturday</option>
-                <option value={0}>Sunday</option>
-              </select>
-            </div>
-          )}
-
-          {frequency === "monthly" && (
-            <div>
-              <label className="block text-sm font-medium mb-2">Day of Month</label>
-              <input
-                type="number"
-                min="1"
-                max="31"
-                value={dayOfMonth}
-                onChange={(e) => setDayOfMonth(Number(e.target.value))}
-                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
-              />
-            </div>
-          )}
-
-          {/* Time */}
           <div>
             <label className="block text-sm font-medium mb-2">Time</label>
             <input
@@ -383,122 +422,126 @@ export default function RecurringPayment() {
             />
           </div>
 
-          {/* Recipients */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium">Recipients</label>
-              <button
-                onClick={handleAddRecipient}
-                className="text-sm text-[#ff7582] hover:text-[#ff6575]"
-              >
-                ➕ Add
+              <button onClick={addRecipientPrompt} className="text-sm text-[#ff7582] hover:text-[#ff6575]">
+                Add
               </button>
             </div>
-            
+
             {recipients.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">
-                No recipients added yet
-              </p>
+              <p className="text-sm text-gray-400 text-center py-4">No recipients added yet</p>
             ) : (
               <div className="space-y-2">
                 {recipients.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
-                  >
+                  <div key={r.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                     <div>
-                      <p className="font-mono text-sm">{formatAddress(r.address)}</p>
+                      <p className="font-mono text-sm">{formatAddress(r.address as Address)}</p>
                       {r.label && <p className="text-xs text-gray-400">{r.label}</p>}
                     </div>
                     <p className="font-medium">{r.amount} USDC</p>
                   </div>
                 ))}
                 <div className="text-sm text-gray-400 text-right pt-2">
-                  Total: {formatUSDC(calculateBatchTotal(recipients))} USDC
+                  Total per run: {formatUSDC(totalPerRun)} USDC
                 </div>
               </div>
             )}
           </div>
 
-          <button
-            onClick={handleCreate}
-            disabled={!name || recipients.length === 0}
-            className="w-full py-3 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Create Schedule
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onApprove}
+              disabled={!isConfigured || isBusy}
+              className="flex-1 py-3 bg-white/10 hover:bg-gray-200/20 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBusy ? "Confirming..." : needsApproval ? "Approve USDC" : "USDC Approved"}
+            </button>
+            <button
+              onClick={onCreateSchedule}
+              disabled={!isConfigured || isBusy || !name || recipients.length === 0}
+              className="flex-1 py-3 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBusy ? "Confirming..." : "Create"}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Scheduled Payments List */}
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Active Schedules</h3>
-        
+        <h3 className="text-lg font-medium">Your Schedules</h3>
+
         {scheduledPayments.length === 0 ? (
           <div className="p-12 bg-white/5 border border-white/10 rounded-lg text-center">
-            <img
-              src="/chain-icons/browser.svg"
-              alt="Browser"
-              className="h-12 w-12 mx-auto mb-4 opacity-80"
-            />
-            <p className="text-gray-400">No scheduled payments yet</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Create your first automated payroll above
-            </p>
+            <img src="/chain-icons/browser.svg" alt="Browser" className="h-12 w-12 mx-auto mb-4 opacity-80" />
+            <p className="text-gray-400">No schedules yet</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {scheduledPayments.map((payment) => (
-              <div
-                key={payment.id}
-                className="p-4 bg-white/5 border border-white/10 rounded-lg hover:border-[#ff7582]/30 transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{payment.name}</h4>
-                      {payment.isActive ? (
-                        <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-gray-500/20 text-gray-400 text-xs rounded-full">
-                          Paused
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="mt-2 space-y-1 text-sm text-gray-400">
-                      <p>📅 {formatFrequency(payment.schedule)}</p>
-                      <p>⏰ Next run: {formatNextRun(payment.nextRun)}</p>
-                      <p>👥 {payment.recipients.length} recipients</p>
-                      <p>💰 {formatUSDC(calculateBatchTotal(payment.recipients))} USDC</p>
-                    </div>
-                  </div>
+            {scheduledPayments.map((s) => {
+              const total = s.amounts.reduce((acc, x) => acc + x, 0n);
+              const nextRunDate = new Date(Number(s.nextRun) * 1000);
+              return (
+                <div
+                  key={s.id.toString()}
+                  className="p-4 bg-white/5 border border-white/10 rounded-lg hover:border-[#ff7582]/30 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{s.name}</h4>
+                        {s.active ? (
+                          <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-gray-500/20 text-gray-400 text-xs rounded-full">
+                            Paused
+                          </span>
+                        )}
+                      </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleToggleActive(payment.id)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                      title={payment.isActive ? "Pause" : "Resume"}
-                    >
-                      {payment.isActive ? "⏸️" : "▶️"}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(payment.id)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors text-red-400"
-                      title="Delete"
-                    >
-                      🗑️
-                    </button>
+                      <div className="mt-2 space-y-1 text-sm text-gray-400">
+                        <p>Next run: {nextRunDate.toLocaleString()}</p>
+                        <p>Recipients: {s.recipients.length}</p>
+                        <p>Total per run: {formatUSDC(total)} USDC</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 min-w-[160px]">
+                      <button
+                        onClick={() => onExecute(s.id)}
+                        disabled={!isConfigured || isBusy}
+                        className="w-full py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Execute
+                      </button>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onToggleActive(s.id, !s.active)}
+                          disabled={!isConfigured || isBusy}
+                          className="flex-1 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {s.active ? "Pause" : "Resume"}
+                        </button>
+                        <button
+                          onClick={() => onDelete(s.id)}
+                          disabled={!isConfigured || isBusy}
+                          className="flex-1 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
-
     </div>
   );
 }

@@ -23,7 +23,7 @@ export default function StreamingPayment() {
   // Form state
   const [recipientAddress, setRecipientAddress] = useState("");
   const [salaryAmount, setSalaryAmount] = useState("");
-  const [duration, setDuration] = useState(STREAMING_DURATIONS.MONTHLY);
+  const [duration, setDuration] = useState<number>(STREAMING_DURATIONS.MONTHLY);
   
   // Update time every second for real-time display
   useEffect(() => {

@@ -1,24 +1,135 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAccount } from "wagmi";
+import { useEffect, useMemo, useState } from "react";
 import {
-  type ScheduledPayment,
-  type PaymentRecipient,
-  saveScheduledPayment,
-  getScheduledPayments,
-  deleteScheduledPayment,
-  formatAddress,
-  formatUSDC,
-  generateId,
-  calculateBatchTotal,
-} from "@/lib/payments";
-import { parseUnits } from "viem";
+  useAccount,
+  usePublicClient,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
+import { decodeEventLog, parseUnits, type Address } from "viem";
+import { type PaymentRecipient, formatUSDC } from "@/lib/payments";
+
+const RECURRING_ABI = [
+  {
+    type: "function",
+    name: "scheduleCount",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "getSchedule",
+    stateMutability: "view",
+    inputs: [{ name: "scheduleId", type: "uint256" }],
+    outputs: [
+      { name: "payer", type: "address" },
+      { name: "token", type: "address" },
+      { name: "intervalSeconds", type: "uint64" },
+      { name: "nextRun", type: "uint64" },
+      { name: "active", type: "bool" },
+      { name: "recipients", type: "address[]" },
+      { name: "amounts", type: "uint256[]" },
+    ],
+  },
+  {
+    type: "function",
+    name: "createSchedule",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "recipients", type: "address[]" },
+      { name: "amounts", type: "uint256[]" },
+      { name: "intervalSeconds", type: "uint64" },
+      { name: "firstRun", type: "uint64" },
+    ],
+    outputs: [{ name: "scheduleId", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "toggleActive",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "scheduleId", type: "uint256" },
+      { name: "active", type: "bool" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "deleteSchedule",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "scheduleId", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "execute",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "scheduleId", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "event",
+    name: "ScheduleCreated",
+    inputs: [
+      { name: "scheduleId", type: "uint256", indexed: true },
+      { name: "payer", type: "address", indexed: true },
+      { name: "token", type: "address", indexed: true },
+    ],
+    anonymous: false,
+  },
+] as const;
+
+type OnchainSchedule = {
+  id: bigint;
+  name: string;
+  token: Address;
+  intervalSeconds: bigint;
+  nextRun: bigint;
+  active: boolean;
+  recipients: Address[];
+  amounts: bigint[];
+};
+
+function setLocalScheduleName(id: bigint, name: string) {
+  try {
+    localStorage.setItem(`arc:recurring:scheduleName:${id.toString()}`, name);
+  } catch {
+    // ignore
+  }
+}
+
+function getLocalScheduleName(id: bigint): string {
+  try {
+    return localStorage.getItem(`arc:recurring:scheduleName:${id.toString()}`) || "";
+  } catch {
+    return "";
+  }
+}
 
 export default function RecurringPayment() {
   const { address } = useAccount();
-  const [scheduledPayments, setScheduledPayments] = useState<ScheduledPayment[]>([]);
+  const publicClient = usePublicClient();
+
+  const RECURRING_PAYMENTS_ADDRESS = (process.env.NEXT_PUBLIC_ARC_RECURRING_PAYMENTS ||
+    "0x0000000000000000000000000000000000000000") as Address;
+
+  const USDC_ADDRESS = ((process.env.NEXT_PUBLIC_ARC_USDC ||
+    process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
+    "0x3600000000000000000000000000000000000000") as Address;
+
+  const [scheduledPayments, setScheduledPayments] = useState<OnchainSchedule[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+
+  const [status, setStatus] = useState<string>("");
+
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed, data: receipt } =
+    useWaitForTransactionReceipt({
+      hash: txHash,
+    });
   
   // Form state
   const [name, setName] = useState("");

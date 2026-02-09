@@ -212,7 +212,11 @@ export default function Home() {
           <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl p-2">
             <div className="flex gap-2">
               {(["bridge", "issuance", "liquidity", "swap", "payment"] as TabType[]).map((t) => {
-                const enabled = t === "bridge" || t === "issuance" || t === "liquidity";
+                const enabled =
+                  t === "bridge" ||
+                  t === "issuance" ||
+                  t === "liquidity" ||
+                  t === "payment";
                 const active = tab === t;
 
                 const base = "flex-1 px-6 py-4 text-lg font-semibold transition-all rounded-xl";

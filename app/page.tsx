@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import BridgeTab from "@/components/tabs/BridgeTab";
 import IssuanceTab from "@/components/tabs/IssuanceTab";
 import LiquidityTab from "@/components/tabs/LiquidityTab";
+import PaymentsTab from "@/components/tabs/PaymentsTab";
 
 type TabType = "swap" | "bridge" | "liquidity" | "payment" | "issuance";
 
@@ -249,7 +250,8 @@ export default function Home() {
                 {tab === "bridge" && <BridgeTab />}
                 {tab === "issuance" && <IssuanceTab />}
                 {tab === "liquidity" && <LiquidityTab />}
-                {tab !== "bridge" && tab !== "issuance" && tab !== "liquidity" && (
+                {tab === "payment" && <PaymentsTab />}
+                {tab !== "bridge" && tab !== "issuance" && tab !== "liquidity" && tab !== "payment" && (
                   <div className="py-12 text-center">
                     <div className="mb-4 text-4xl">🚧</div>
                     <p className="text-gray-600">This feature is coming soon!</p>

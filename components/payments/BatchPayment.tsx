@@ -363,7 +363,6 @@ export default function BatchPayment() {
       {showSuccess && (
         <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">✅</span>
             <div>
               <p className="font-medium text-green-400">Batch payment successful!</p>
               {successTxHash && (
@@ -386,7 +385,7 @@ export default function BatchPayment() {
               : "text-gray-400 hover:text-white"
           }`}
         >
-          📎 Upload CSV
+          Upload CSV
         </button>
         <button
           onClick={() => setActiveTab("manual")}
@@ -396,7 +395,7 @@ export default function BatchPayment() {
               : "text-gray-400 hover:text-white"
           }`}
         >
-          ✍️ Manual Entry
+          Manual Entry
         </button>
       </div>
 
@@ -416,7 +415,7 @@ export default function BatchPayment() {
               htmlFor="csv-upload"
               className="flex flex-col items-center justify-center cursor-pointer"
             >
-              <span className="text-4xl mb-2">📎</span>
+              <img src="/chain-icons/usdc.svg" alt="USDC" className="h-12 w-12 mb-2" />
               <p className="text-lg font-medium">Drop CSV file or click to upload</p>
               <p className="text-sm text-gray-400 mt-2">
                 Format: address, amount, label
@@ -429,20 +428,20 @@ export default function BatchPayment() {
               onClick={handleDownloadTemplate}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-sm"
             >
-              📥 Download Template
+              Download Template
             </button>
             <button
               onClick={handleLoadTemplate}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-sm"
             >
-              📂 Load Template
+              Load Template
             </button>
             {recipients.length > 0 && (
               <button
                 onClick={handleSaveTemplate}
                 className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-sm"
               >
-                💾 Save as Template
+                Save as Template
               </button>
             )}
           </div>
@@ -522,7 +521,7 @@ export default function BatchPayment() {
               onClick={handleClearAll}
               className="text-sm text-red-400 hover:text-red-300"
             >
-              🗑️ Clear All
+              Clear All
             </button>
           </div>
 
@@ -544,9 +543,10 @@ export default function BatchPayment() {
                   <p className="font-medium">{r.amount} USDC</p>
                   <button
                     onClick={() => handleRemoveRecipient(r.id!)}
-                    className="text-red-400 hover:text-red-300"
+                    className="text-red-400 hover:text-red-300 text-sm"
+                    aria-label="Remove recipient"
                   >
-                    ✕
+                    Remove
                   </button>
                 </div>
               </div>
@@ -559,7 +559,7 @@ export default function BatchPayment() {
       {summary && summary.totalRecipients > 0 && (
         <div className="space-y-4">
           <div className="p-6 bg-gradient-to-br from-[#ff7582]/10 to-[#725a7a]/10 rounded-lg border border-white/10">
-            <h3 className="text-lg font-medium mb-4">💰 Payment Summary</h3>
+            <h3 className="text-lg font-medium mb-4">Payment Summary</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Total Recipients:</span>
@@ -583,7 +583,7 @@ export default function BatchPayment() {
           </div>          {!isBatchPaymentsConfigured && (
             <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
               <p className="text-sm text-yellow-300">
-                ⚠️ <strong>BatchPayments contract not configured.</strong> Deploy
+                <strong>BatchPayments contract not configured.</strong> Deploy
                 <code className="px-1">contracts/BatchPayments.sol</code> to ARC,
                 then set <code className="px-1">NEXT_PUBLIC_ARC_BATCH_PAYMENTS</code>
                 in <code className="px-1">arc-dex-v2/.env.local</code>.
@@ -602,7 +602,7 @@ export default function BatchPayment() {
               }
               className="w-full py-3 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isPending || isConfirming ? "Confirming..." : "1) Approve USDC"}
+              {isPending || isConfirming ? "Confirming..." : "Approve"}
             </button>
           )}
 
@@ -622,18 +622,10 @@ export default function BatchPayment() {
               ? "Processing..."
               : isPending || isConfirming
               ? "Confirming..."
-              : "2) Execute Batch Payment (1 tx)"}
+              : "Pay"}
           </button>
         </div>
       )}
-
-      {/* Info */}
-      <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-        <p className="text-sm text-blue-300">
-          ℹ️ <strong>How it works:</strong> You approve USDC once, then execute a single
-          on-chain transaction that pays all recipients via the BatchPayments contract.
-        </p>
-      </div>
     </div>
   );
 }

@@ -343,6 +343,9 @@ export default function BatchPayment() {
   // ==========================================
 
   const summary = recipients.length > 0 ? calculatePaymentSummary(recipients) : null;
+  const isBatchPaymentsConfigured =
+    BATCH_PAYMENTS_ADDRESS !==
+    ("0x0000000000000000000000000000000000000000" as Address);
 
   return (
     <div className="space-y-6">
@@ -567,12 +570,26 @@ export default function BatchPayment() {
                 <span className="font-medium">~{summary.estimatedGas.toString()}</span>
               </div>
             </div>
-          </div>
+          </div>          {!isBatchPaymentsConfigured && (
+            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+              <p className="text-sm text-yellow-300">
+                ⚠️ <strong>BatchPayments contract not configured.</strong> Deploy
+                <code className="px-1">contracts/BatchPayments.sol</code> to ARC,
+                then set <code className="px-1">NEXT_PUBLIC_ARC_BATCH_PAYMENTS</code>
+                in <code className="px-1">arc-dex-v2/.env.local</code>.
+              </p>
+            </div>
+          )}
 
           {((allowance as bigint | undefined) ?? 0n) < summary.totalAmount && (
             <button
               onClick={handleApprove}
-              disabled={isPending || isConfirming || summary.errors.length > 0}
+              disabled={
+                !isBatchPaymentsConfigured ||
+                isPending ||
+                isConfirming ||
+                summary.errors.length > 0
+              }
               className="w-full py-3 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending || isConfirming ? "Confirming..." : "1) Approve USDC"}
@@ -582,6 +599,7 @@ export default function BatchPayment() {
           <button
             onClick={handleExecutePayment}
             disabled={
+              !isBatchPaymentsConfigured ||
               isProcessing ||
               isPending ||
               isConfirming ||
@@ -595,7 +613,7 @@ export default function BatchPayment() {
               : isPending || isConfirming
               ? "Confirming..."
               : "2) Execute Batch Payment (1 tx)"}
-          </button>
+          </button>on>
         </div>
       )}
 

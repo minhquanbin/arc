@@ -86,11 +86,7 @@ export default function PaymentsTab() {
                   </p>
                 ))}
               </div>
-              
-              {/* Phase Badge */}
-              <div className="mt-4 pt-3 border-t border-white/10">
-                <span className="text-xs font-mono text-gray-500">{m.phase}</span>
-              </div>
+
             </button>
           ))}
         </div>

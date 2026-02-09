@@ -53,8 +53,6 @@ export default function PaymentsTab() {
 
       {/* Mode Selection */}
       <div className="space-y-4">
-        <h2 className="text-xl font-medium">How do you want to pay?</h2>
-        
         <div className="grid md:grid-cols-3 gap-4">
           {modes.map((m) => (
             <button

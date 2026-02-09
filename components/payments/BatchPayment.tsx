@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useAccount, useBalance, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useRef, useState } from "react";
+import {
+  useAccount,
+  useBalance,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 import { parseUnits, type Address } from "viem";
 import {
   type PaymentRecipient,
@@ -17,17 +23,40 @@ import {
   getTemplates,
 } from "@/lib/payments";
 
-// ERC20 ABI for multi-transfer
 const ERC20_ABI = [
   {
     type: "function",
-    name: "transfer",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "approve",
     stateMutability: "nonpayable",
     inputs: [
-      { name: "to", type: "address" },
+      { name: "spender", type: "address" },
       { name: "amount", type: "uint256" },
     ],
     outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
+const BATCH_PAYMENTS_ABI = [
+  {
+    type: "function",
+    name: "batchTransferFrom",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "recipients", type: "address[]" },
+      { name: "amounts", type: "uint256[]" },
+    ],
+    outputs: [],
   },
 ] as const;
 
@@ -51,13 +80,46 @@ export default function BatchPayment() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // USDC contract address (from env)
-  const USDC_ADDRESS = (process.env.NEXT_PUBLIC_ARC_USDC || 
+  const USDC_ADDRESS = (process.env.NEXT_PUBLIC_ARC_USDC ||
     "0x3600000000000000000000000000000000000000") as Address;
+
+  const BATCH_PAYMENTS_ADDRESS = (process.env.NEXT_PUBLIC_ARC_BATCH_PAYMENTS ||
+    "0x0000000000000000000000000000000000000000") as Address;
+  const BATCH_PAYMENTS_ADDRESS = (process.env.NEXT_PUBLIC_ARC_BATCH_PAYMENTS ||
+    "0x0000000000000000000000000000000000000000") as Address;
 
   // Get USDC balance
   const { data: usdcBalance } = useBalance({
     address,
     token: USDC_ADDRESS,
+  });
+
+  const { data: allowance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address && BATCH_PAYMENTS_ADDRESS ? [address, BATCH_PAYMENTS_ADDRESS] : undefined,
+    query: {
+      enabled:
+        Boolean(address) &&
+        Boolean(BATCH_PAYMENTS_ADDRESS) &&
+        BATCH_PAYMENTS_ADDRESS !==
+          ("0x0000000000000000000000000000000000000000" as Address),
+    },
+  });
+
+  const { data: allowance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address && BATCH_PAYMENTS_ADDRESS ? [address, BATCH_PAYMENTS_ADDRESS] : undefined,
+    query: {
+      enabled:
+        Boolean(address) &&
+        Boolean(BATCH_PAYMENTS_ADDRESS) &&
+        BATCH_PAYMENTS_ADDRESS !==
+          ("0x0000000000000000000000000000000000000000" as Address),
+    },
   });
 
   // Write contract hook
@@ -175,6 +237,35 @@ export default function BatchPayment() {
   // PAYMENT EXECUTION
   // ==========================================
 
+  const handleApprove = async () => {
+    const summary = calculatePaymentSummary(recipients);
+
+    if (
+      BATCH_PAYMENTS_ADDRESS ===
+      ("0x0000000000000000000000000000000000000000" as Address)
+    ) {
+      setErrors([
+        "BatchPayments contract not configured. Set NEXT_PUBLIC_ARC_BATCH_PAYMENTS in .env.local",
+      ]);
+      return;
+    }
+
+    const confirmed = confirm(
+      `Approve USDC for BatchPayments?\n\n` +
+        `Spender: ${BATCH_PAYMENTS_ADDRESS}\n` +
+        `Amount: ${formatUSDC(summary.totalAmount)} USDC\n\n` +
+        `This allows the contract to transfer USDC from your wallet for this batch.`
+    );
+    if (!confirmed) return;
+
+    await writeContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [BATCH_PAYMENTS_ADDRESS, summary.totalAmount],
+    });
+  };
+
   const handleExecutePayment = async () => {
     if (recipients.length === 0) {
       setErrors(["No recipients to pay"]);
@@ -187,44 +278,55 @@ export default function BatchPayment() {
       return;
     }
 
+    if (
+      BATCH_PAYMENTS_ADDRESS ===
+      ("0x0000000000000000000000000000000000000000" as Address)
+    ) {
+      setErrors([
+        "BatchPayments contract not configured. Set NEXT_PUBLIC_ARC_BATCH_PAYMENTS in .env.local",
+      ]);
+      return;
+    }
+
     // Check balance
     if (usdcBalance && summary.totalAmount > usdcBalance.value) {
-      setErrors([`Insufficient balance. Need ${formatUSDC(summary.totalAmount)} USDC`]);
+      setErrors([
+        `Insufficient balance. Need ${formatUSDC(summary.totalAmount)} USDC`,
+      ]);
+      return;
+    }
+
+    const allowanceBigInt = (allowance as bigint | undefined) ?? 0n;
+    if (allowanceBigInt < summary.totalAmount) {
+      setErrors([
+        `Approval required. Current allowance: ${formatUSDC(allowanceBigInt)} USDC`,
+      ]);
       return;
     }
 
     // Confirm with user
     const confirmed = confirm(
-      `Execute batch payment?\n\n` +
-      `Recipients: ${summary.totalRecipients}\n` +
-      `Total: ${formatUSDC(summary.totalAmount)} USDC\n` +
-      `Estimated gas: ${summary.estimatedGas.toString()}\n\n` +
-      `This will send ${summary.totalRecipients} transactions.`
+      `Execute batch payment in ONE transaction?\n\n` +
+        `Recipients: ${summary.totalRecipients}\n` +
+        `Total: ${formatUSDC(summary.totalAmount)} USDC\n\n` +
+        `This will send a single transaction calling the BatchPayments contract.`
     );
 
     if (!confirmed) return;
 
-    // Execute transfers sequentially
     setIsProcessing(true);
     setCurrentRecipientIndex(0);
 
     try {
-      for (let i = 0; i < recipients.length; i++) {
-        setCurrentRecipientIndex(i);
-        const recipient = recipients[i];
-        const amount = parseUnits(recipient.amount, 6);
+      const recipientsAddrs = recipients.map((r) => r.address);
+      const amounts = recipients.map((r) => parseUnits(r.amount, 6));
 
-        // Call transfer
-        await writeContract({
-          address: USDC_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [recipient.address, amount],
-        });
-
-        // Wait a bit between transactions
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
+      await writeContract({
+        address: BATCH_PAYMENTS_ADDRESS,
+        abi: BATCH_PAYMENTS_ABI,
+        functionName: "batchTransferFrom",
+        args: [USDC_ADDRESS, recipientsAddrs, amounts],
+      });
 
       // Save to history
       savePaymentHistory({
@@ -239,13 +341,11 @@ export default function BatchPayment() {
 
       setShowSuccess(true);
       setSuccessTxHash(txHash || "");
-      
-      // Clear form after success
+
       setTimeout(() => {
         handleClearAll();
         setShowSuccess(false);
       }, 5000);
-
     } catch (err: any) {
       setErrors([`Payment failed: ${err.message}`]);
     } finally {
@@ -485,16 +585,32 @@ export default function BatchPayment() {
             </div>
           </div>
 
+          {((allowance as bigint | undefined) ?? 0n) < summary.totalAmount && (
+            <button
+              onClick={handleApprove}
+              disabled={isPending || isConfirming || summary.errors.length > 0}
+              className="w-full py-3 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPending || isConfirming ? "Confirming..." : "1) Approve USDC"}
+            </button>
+          )}
+
           <button
             onClick={handleExecutePayment}
-            disabled={isProcessing || isPending || isConfirming || summary.errors.length > 0}
+            disabled={
+              isProcessing ||
+              isPending ||
+              isConfirming ||
+              summary.errors.length > 0 ||
+              ((allowance as bigint | undefined) ?? 0n) < summary.totalAmount
+            }
             className="w-full py-4 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium text-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isProcessing
-              ? `Processing ${currentRecipientIndex + 1}/${recipients.length}...`
+              ? "Processing..."
               : isPending || isConfirming
               ? "Confirming..."
-              : "🚀 Execute Batch Payment"}
+              : "2) Execute Batch Payment (1 tx)"}
           </button>
         </div>
       )}
@@ -502,9 +618,8 @@ export default function BatchPayment() {
       {/* Info */}
       <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
         <p className="text-sm text-blue-300">
-          ℹ️ <strong>How it works:</strong> Each recipient will receive a separate transfer 
-          transaction. For large batches, this may take a few minutes. All payments are 
-          executed on-chain and cannot be reversed.
+          ℹ️ <strong>How it works:</strong> You approve USDC once, then execute a single
+          on-chain transaction that pays all recipients via the BatchPayments contract.
         </p>
       </div>
     </div>

@@ -19,7 +19,7 @@ export default function PaymentsTab() {
       description: "Pay multiple recipients instantly",
       features: ["CSV upload", "Multi-send", "Templates", "Instant settlement"],
       status: "Ready",
-      phase: "Phase 1",
+      
     },
     {
       id: "recurring" as const,
@@ -27,7 +27,7 @@ export default function PaymentsTab() {
       description: "Automated scheduled payments",
       features: ["Set & forget", "Weekly/Monthly", "Auto-execute", "Predictable"],
       status: "Beta",
-      phase: "Phase 2",
+      
     },
     {
       id: "streaming" as const,
@@ -35,7 +35,7 @@ export default function PaymentsTab() {
       description: "Salary flows every second",
       features: ["Per-second pay", "Instant claim", "Token vesting", "Escrow"],
       status: "Demo",
-      phase: "Phase 3",
+      
     },
   ];
 

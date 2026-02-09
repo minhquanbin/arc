@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useAccount,
   useBalance,
@@ -92,7 +92,7 @@ export default function BatchPayment() {
     token: USDC_ADDRESS,
   });
 
-  const { data: allowance } = useReadContract({
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_ABI,
     functionName: "allowance",
@@ -113,6 +113,16 @@ export default function BatchPayment() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
   });
+
+  useEffect(() => {
+    if (!isConfirmed) return;
+    refetchAllowance();
+  }, [isConfirmed, refetchAllowance]);
+
+  useEffect(() => {
+    if (!isConfirmed) return;
+    refetchAllowance();
+  }, [isConfirmed, refetchAllowance]);
 
   // ==========================================
   // CSV HANDLERS

@@ -325,7 +325,11 @@ export default function RecurringPayment() {
         
         {scheduledPayments.length === 0 ? (
           <div className="p-12 bg-white/5 border border-white/10 rounded-lg text-center">
-            <p className="text-4xl mb-4">📅</p>
+            <img
+              src="/chain-icons/browser.svg"
+              alt="Browser"
+              className="h-12 w-12 mx-auto mb-4 opacity-80"
+            />
             <p className="text-gray-400">No scheduled payments yet</p>
             <p className="text-sm text-gray-500 mt-2">
               Create your first automated payroll above
@@ -384,14 +388,6 @@ export default function RecurringPayment() {
         )}
       </div>
 
-      {/* Info Banner */}
-      <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-        <p className="text-sm text-yellow-300">
-          ⚠️ <strong>Note:</strong> Scheduled payments are currently stored locally and 
-          require manual execution. In production, this would be automated via backend 
-          service or smart contract automation (e.g., Chainlink Automation).
-        </p>
-      </div>
     </div>
   );
 }

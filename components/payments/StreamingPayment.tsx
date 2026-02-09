@@ -258,9 +258,9 @@ export default function StreamingPayment() {
                   <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
                     <p className="text-xs text-gray-400 mb-2">💧 Streaming Rate</p>
                     <div className="flex items-center justify-between text-sm">
-                      <span>${(Number(stream.ratePerSecond) / 1e6).toFixed(6)}/sec</span>
-                      <span>${((Number(stream.ratePerSecond) * 3600) / 1e6).toFixed(2)}/hour</span>
-                      <span>${((Number(stream.ratePerSecond) * 86400) / 1e6).toFixed(2)}/day</span>
+                      <span>{(Number(stream.ratePerSecond) / 1e6).toFixed(6)} USDC/sec</span>
+                      <span>{((Number(stream.ratePerSecond) * 3600) / 1e6).toFixed(2)} USDC/hour</span>
+                      <span>{((Number(stream.ratePerSecond) * 86400) / 1e6).toFixed(2)} USDC/day</span>
                     </div>
                   </div>
 
@@ -279,33 +279,6 @@ export default function StreamingPayment() {
             })}
           </div>
         )}
-      </div>
-
-      {/* Info Section */}
-      <div className="space-y-4">
-        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-          <p className="text-sm text-blue-300">
-            ℹ️ <strong>How Streaming Works:</strong> Money flows from sender to recipient 
-            every second based on the rate. Recipients can claim their earned amount at any time. 
-            This enables real-time salaries, vesting schedules, and subscription payments.
-          </p>
-        </div>
-
-        <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg">
-          <p className="text-sm text-purple-300">
-            💡 <strong>Use Cases:</strong> Hourly workers get paid per second worked, token 
-            vesting with no cliff, subscription services with auto-renewal, escrow with 
-            time-based release, and more.
-          </p>
-        </div>
-
-        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-          <p className="text-sm text-yellow-300">
-            ⚠️ <strong>Note:</strong> Streaming requires a deployed smart contract 
-            (similar to Sablier or Superfluid). This UI is functional, but contract 
-            deployment is needed for production use.
-          </p>
-        </div>
       </div>
     </div>
   );

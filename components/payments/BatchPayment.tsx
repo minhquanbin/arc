@@ -613,7 +613,7 @@ export default function BatchPayment() {
               : isPending || isConfirming
               ? "Confirming..."
               : "2) Execute Batch Payment (1 tx)"}
-          </button>on>
+          </button>
         </div>
       )}
 

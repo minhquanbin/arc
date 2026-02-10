@@ -39,3 +39,10 @@ body {
   -moz-appearance: none;
   appearance: none;
 }
+
+/* Normalize "card" framing across tabs (Bridge/Issuance/Payments) */
+.payments-scope .arc-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+}

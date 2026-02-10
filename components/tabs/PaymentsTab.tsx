@@ -63,7 +63,7 @@ export default function PaymentsTab() {
                 ${
                   mode === m.id
                     ? "border-[#ff7582]/60 bg-gradient-to-br from-[#ff7582]/20 to-[#725a7a]/20"
-                    : "border-white/10 bg-[#d9d9d9] hover:border-[#ff7582]/30"
+                    : "border-white/10 bg-white/5 hover:border-[#ff7582]/30"
                 }
               `}
             >
@@ -78,12 +78,12 @@ export default function PaymentsTab() {
               </div>
               
               <h3 className="text-lg font-bold mb-1">{m.title}</h3>
-              <p className="text-sm text-gray-400 mb-3">{m.description}</p>
+              <p className="text-sm text-gray-300 mb-3">{m.description}</p>
               
               {/* Features */}
               <div className="space-y-1">
                 {m.features.map((feature, i) => (
-                  <p key={i} className="text-xs text-gray-500">
+                  <p key={i} className="text-xs text-gray-400">
                     {feature}
                   </p>
                 ))}

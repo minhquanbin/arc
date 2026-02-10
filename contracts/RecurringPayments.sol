@@ -8,6 +8,14 @@ interface IERC20 {
 }
 
 contract RecurringPayments {
+  /// @dev If your token doesn't return a boolean on transferFrom, set this to true.
+  /// ARC USDC is expected to be standard ERC20 (returns bool), so default false.
+  bool public immutable permissiveToken;
+
+  constructor(bool permissiveToken_) {
+    permissiveToken = permissiveToken_;
+  }
+
   struct Schedule {
     address payer;
     address token;
@@ -102,7 +110,15 @@ contract RecurringPayments {
     IERC20 t = IERC20(s.token);
     uint256 len = s.recipients.length;
     for (uint256 i = 0; i < len; i++) {
-      require(t.transferFrom(s.payer, s.recipients[i], s.amounts[i]), "TRANSFER_FROM_FAILED");
+      if (permissiveToken) {
+        // Some ERC20s don't return a value; a low-level call avoids abi decoding issues.
+        (bool ok, bytes memory data) = address(t).call(
+          abi.encodeWithSelector(IERC20.transferFrom.selector, s.payer, s.recipients[i], s.amounts[i])
+        );
+        require(ok && (data.length == 0 || abi.decode(data, (bool))), "TRANSFER_FROM_FAILED");
+      } else {
+        require(t.transferFrom(s.payer, s.recipients[i], s.amounts[i]), "TRANSFER_FROM_FAILED");
+      }
     }
 
     emit ScheduleExecuted(scheduleId, next);

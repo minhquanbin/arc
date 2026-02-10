@@ -29,6 +29,7 @@ contract RecurringPayments {
 
   uint256 public scheduleCount;
   mapping(uint256 => Schedule) private schedules;
+  mapping(address => uint256[]) private schedulesByRecipient;
 
   event ScheduleCreated(
     uint256 indexed scheduleId,
@@ -44,6 +45,17 @@ contract RecurringPayments {
   error NotActive();
   error TooEarly(uint64 nextRun);
   error BadParams();
+
+  function getSchedulesByRecipient(address recipient) external view returns (uint256[] memory scheduleIds) {
+    return schedulesByRecipient[recipient];
+  }
+
+  function _indexScheduleRecipients(uint256 scheduleId, address[] calldata recipients) private {
+    uint256 len = recipients.length;
+    for (uint256 i = 0; i < len; i++) {
+      schedulesByRecipient[recipients[i]].push(scheduleId);
+    }
+  }
 
   function getSchedule(uint256 scheduleId)
     external
@@ -89,6 +101,8 @@ contract RecurringPayments {
 
     s.recipients = recipients;
     s.amounts = amounts;
+
+    _indexScheduleRecipients(scheduleId, recipients);
 
     emit ScheduleCreated(scheduleId, msg.sender, token, name);
   }

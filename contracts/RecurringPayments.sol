@@ -19,6 +19,7 @@ contract RecurringPayments {
   struct Schedule {
     address payer;
     address token;
+    string name;
     uint64 intervalSeconds;
     uint64 nextRun;
     bool active;
@@ -29,7 +30,12 @@ contract RecurringPayments {
   uint256 public scheduleCount;
   mapping(uint256 => Schedule) private schedules;
 
-  event ScheduleCreated(uint256 indexed scheduleId, address indexed payer, address indexed token);
+  event ScheduleCreated(
+    uint256 indexed scheduleId,
+    address indexed payer,
+    address indexed token,
+    string name
+  );
   event ScheduleExecuted(uint256 indexed scheduleId, uint64 nextRun);
   event ScheduleToggled(uint256 indexed scheduleId, bool active);
   event ScheduleDeleted(uint256 indexed scheduleId);
@@ -45,6 +51,7 @@ contract RecurringPayments {
     returns (
       address payer,
       address token,
+      string memory name,
       uint64 intervalSeconds,
       uint64 nextRun,
       bool active,
@@ -53,11 +60,12 @@ contract RecurringPayments {
     )
   {
     Schedule storage s = schedules[scheduleId];
-    return (s.payer, s.token, s.intervalSeconds, s.nextRun, s.active, s.recipients, s.amounts);
+    return (s.payer, s.token, s.name, s.intervalSeconds, s.nextRun, s.active, s.recipients, s.amounts);
   }
 
   function createSchedule(
     address token,
+    string calldata name,
     address[] calldata recipients,
     uint256[] calldata amounts,
     uint64 intervalSeconds,
@@ -74,6 +82,7 @@ contract RecurringPayments {
     Schedule storage s = schedules[scheduleId];
     s.payer = msg.sender;
     s.token = token;
+    s.name = name;
     s.intervalSeconds = intervalSeconds;
     s.nextRun = firstRun;
     s.active = true;
@@ -81,7 +90,7 @@ contract RecurringPayments {
     s.recipients = recipients;
     s.amounts = amounts;
 
-    emit ScheduleCreated(scheduleId, msg.sender, token);
+    emit ScheduleCreated(scheduleId, msg.sender, token, name);
   }
 
   function toggleActive(uint256 scheduleId, bool active) external {
@@ -102,6 +111,10 @@ contract RecurringPayments {
     Schedule storage s = schedules[scheduleId];
     if (!s.active) revert NotActive();
     if (block.timestamp < s.nextRun) revert TooEarly(s.nextRun);
+
+    // Optional: restrict who can execute. Keeping permissionless execution is better for automation.
+    // If you want only payer can execute, uncomment the next line.
+    // if (msg.sender != s.payer) revert NotPayer();
 
     // Effects first (avoid double execution within same block if token is weird)
     uint64 next = uint64(block.timestamp) + s.intervalSeconds;

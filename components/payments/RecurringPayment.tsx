@@ -7,7 +7,7 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
-import { parseUnits, type Address } from "viem";
+import { parseUnits, type Address, formatUnits } from "viem";
 import { type PaymentRecipient, formatAddress, formatUSDC } from "@/lib/payments";
 
 const ERC20_ABI = [
@@ -130,6 +130,17 @@ function intervalSecondsFromFrequency(freq: "daily" | "weekly" | "biweekly" | "m
   return 30 * 24 * 60 * 60; // simple month
 }
 
+function formatDuration(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return "0m";
+  const s = Math.floor(totalSeconds);
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
 export default function RecurringPayment() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
@@ -147,6 +158,7 @@ export default function RecurringPayment() {
   const [scheduledPayments, setScheduledPayments] = useState<OnchainSchedule[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [lastError, setLastError] = useState<string>("");
   const [nowSec, setNowSec] = useState<number>(Math.floor(Date.now() / 1000));
 
   // form
@@ -187,9 +199,25 @@ export default function RecurringPayment() {
     }
   }
 
+  function humanizeWagmiError(e: unknown): string {
+    const anyErr = e as any;
+    const msg =
+      anyErr?.shortMessage ||
+      anyErr?.details ||
+      anyErr?.message ||
+      "Transaction failed";
+    const lower = String(msg).toLowerCase();
+    if (lower.includes("tooearly")) return "TooEarly: schedule not due yet.";
+    if (lower.includes("insufficient")) return "Insufficient balance to pay recipients.";
+    if (lower.includes("allowance")) return "Allowance too low. Please approve USDC.";
+    if (lower.includes("user rejected") || lower.includes("rejected")) return "User rejected the request.";
+    return String(msg);
+  }
+
   async function loadSchedules() {
     if (!publicClient || !address || !isConfigured) return;
     setStatus("Loading schedules...");
+    setLastError("");
 
     const count = (await publicClient.readContract({
       address: RECURRING_PAYMENTS_ADDRESS,
@@ -245,11 +273,6 @@ export default function RecurringPayment() {
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    const t = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
-    return () => clearInterval(t);
-  }, []);
-
   function addRecipientPrompt() {
     const addr = prompt("Recipient address (0x...):") || "";
     if (!addr) return;
@@ -286,19 +309,40 @@ export default function RecurringPayment() {
 
   async function onApprove() {
     if (!isConfigured) return;
+    setLastError("");
     // approve max uint256
     const max = (1n << 256n) - 1n;
-    writeContract({
-      address: USDC_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: "approve",
-      args: [RECURRING_PAYMENTS_ADDRESS, max],
-    });
+    try {
+      writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [RECURRING_PAYMENTS_ADDRESS, max],
+      });
+    } catch (e) {
+      setLastError(humanizeWagmiError(e));
+    }
+  }
+
+  async function onApproveExact(amount: bigint) {
+    if (!isConfigured) return;
+    setLastError("");
+    try {
+      writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [RECURRING_PAYMENTS_ADDRESS, amount],
+      });
+    } catch (e) {
+      setLastError(humanizeWagmiError(e));
+    }
   }
 
   async function onCreateSchedule() {
     if (!publicClient || !address) return;
     if (!isConfigured) return;
+    setLastError("");
 
     if (!name || recipients.length === 0) {
       alert("Please enter a name and add recipients");
@@ -339,6 +383,7 @@ export default function RecurringPayment() {
   }
 
   function onToggleActive(scheduleId: bigint, active: boolean) {
+    setLastError("");
     writeContract({
       address: RECURRING_PAYMENTS_ADDRESS,
       abi: RECURRING_ABI,
@@ -349,6 +394,7 @@ export default function RecurringPayment() {
 
   function onDelete(scheduleId: bigint) {
     if (!confirm("Delete this schedule?")) return;
+    setLastError("");
     writeContract({
       address: RECURRING_PAYMENTS_ADDRESS,
       abi: RECURRING_ABI,
@@ -358,12 +404,17 @@ export default function RecurringPayment() {
   }
 
   function onExecute(scheduleId: bigint) {
-    writeContract({
-      address: RECURRING_PAYMENTS_ADDRESS,
-      abi: RECURRING_ABI,
-      functionName: "execute",
-      args: [scheduleId],
-    });
+    setLastError("");
+    try {
+      writeContract({
+        address: RECURRING_PAYMENTS_ADDRESS,
+        abi: RECURRING_ABI,
+        functionName: "execute",
+        args: [scheduleId],
+      });
+    } catch (e) {
+      setLastError(humanizeWagmiError(e));
+    }
   }
 
   const needsApproval = allowance === 0n;
@@ -393,6 +444,12 @@ export default function RecurringPayment() {
 
       {status && (
         <div className="text-sm text-gray-400">{status}</div>
+      )}
+
+      {lastError && (
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <p className="text-sm text-red-300">{lastError}</p>
+        </div>
       )}
 
       {showCreateForm && (
@@ -470,12 +527,25 @@ export default function RecurringPayment() {
               {isBusy ? "Confirming..." : needsApproval ? "Approve USDC" : "USDC Approved"}
             </button>
             <button
+              onClick={() => onApproveExact(totalPerRun)}
+              disabled={!isConfigured || isBusy || totalPerRun === 0n}
+              className="flex-1 py-3 bg-white/10 hover:bg-gray-200/20 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Approve exactly the total per run amount"
+            >
+              {isBusy ? "Confirming..." : `Approve exact (${formatUSDC(totalPerRun)} USDC)`}
+            </button>
+            <button
               onClick={onCreateSchedule}
               disabled={!isConfigured || isBusy || !name || recipients.length === 0}
               className="flex-1 py-3 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isBusy ? "Confirming..." : "Create"}
             </button>
+          </div>
+
+          <div className="text-xs text-gray-400">
+            Allowance (USDC): {Number(formatUnits(allowance, 6)).toLocaleString(undefined, { maximumFractionDigits: 6 })}
+            {" "}— {allowance > 0n ? "approved" : "not approved"}
           </div>
         </div>
       )}
@@ -516,6 +586,9 @@ export default function RecurringPayment() {
                       </div>
 
                       <div className="mt-2 space-y-1 text-sm text-gray-400">
+                        <p>Payer: <span className="font-mono">{formatAddress(s.payer)}</span></p>
+                        <p>Token: <span className="font-mono">{formatAddress(s.token)}</span></p>
+                        <p>Interval: {formatDuration(Number(s.intervalSeconds))}</p>
                         <p>Next run: {nextRunDate.toLocaleString()}</p>
                         <p>Recipients: {s.recipients.length}</p>
                         <p>Total per run: {formatUSDC(total)} USDC</p>
@@ -528,7 +601,7 @@ export default function RecurringPayment() {
                         disabled={!isConfigured || isBusy || !canExecute}
                         className="w-full py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {canExecute ? "Execute" : secondsLeft > 0 ? `Execute in ${secondsLeft}s` : "Execute"}
+                        {canExecute ? "Execute" : secondsLeft > 0 ? `Execute in ${formatDuration(secondsLeft)}` : "Execute"}
                       </button>
 
                       <div className="flex gap-2">

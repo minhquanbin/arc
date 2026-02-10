@@ -588,7 +588,7 @@ export default function IssuanceTab() {
                   />
                   <button
                     onClick={handleAutoGenerate}
-                    className="px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-sm font-medium rounded-lg hover:from-pink-600 hover:to-purple-700 transition-colors"
+                    className={gradientButtonClass(false, "px-4 py-3 text-sm")}
                   >
                     Random
                   </button>

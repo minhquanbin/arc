@@ -319,7 +319,8 @@ export default function RecurringPayment() {
     setNewRecipientLabel("");
   }
 
-  function removeRecipient(id: string) {
+  function removeRecipient(id?: string) {
+    if (!id) return;
     setRecipients((prev) => prev.filter((r) => r.id !== id));
   }
 

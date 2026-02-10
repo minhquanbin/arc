@@ -202,6 +202,11 @@ export default function RecurringPayment() {
   // form
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<"hourly" | "daily" | "weekly" | "biweekly" | "monthly">("monthly");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    // local YYYY-MM-DD
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [time, setTime] = useState("09:00");
   const [maxTotal, setMaxTotal] = useState("");
   const [recipients, setRecipients] = useState<PaymentRecipient[]>([]);
@@ -444,22 +449,17 @@ export default function RecurringPayment() {
     const now = new Date();
 
     const first = new Date();
-    if (frequency === "hourly") {
-      // "Hourly" uses the time picker as the anchor time-of-day for the first run.
-      // If that time has already passed today, schedule it for tomorrow.
-      const [hh, mm] = time.split(":").map(Number);
-      first.setHours(hh, mm, 0, 0);
-      if (first <= now) first.setDate(first.getDate() + 1);
-    } else {
-      const [hh, mm] = time.split(":").map(Number);
-      first.setHours(hh, mm, 0, 0);
+    // Anchor the very first run to the user-selected start date + time (local time).
+    // For all frequencies, subsequent runs are purely intervalSeconds-based on-chain.
+    const [yyyy, mmDate, dd] = startDate.split("-").map(Number);
+    const [hh, mmTime] = time.split(":").map(Number);
+    first.setFullYear(yyyy, (mmDate || 1) - 1, dd || 1);
+    first.setHours(hh || 0, mmTime || 0, 0, 0);
 
-      if (first <= now) {
-        if (frequency === "daily") first.setDate(first.getDate() + 1);
-        if (frequency === "weekly") first.setDate(first.getDate() + 7);
-        if (frequency === "biweekly") first.setDate(first.getDate() + 14);
-        if (frequency === "monthly") first.setDate(first.getDate() + 30);
-      }
+    // Prevent creating schedules in the past (contract also enforces this).
+    if (first <= now) {
+      // Minimum behavior: bump to the next whole minute to avoid accidental "past" due to clock skew.
+      first.setTime(now.getTime() + 60_000);
     }
 
     return BigInt(Math.floor(first.getTime() / 1000));
@@ -665,7 +665,20 @@ export default function RecurringPayment() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Time</label>
+            <label className="block text-sm font-medium mb-2">Start date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              The schedule will start at this date/time (local time), then run based on the interval.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Start time</label>
             <input
               type="time"
               value={time}

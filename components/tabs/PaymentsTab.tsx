@@ -52,7 +52,7 @@ export default function PaymentsTab() {
       </div>
 
       {/* Mode Selection */}
-      <div className="arc-card p-4 space-y-4">
+      <div className="arc-card p-4 space-y-4 border-2 border-white/20">
         <div className="grid md:grid-cols-3 gap-4">
           {modes.map((m) => (
             <button
@@ -63,7 +63,7 @@ export default function PaymentsTab() {
                 ${
                   mode === m.id
                     ? "border-[#ff7582]/60 bg-gradient-to-br from-[#ff7582]/20 to-[#725a7a]/20"
-                    : "border-white/10 bg-white/5 hover:border-[#ff7582]/30"
+                    : "border-white/20 bg-white/70 hover:border-[#ff7582]/40"
                 }
               `}
             >
@@ -77,13 +77,13 @@ export default function PaymentsTab() {
                 ) : null}
               </div>
               
-              <h3 className="text-lg font-bold mb-1">{m.title}</h3>
-              <p className="text-sm text-gray-300 mb-3">{m.description}</p>
+              <h3 className="text-lg font-bold mb-1 text-gray-900">{m.title}</h3>
+              <p className="text-sm text-gray-600 mb-3">{m.description}</p>
               
               {/* Features */}
               <div className="space-y-1">
                 {m.features.map((feature, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-gray-300">
+                  <div key={i} className="flex items-center gap-2 text-xs text-gray-600">
                     <img
                       src="/chain-icons/check.svg"
                       alt=""

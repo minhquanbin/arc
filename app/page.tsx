@@ -265,7 +265,22 @@ export default function Home() {
 
         {/* Footer */}
         <div className="mt-8 text-center">
-          <div className="text-xs text-gray-500">Powered by 1992evm</div>
+          <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+            <span>Powered by 1992evm</span>
+            <a
+              href="https://x.com/1992evm"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center"
+              aria-label="1992evm on X"
+              title="1992evm on X"
+            >
+              <img src="/chain-icons/logoX.svg" alt="X" className="h-4 w-4" />
+            </a>
+          </div>
+          <div className="mt-1 text-xs text-gray-500">
+            Donate: 0xA87Bd559fd6F2646225AcE941bA6648Ec1BAA9AF
+          </div>
           <div className="mt-1 text-[11px] text-gray-400">
             Chain logos are sourced from Chainlink Docs and Codex Docs.
           </div>

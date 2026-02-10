@@ -538,7 +538,7 @@ export default function RecurringPayment() {
       )}
 
       {showCreateForm && (
-        <div className="p-6 bg-white/5 border border-white/10 rounded-lg space-y-4">
+        <div className="p-6 bg-white/20 border border-white/10 rounded-lg space-y-4">
           <h3 className="text-lg font-medium">Create Schedule</h3>
 
           <div>
@@ -547,7 +547,7 @@ export default function RecurringPayment() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+              className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -556,7 +556,7 @@ export default function RecurringPayment() {
             <select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as any)}
-              className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
             >
               <option value="hourly">Hourly</option>
               <option value="daily">Daily</option>
@@ -572,7 +572,7 @@ export default function RecurringPayment() {
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
             />
           </div>
 
@@ -588,7 +588,7 @@ export default function RecurringPayment() {
                   placeholder="Recipient address (0x...)"
                   value={newRecipientAddress}
                   onChange={(e) => setNewRecipientAddress(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none font-mono text-sm placeholder:text-gray-500"
+                  className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none font-mono text-sm placeholder:text-gray-500"
                 />
               </div>
               <div className="md:col-span-3">
@@ -598,7 +598,7 @@ export default function RecurringPayment() {
                   placeholder="Amount (USDC)"
                   value={newRecipientAmount}
                   onChange={(e) => setNewRecipientAmount(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+                  className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
                 />
               </div>
               <div className="md:col-span-2">
@@ -607,7 +607,7 @@ export default function RecurringPayment() {
                   placeholder="Label (optional)"
                   value={newRecipientLabel}
                   onChange={(e) => setNewRecipientLabel(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+                  className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
                 />
               </div>
               <div className="md:col-span-1">

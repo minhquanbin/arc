@@ -18,7 +18,7 @@ export default function PaymentsTab() {
       title: "Batch Pay",
       description: "Pay multiple recipients instantly",
       features: ["CSV upload", "Multi-send", "Templates", "Instant settlement"],
-      status: "Ready",
+      status: "",
       
     },
     {
@@ -26,7 +26,7 @@ export default function PaymentsTab() {
       title: "Recurring Pay",
       description: "Automated scheduled payments",
       features: ["Set & forget", "Weekly/Monthly", "Auto-execute", "Predictable"],
-      status: "Beta",
+      status: "",
       
     },
     {
@@ -34,7 +34,7 @@ export default function PaymentsTab() {
       title: "Stream Pay",
       description: "Salary flows every second",
       features: ["Per-second pay", "Instant claim", "Token vesting", "Escrow"],
-      status: "Demo",
+      status: "",
       
     },
   ];
@@ -70,9 +70,11 @@ export default function PaymentsTab() {
               {/* Logo & Status */}
               <div className="flex items-start justify-between mb-3">
                 <img src={USDC_LOGO_SRC} alt="USDC" className="h-10 w-10" />
-                <span className="text-xs px-2 py-1 bg-white/10 rounded-full">
-                  {m.status}
-                </span>
+                {m.status ? (
+                  <span className="text-xs px-2 py-1 bg-white/10 rounded-full">
+                    {m.status}
+                  </span>
+                ) : null}
               </div>
               
               <h3 className="text-lg font-bold mb-1">{m.title}</h3>

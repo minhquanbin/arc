@@ -112,7 +112,7 @@ export default function StreamingPayment() {
               placeholder="0x..."
               value={recipientAddress}
               onChange={(e) => setRecipientAddress(e.target.value)}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
             />
           </div>
 
@@ -125,7 +125,7 @@ export default function StreamingPayment() {
               step="0.01"
               value={salaryAmount}
               onChange={(e) => setSalaryAmount(e.target.value)}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
             />
           </div>
 
@@ -135,7 +135,7 @@ export default function StreamingPayment() {
             <select
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
             >
               <option value={STREAMING_DURATIONS.DAILY}>1 Day</option>
               <option value={STREAMING_DURATIONS.WEEKLY}>1 Week</option>
@@ -272,7 +272,7 @@ export default function StreamingPayment() {
                   >
                     {claimable === 0n
                       ? "Nothing to Claim Yet"
-                      : `💰 Claim ${formatUSDC(claimable)} USDC`}
+                      : `Claim ${formatUSDC(claimable)} USDC`}
                   </button>
                 </div>
               );

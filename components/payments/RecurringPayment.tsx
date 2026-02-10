@@ -569,14 +569,29 @@ export default function RecurringPayment() {
 
   function onExecute(scheduleId: bigint) {
     setLastError("");
-    // Guard: if allowance is not enough, instruct user to approve first.
+    // Guard: allowance check only applies when the viewer is the payer.
+    // Recipients can still call execute() (to trigger payment) but they cannot (and should not) approve allowance.
     const sched = scheduledPayments.find((s) => s.id === scheduleId);
     const required = sched ? sched.amounts.reduce((acc, x) => acc + x, 0n) : 0n;
+    const viewerIsPayer =
+      !!address && !!sched && address.toLowerCase() === (sched.payer as string).toLowerCase();
+
+    if (!viewerIsPayer) {
+      writeContract({
+        address: RECURRING_PAYMENTS_ADDRESS,
+        abi: RECURRING_ABI,
+        functionName: "execute",
+        args: [scheduleId],
+      });
+      return;
+    }
 
     ensureAllowanceAtLeast(required)
       .then((ok) => {
         if (!ok) {
-          setLastError("ERC20: transfer amount exceeds allowance. Please approve USDC for at least the schedule total per run, then execute again.");
+          setLastError(
+            "ERC20: transfer amount exceeds allowance. Please approve USDC for at least the schedule total per run, then execute again."
+          );
           return;
         }
         writeContract({

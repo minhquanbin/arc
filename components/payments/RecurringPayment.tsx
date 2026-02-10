@@ -752,7 +752,7 @@ export default function RecurringPayment() {
               const secondsLeft = Math.max(0, Number(s.nextRun) - nowSec);
               const hasSufficientAllowanceForSchedule = allowance >= total;
               const isPayer =
-                Boolean(address) &&
+                !!address &&
                 address.toLowerCase() === (s.payer as string).toLowerCase();
               return (
                 <div

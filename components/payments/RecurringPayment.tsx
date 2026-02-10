@@ -609,7 +609,7 @@ export default function RecurringPayment() {
               className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Tổng tối đa sẽ trả cho tất cả recipients. Khi trả đủ, schedule sẽ tự dừng.
+              The maximum total amount to pay across all recipients. Once fully paid, the schedule will auto-stop.
             </p>
           </div>
 

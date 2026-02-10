@@ -63,7 +63,7 @@ export default function PaymentsTab() {
                 ${
                   mode === m.id
                     ? "border-[#ff7582]/60 bg-gradient-to-br from-[#ff7582]/20 to-[#725a7a]/20"
-                    : "border-white/10 bg-white/5 hover:border-[#ff7582]/30 hover:bg-gradient-to-br hover:from-[#ff7582]/10 hover:to-[#725a7a]/10"
+                    : "border-white/10 bg-[#d9d9d9] hover:border-[#ff7582]/30"
                 }
               `}
             >

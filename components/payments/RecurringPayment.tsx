@@ -547,7 +547,7 @@ export default function RecurringPayment() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -556,7 +556,7 @@ export default function RecurringPayment() {
             <select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as any)}
-              className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
             >
               <option value="hourly">Hourly</option>
               <option value="daily">Daily</option>
@@ -572,7 +572,7 @@ export default function RecurringPayment() {
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
             />
           </div>
 
@@ -581,14 +581,14 @@ export default function RecurringPayment() {
               <label className="text-sm font-medium">Recipients</label>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 mb-3">
-              <div className="md:col-span-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 mb-3 items-stretch">
+              <div className="md:col-span-5">
                 <input
                   type="text"
                   placeholder="Recipient address (0x...)"
                   value={newRecipientAddress}
                   onChange={(e) => setNewRecipientAddress(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none font-mono text-sm placeholder:text-gray-500"
+                  className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none font-mono text-sm placeholder:text-gray-500"
                 />
               </div>
               <div className="md:col-span-3">
@@ -598,16 +598,16 @@ export default function RecurringPayment() {
                   placeholder="Amount (USDC)"
                   value={newRecipientAmount}
                   onChange={(e) => setNewRecipientAmount(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+                  className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
                 />
               </div>
-              <div className="md:col-span-2">
+              <div className="md:col-span-3">
                 <input
                   type="text"
                   placeholder="Label (optional)"
                   value={newRecipientLabel}
                   onChange={(e) => setNewRecipientLabel(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/20 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+                  className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
                 />
               </div>
               <div className="md:col-span-1">
@@ -615,7 +615,7 @@ export default function RecurringPayment() {
                   type="button"
                   onClick={addRecipientInline}
                   disabled={!newRecipientAddress.trim() || !newRecipientAmount.trim() || isBusy}
-                  className="w-full h-full px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full h-full px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px]"
                 >
                   Add
                 </button>

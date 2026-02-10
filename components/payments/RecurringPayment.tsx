@@ -291,7 +291,18 @@ export default function RecurringPayment() {
     const ids = Array.from(new Set([...recipientIds, ...payerIds].map((x) => x.toString()))).map(BigInt);
 
     for (const i of ids) {
-      const [payer, token, schedName, intervalSeconds, nextRun, active, recs, amts] =
+      const [
+        payer,
+        token,
+        schedName,
+        intervalSeconds,
+        nextRun,
+        active,
+        recs,
+        amts,
+        maxTotalOnchain,
+        totalPaidOnchain,
+      ] =
         (await publicClient.readContract({
           address: RECURRING_PAYMENTS_ADDRESS,
           abi: RECURRING_ABI,
@@ -320,8 +331,8 @@ export default function RecurringPayment() {
         active,
         recipients: recs,
         amounts: amts,
-        maxTotal,
-        totalPaid,
+        maxTotal: maxTotalOnchain,
+        totalPaid: totalPaidOnchain,
       });
     }
 

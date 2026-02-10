@@ -187,14 +187,14 @@ export default function RecurringPayment() {
     }
   }, [recipients]);
 
+  const [allowance, setAllowance] = useState<bigint>(0n);
+
   const hasSufficientAllowance = useMemo(() => {
     // For creating/executing schedules, allowance must cover at least the total amount per run.
     // If totalPerRun is 0, consider it "sufficient" so the UI doesn't block approval unnecessarily.
     if (totalPerRun === 0n) return true;
     return allowance >= totalPerRun;
   }, [allowance, totalPerRun]);
-
-  const [allowance, setAllowance] = useState<bigint>(0n);
 
   async function refreshAllowance() {
     if (!publicClient || !address || !isConfigured) return;

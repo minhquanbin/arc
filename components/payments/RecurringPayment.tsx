@@ -126,6 +126,7 @@ function getLocalScheduleName(id: bigint): string {
 }
 
 function intervalSecondsFromFrequency(freq: "daily" | "weekly" | "biweekly" | "monthly"): number {
+  if (freq === "hourly") return 60 * 60;
   if (freq === "daily") return 24 * 60 * 60;
   if (freq === "weekly") return 7 * 24 * 60 * 60;
   if (freq === "biweekly") return 14 * 24 * 60 * 60;
@@ -165,7 +166,7 @@ export default function RecurringPayment() {
 
   // form
   const [name, setName] = useState("");
-  const [frequency, setFrequency] = useState<"daily" | "weekly" | "biweekly" | "monthly">("monthly");
+  const [frequency, setFrequency] = useState<"hourly" | "daily" | "weekly" | "biweekly" | "monthly">("monthly");
   const [time, setTime] = useState("09:00");
   const [recipients, setRecipients] = useState<PaymentRecipient[]>([]);
   const [newRecipientAddress, setNewRecipientAddress] = useState("");
@@ -332,6 +333,7 @@ export default function RecurringPayment() {
     first.setHours(hh, mm, 0, 0);
 
     if (first <= now) {
+      if (frequency === "hourly") first.setHours(first.getHours() + 1);
       if (frequency === "daily") first.setDate(first.getDate() + 1);
       if (frequency === "weekly") first.setDate(first.getDate() + 7);
       if (frequency === "biweekly") first.setDate(first.getDate() + 14);
@@ -488,7 +490,7 @@ export default function RecurringPayment() {
 
       {showCreateForm && (
         <div className="p-6 bg-white/5 border border-white/10 rounded-lg space-y-4">
-          <h3 className="text-lg font-medium">Create Schedule (On-chain)</h3>
+          <h3 className="text-lg font-medium">Create Schedule</h3>
 
           <div>
             <label className="block text-sm font-medium mb-2">Schedule Name</label>
@@ -496,7 +498,7 @@ export default function RecurringPayment() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -505,8 +507,9 @@ export default function RecurringPayment() {
             <select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as any)}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
             >
+              <option value="hourly">Hourly</option>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Bi-weekly</option>
@@ -520,7 +523,7 @@ export default function RecurringPayment() {
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
             />
           </div>
 
@@ -536,7 +539,7 @@ export default function RecurringPayment() {
                   placeholder="Recipient address (0x...)"
                   value={newRecipientAddress}
                   onChange={(e) => setNewRecipientAddress(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none font-mono text-sm"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none font-mono text-sm placeholder:text-gray-500"
                 />
               </div>
               <div className="md:col-span-3">
@@ -546,7 +549,7 @@ export default function RecurringPayment() {
                   placeholder="Amount (USDC)"
                   value={newRecipientAmount}
                   onChange={(e) => setNewRecipientAmount(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
                 />
               </div>
               <div className="md:col-span-2">
@@ -555,7 +558,7 @@ export default function RecurringPayment() {
                   placeholder="Label (optional)"
                   value={newRecipientLabel}
                   onChange={(e) => setNewRecipientLabel(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
                 />
               </div>
               <div className="md:col-span-1">
@@ -603,19 +606,12 @@ export default function RecurringPayment() {
 
           <div className="flex gap-2">
             <button
-              onClick={onApprove}
-              disabled={!isConfigured || isBusy}
-              className="flex-1 py-3 bg-white/10 hover:bg-gray-200/20 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isBusy ? "Confirming..." : needsApproval ? "Approve USDC" : "USDC Approved"}
-            </button>
-            <button
               onClick={() => onApproveExact(totalPerRun)}
               disabled={!isConfigured || isBusy || totalPerRun === 0n}
               className="flex-1 py-3 bg-white/10 hover:bg-gray-200/20 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Approve exactly the total per run amount"
             >
-              {isBusy ? "Confirming..." : `Approve exact (${formatUSDC(totalPerRun)} USDC)`}
+              {isBusy ? "Confirming..." : `Approve (${formatUSDC(totalPerRun)} USDC)`}
             </button>
             <button
               onClick={onCreateSchedule}
@@ -624,11 +620,6 @@ export default function RecurringPayment() {
             >
               {isBusy ? "Confirming..." : "Create"}
             </button>
-          </div>
-
-          <div className="text-xs text-gray-400">
-            Allowance (USDC): {Number(formatUnits(allowance, 6)).toLocaleString(undefined, { maximumFractionDigits: 6 })}
-            {" "}— {allowance > 0n ? "approved" : "not approved"}
           </div>
         </div>
       )}

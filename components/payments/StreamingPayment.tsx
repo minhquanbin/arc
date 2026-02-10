@@ -1,30 +1,87 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAccount } from "wagmi";
-import { type Address } from "viem";
+import { useEffect, useMemo, useState } from "react";
+import { useAccount, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { parseUnits, type Address } from "viem";
 import {
   type ActiveStream,
+  STREAMING_ABI,
+  STREAMING_DURATIONS,
   calculateClaimable,
   calculateStreamProgress,
   formatTimeRemaining,
   salaryToStream,
-  generateDemoStream,
-  STREAMING_DURATIONS,
 } from "@/lib/streaming";
-import { formatUSDC, formatAddress } from "@/lib/payments";
+import { formatAddress, formatUSDC } from "@/lib/payments";
+
+const ERC20_ABI = [
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
+const STREAM_COUNT_ABI = [
+  {
+    type: "function",
+    name: "streamCount",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
+function safeJsonParse<T>(raw: string, fallback: T): T {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
 
 export default function StreamingPayment() {
   const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  const isBusy = isPending || isConfirming;
+
   const [streams, setStreams] = useState<ActiveStream[]>([]);
   const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
   const [showCreateForm, setShowCreateForm] = useState(false);
-  
+  const [status, setStatus] = useState<string>("");
+  const [lastError, setLastError] = useState<string>("");
+
   // Form state
   const [recipientAddress, setRecipientAddress] = useState("");
   const [salaryAmount, setSalaryAmount] = useState("");
   const [duration, setDuration] = useState<number>(STREAMING_DURATIONS.MONTHLY);
-  
+
+  const STREAMING_PAYMENTS_ADDRESS = (process.env.NEXT_PUBLIC_ARC_STREAMING_PAYMENTS ||
+    "0x0000000000000000000000000000000000000000") as Address;
+
+  const USDC_ADDRESS = ((process.env.NEXT_PUBLIC_ARC_USDC || process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
+    "0x3600000000000000000000000000000000000000") as Address;
+
+  const isConfigured =
+    STREAMING_PAYMENTS_ADDRESS !== ("0x0000000000000000000000000000000000000000" as Address);
+
+  const [pendingCreate, setPendingCreate] = useState<{
+    recipient: Address;
+    total: bigint;
+    start: bigint;
+    end: bigint;
+  } | null>(null);
+
   // Update time every second for real-time display
   useEffect(() => {
     const interval = setInterval(() => {
@@ -33,20 +90,9 @@ export default function StreamingPayment() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load demo stream on mount
-  useEffect(() => {
-    if (address && streams.length === 0) {
-      const demo = generateDemoStream(address);
-      setStreams([demo]);
-    }
-  }, [address]);
-
-  // Calculate stream info
   const calculateStreamInfo = () => {
     if (!salaryAmount) return null;
-    
     const { ratePerSecond, ratePerHour, ratePerDay } = salaryToStream(salaryAmount);
-    
     return {
       ratePerSecond,
       ratePerHour: parseFloat(ratePerHour).toFixed(2),
@@ -56,37 +102,181 @@ export default function StreamingPayment() {
     };
   };
 
-  // Handle create stream
-  const handleCreateStream = () => {
-    if (!recipientAddress || !salaryAmount) {
-      alert("Please fill in all fields");
-      return;
-    }
+  const streamInfo = calculateStreamInfo();
 
-    setShowCreateForm(false);
+  const myStreamIds = useMemo(() => {
+    const raw = localStorage.getItem("arc:streaming:myStreamIds") || "[]";
+    const ids = safeJsonParse<number[]>(raw, []).filter((x) => Number.isFinite(x) && x > 0);
+    return Array.from(new Set(ids));
+  }, [isConfirmed]);
+
+  async function refreshMyStreams() {
+    if (!publicClient || !address || !isConfigured) return;
+    try {
+      const next: ActiveStream[] = [];
+
+      for (const idNum of myStreamIds) {
+        const id = BigInt(idNum);
+        const s = (await publicClient.readContract({
+          address: STREAMING_PAYMENTS_ADDRESS,
+          abi: STREAMING_ABI,
+          functionName: "streams",
+          args: [id],
+        })) as [
+          Address,
+          Address,
+          Address,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          boolean,
+        ];
+
+        const sender = s[0];
+        const recipient = s[1];
+        const start = Number(s[3]);
+        const end = Number(s[4]);
+        const total = s[5];
+        const claimed = s[6];
+        const canceled = s[7];
+
+        const viewerLower = address.toLowerCase();
+        if (sender.toLowerCase() !== viewerLower && recipient.toLowerCase() !== viewerLower) continue;
+
+        const now = Math.floor(Date.now() / 1000);
+        const done = claimed >= total || now >= end;
+        const status: ActiveStream["status"] = canceled ? "cancelled" : done ? "completed" : "active";
+
+        const durationSec = Math.max(1, end - start);
+        const ratePerSecond = total / BigInt(durationSec);
+
+        next.push({
+          id: id.toString(),
+          recipient,
+          sender,
+          ratePerSecond,
+          startTime: start,
+          endTime: end,
+          totalAmount: total,
+          claimedAmount: claimed,
+          status,
+        });
+      }
+
+      setStreams(next);
+    } catch (e) {
+      console.warn("Failed to refresh streams", e);
+    }
+  }
+
+  useEffect(() => {
+    refreshMyStreams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, isConfigured, isConfirmed]);
+
+  // After approval confirms, create the stream.
+  useEffect(() => {
+    if (!pendingCreate) return;
+    if (!isConfirmed) return;
+    if (!isConfigured) return;
+
+    setStatus("Creating stream...");
+    writeContract({
+      address: STREAMING_PAYMENTS_ADDRESS,
+      abi: STREAMING_ABI,
+      functionName: "createStream",
+      args: [USDC_ADDRESS, pendingCreate.recipient, pendingCreate.total, pendingCreate.start, pendingCreate.end],
+    });
+    setPendingCreate(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfirmed]);
+
+  // After a tx confirms, persist streamCount as the new stream id (best-effort).
+  useEffect(() => {
+    if (!isConfirmed) return;
+    if (!publicClient || !address || !isConfigured) return;
+
+    (async () => {
+      try {
+        const count = (await publicClient.readContract({
+          address: STREAMING_PAYMENTS_ADDRESS,
+          abi: STREAM_COUNT_ABI,
+          functionName: "streamCount",
+        })) as bigint;
+        const idNum = Number(count);
+        if (!Number.isFinite(idNum) || idNum <= 0) return;
+
+        const raw = localStorage.getItem("arc:streaming:myStreamIds") || "[]";
+        const ids = new Set<number>(safeJsonParse<number[]>(raw, []).filter((x) => Number.isFinite(x) && x > 0));
+        ids.add(idNum);
+        localStorage.setItem("arc:streaming:myStreamIds", JSON.stringify(Array.from(ids)));
+
+        setStatus(`Stream updated (latest ID ${idNum}).`);
+        refreshMyStreams();
+      } catch (e) {
+        console.warn("Failed to persist stream id", e);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfirmed, isConfigured, address]);
+
+  const handleCreateStream = () => {
+    try {
+      setLastError("");
+      setStatus("");
+
+      if (!address) throw new Error("Please connect your wallet first");
+      if (!isConfigured) throw new Error("StreamingPayments contract not configured (NEXT_PUBLIC_ARC_STREAMING_PAYMENTS).");
+      if (!recipientAddress || !salaryAmount) throw new Error("Please fill in all fields");
+      if (!recipientAddress.startsWith("0x") || recipientAddress.length !== 42) {
+        throw new Error("Recipient address must be a valid 0x address (42 chars).");
+      }
+
+      const recipient = recipientAddress as Address;
+      const total = parseUnits(salaryAmount, 6);
+      const now = Math.floor(Date.now() / 1000);
+      const start = BigInt(now + 60); // avoid BadParams(start < now)
+      const end = BigInt(now + 60 + duration);
+
+      setPendingCreate({ recipient, total, start, end });
+      setStatus("Approving USDC...");
+      writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [STREAMING_PAYMENTS_ADDRESS, total],
+      });
+
+      setShowCreateForm(false);
+      setStatus("Approval submitted. Waiting for confirmation...");
+    } catch (e: any) {
+      setLastError(e?.message || "Failed to create stream");
+    }
   };
 
-  // Handle claim
   const handleClaim = (streamId: string) => {
     const stream = streams.find((s) => s.id === streamId);
     if (!stream) return;
 
     const claimable = calculateClaimable(stream, currentTime);
-    
     if (claimable === 0n) {
-      alert("Nothing to claim yet");
+      setStatus("Nothing to claim yet.");
       return;
     }
 
-    alert(`Claiming ${formatUSDC(claimable)} USDC...`);
+    setLastError("");
+    setStatus(`Claiming ${formatUSDC(claimable)} USDC...`);
+    writeContract({
+      address: STREAMING_PAYMENTS_ADDRESS,
+      abi: STREAMING_ABI,
+      functionName: "claim",
+      args: [BigInt(streamId)],
+    });
   };
-
-  // Stream info display
-  const streamInfo = calculateStreamInfo();
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Streaming Payments</h2>
@@ -99,12 +289,17 @@ export default function StreamingPayment() {
         </button>
       </div>
 
-      {/* Create Form */}
+      {status && <div className="text-sm text-gray-500">{status}</div>}
+      {lastError && (
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <p className="text-sm text-red-700">{lastError}</p>
+        </div>
+      )}
+
       {showCreateForm && (
         <div className="arc-card-light p-6 space-y-4">
           <h3 className="text-lg font-medium">Create Payment Stream</h3>
-          
-          {/* Recipient */}
+
           <div>
             <label className="block text-sm font-medium mb-2">Recipient Address</label>
             <input
@@ -116,7 +311,6 @@ export default function StreamingPayment() {
             />
           </div>
 
-          {/* Amount */}
           <div>
             <label className="block text-sm font-medium mb-2">Total Amount (USDC)</label>
             <input
@@ -129,7 +323,6 @@ export default function StreamingPayment() {
             />
           </div>
 
-          {/* Duration */}
           <div>
             <label className="block text-sm font-medium mb-2">Duration</label>
             <select
@@ -145,10 +338,9 @@ export default function StreamingPayment() {
             </select>
           </div>
 
-          {/* Stream Preview */}
           {streamInfo && (
             <div className="p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/20">
-              <p className="text-sm font-medium mb-2">💧 Stream Preview</p>
+              <p className="text-sm font-medium mb-2">Stream Preview</p>
               <div className="space-y-1 text-sm">
                 <p className="flex justify-between">
                   <span className="text-gray-400">Per second:</span>
@@ -172,25 +364,20 @@ export default function StreamingPayment() {
 
           <button
             onClick={handleCreateStream}
-            disabled={!recipientAddress || !salaryAmount}
+            disabled={!recipientAddress || !salaryAmount || isBusy}
             className="w-full py-3 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create Stream
+            {isBusy ? "Confirming..." : "Approve & Create"}
           </button>
         </div>
       )}
 
-      {/* Active Streams */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Active Streams</h3>
-        
+
         {streams.length === 0 ? (
           <div className="arc-card p-12 text-center">
-            <p className="text-4xl mb-4">💧</p>
-            <p className="text-gray-400">No active streams</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Create your first streaming payment above
-            </p>
+            <p className="text-gray-500">No streams found (create one to see it here).</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -198,30 +385,32 @@ export default function StreamingPayment() {
               const claimable = calculateClaimable(stream, currentTime);
               const progress = calculateStreamProgress(stream);
               const remaining = stream.endTime ? formatTimeRemaining(stream.endTime) : "Ongoing";
-              
+              const isRecipient =
+                !!address && stream.recipient.toLowerCase() === address.toLowerCase();
+
               return (
-                <div
-                  key={stream.id}
-                  className="arc-card p-6 bg-gradient-to-br from-[#ff7582]/10 to-[#725a7a]/10"
-                >
-                  {/* Header */}
+                <div key={stream.id} className="arc-card p-6 bg-gradient-to-br from-[#ff7582]/10 to-[#725a7a]/10">
                   <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="text-sm text-gray-400 mb-1">Streaming to</p>
-                      <p className="font-mono text-lg">{formatAddress(stream.recipient)}</p>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">
+                        Sender: <span className="font-mono">{formatAddress(stream.sender)}</span>
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Recipient: <span className="font-mono">{formatAddress(stream.recipient)}</span>
+                      </p>
+                      <p className="text-sm font-medium">Stream #{stream.id}</p>
                     </div>
-                    <span className="px-3 py-1 bg-green-500/20 text-green-400 text-sm rounded-full">
-                      ● {stream.status}
+                    <span className="px-3 py-1 bg-white/60 text-gray-700 text-sm rounded-full">
+                      {stream.status}
                     </span>
                   </div>
 
-                  {/* Progress Bar */}
                   <div className="mb-4">
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-400">Progress</span>
+                      <span className="text-gray-500">Progress</span>
                       <span className="font-medium">{progress.toFixed(1)}%</span>
                     </div>
-                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-2 bg-black/10 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-[#ff7582] to-[#725a7a] transition-all duration-1000"
                         style={{ width: `${Math.min(progress, 100)}%` }}
@@ -229,50 +418,32 @@ export default function StreamingPayment() {
                     </div>
                   </div>
 
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="p-3 bg-white/5 rounded-lg">
-                      <p className="text-xs text-gray-400 mb-1">Total Amount</p>
-                      <p className="text-lg font-bold">{formatUSDC(stream.totalAmount)} USDC</p>
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                    <div className="p-3 bg-white/60 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">Total Amount</p>
+                      <p className="font-semibold">{formatUSDC(stream.totalAmount)} USDC</p>
                     </div>
-                    
-                    <div className="p-3 bg-white/5 rounded-lg">
-                      <p className="text-xs text-gray-400 mb-1">Claimed</p>
-                      <p className="text-lg font-bold">{formatUSDC(stream.claimedAmount)} USDC</p>
+                    <div className="p-3 bg-white/60 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">Claimed</p>
+                      <p className="font-semibold">{formatUSDC(stream.claimedAmount)} USDC</p>
                     </div>
-                    
-                    <div className="p-3 bg-white/5 rounded-lg">
-                      <p className="text-xs text-gray-400 mb-1">Available Now</p>
-                      <p className="text-lg font-bold text-green-400">
-                        {formatUSDC(claimable)} USDC
-                      </p>
+                    <div className="p-3 bg-white/60 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">Available</p>
+                      <p className="font-semibold">{formatUSDC(claimable)} USDC</p>
                     </div>
-                    
-                    <div className="p-3 bg-white/5 rounded-lg">
-                      <p className="text-xs text-gray-400 mb-1">Time Remaining</p>
-                      <p className="text-lg font-bold">{remaining}</p>
+                    <div className="p-3 bg-white/60 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">Time Remaining</p>
+                      <p className="font-semibold">{remaining}</p>
                     </div>
                   </div>
 
-                  {/* Rate Display */}
-                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
-                    <p className="text-xs text-gray-400 mb-2">💧 Streaming Rate</p>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>{(Number(stream.ratePerSecond) / 1e6).toFixed(6)} USDC/sec</span>
-                      <span>{((Number(stream.ratePerSecond) * 3600) / 1e6).toFixed(2)} USDC/hour</span>
-                      <span>{((Number(stream.ratePerSecond) * 86400) / 1e6).toFixed(2)} USDC/day</span>
-                    </div>
-                  </div>
-
-                  {/* Action Button */}
                   <button
                     onClick={() => handleClaim(stream.id)}
-                    disabled={claimable === 0n}
+                    disabled={!isRecipient || isBusy || claimable === 0n}
                     className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!isRecipient ? "Only recipient can claim" : ""}
                   >
-                    {claimable === 0n
-                      ? "Nothing to Claim Yet"
-                      : `Claim ${formatUSDC(claimable)} USDC`}
+                    {claimable === 0n ? "Nothing to Claim" : `Claim ${formatUSDC(claimable)} USDC`}
                   </button>
                 </div>
               );

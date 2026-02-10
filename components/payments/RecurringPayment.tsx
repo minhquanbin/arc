@@ -329,17 +329,22 @@ export default function RecurringPayment() {
 
   function computeFirstRunUnix(): bigint {
     const now = new Date();
-    const [hh, mm] = time.split(":").map(Number);
 
     const first = new Date();
-    first.setHours(hh, mm, 0, 0);
+    if (frequency === "hourly") {
+      // "Hourly" ignores the time picker; schedule the next whole hour.
+      first.setMinutes(0, 0, 0);
+      first.setHours(first.getHours() + 1);
+    } else {
+      const [hh, mm] = time.split(":").map(Number);
+      first.setHours(hh, mm, 0, 0);
 
-    if (first <= now) {
-      if (frequency === "hourly") first.setHours(first.getHours() + 1);
-      if (frequency === "daily") first.setDate(first.getDate() + 1);
-      if (frequency === "weekly") first.setDate(first.getDate() + 7);
-      if (frequency === "biweekly") first.setDate(first.getDate() + 14);
-      if (frequency === "monthly") first.setDate(first.getDate() + 30);
+      if (first <= now) {
+        if (frequency === "daily") first.setDate(first.getDate() + 1);
+        if (frequency === "weekly") first.setDate(first.getDate() + 7);
+        if (frequency === "biweekly") first.setDate(first.getDate() + 14);
+        if (frequency === "monthly") first.setDate(first.getDate() + 30);
+      }
     }
 
     return BigInt(Math.floor(first.getTime() / 1000));

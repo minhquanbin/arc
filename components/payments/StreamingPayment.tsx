@@ -101,7 +101,7 @@ export default function StreamingPayment() {
 
       {/* Create Form */}
       {showCreateForm && (
-        <div className="p-6 bg-white/5 border border-white/10 rounded-lg space-y-4">
+        <div className="arc-card p-6 space-y-4">
           <h3 className="text-lg font-medium">Create Payment Stream</h3>
           
           {/* Recipient */}
@@ -112,7 +112,7 @@ export default function StreamingPayment() {
               placeholder="0x..."
               value={recipientAddress}
               onChange={(e) => setRecipientAddress(e.target.value)}
-              className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2"
             />
           </div>
 
@@ -125,7 +125,7 @@ export default function StreamingPayment() {
               step="0.01"
               value={salaryAmount}
               onChange={(e) => setSalaryAmount(e.target.value)}
-              className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2"
             />
           </div>
 
@@ -135,7 +135,7 @@ export default function StreamingPayment() {
             <select
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2"
             >
               <option value={STREAMING_DURATIONS.DAILY}>1 Day</option>
               <option value={STREAMING_DURATIONS.WEEKLY}>1 Week</option>
@@ -185,7 +185,7 @@ export default function StreamingPayment() {
         <h3 className="text-lg font-medium">Active Streams</h3>
         
         {streams.length === 0 ? (
-          <div className="p-12 bg-white/5 border border-white/10 rounded-lg text-center">
+          <div className="arc-card p-12 text-center">
             <p className="text-4xl mb-4">💧</p>
             <p className="text-gray-400">No active streams</p>
             <p className="text-sm text-gray-500 mt-2">
@@ -202,7 +202,7 @@ export default function StreamingPayment() {
               return (
                 <div
                   key={stream.id}
-                  className="p-6 bg-gradient-to-br from-[#ff7582]/10 to-[#725a7a]/10 border border-white/10 rounded-lg"
+                  className="arc-card p-6 bg-gradient-to-br from-[#ff7582]/10 to-[#725a7a]/10"
                 >
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">

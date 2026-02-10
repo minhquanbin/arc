@@ -24,13 +24,15 @@ body {
 .payments-scope input[type="time"],
 .payments-scope select,
 .payments-scope textarea {
-  background-color: #d9d9d9 !important;
-  color: #000 !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px !important;
 }
 
 .payments-scope input::placeholder,
 .payments-scope textarea::placeholder {
-  color: rgba(0, 0, 0, 0.45) !important;
+  color: rgba(255, 255, 255, 0.45) !important;
 }
 
 /* Make sure native select styling doesn't wash out the background */
@@ -38,6 +40,17 @@ body {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+}
+
+/* Make inputs feel consistent with Bridge/Issuance focus */
+.payments-scope input[type="text"]:focus,
+.payments-scope input[type="number"]:focus,
+.payments-scope input[type="time"]:focus,
+.payments-scope select:focus,
+.payments-scope textarea:focus {
+  outline: none !important;
+  border-color: rgba(255, 117, 130, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(255, 117, 130, 0.20) !important;
 }
 
 /* Normalize "card" framing across tabs (Bridge/Issuance/Payments) */

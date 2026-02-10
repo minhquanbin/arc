@@ -625,7 +625,7 @@ export default function RecurringPayment() {
       )}
 
       {showCreateForm && (
-        <div className="p-6 bg-white/20 border border-white/10 rounded-lg space-y-4">
+        <div className="arc-card p-6 space-y-4">
           <h3 className="text-lg font-medium">Create Schedule</h3>
 
           <div>
@@ -634,7 +634,7 @@ export default function RecurringPayment() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+              className="w-full px-4 py-2"
             />
           </div>
 
@@ -646,7 +646,7 @@ export default function RecurringPayment() {
               placeholder="100"
               value={maxTotal}
               onChange={(e) => setMaxTotal(e.target.value)}
-              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+              className="w-full px-4 py-2"
             />
             <p className="text-xs text-gray-400 mt-1">
               The maximum total amount to pay across all recipients. Once fully paid, the schedule will auto-stop.
@@ -658,7 +658,7 @@ export default function RecurringPayment() {
             <select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as any)}
-              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2"
             >
               <option value="hourly">Hourly</option>
               <option value="daily">Daily</option>
@@ -674,7 +674,7 @@ export default function RecurringPayment() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2"
             />
             <p className="text-xs text-gray-400 mt-1">
               The schedule will start at this date/time (local time), then run based on the interval.
@@ -687,7 +687,7 @@ export default function RecurringPayment() {
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none"
+              className="w-full px-4 py-2"
             />
           </div>
 
@@ -703,7 +703,7 @@ export default function RecurringPayment() {
                   placeholder="Recipient address (0x...)"
                   value={newRecipientAddress}
                   onChange={(e) => setNewRecipientAddress(e.target.value)}
-                  className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none font-mono text-sm placeholder:text-gray-500"
+                  className="w-full px-4 py-2 font-mono text-sm"
                 />
               </div>
               <div className="md:col-span-3">
@@ -713,7 +713,7 @@ export default function RecurringPayment() {
                   placeholder="Amount (USDC)"
                   value={newRecipientAmount}
                   onChange={(e) => setNewRecipientAmount(e.target.value)}
-                  className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+                  className="w-full px-4 py-2"
                 />
               </div>
               <div className="md:col-span-3">
@@ -722,7 +722,7 @@ export default function RecurringPayment() {
                   placeholder="Label (optional)"
                   value={newRecipientLabel}
                   onChange={(e) => setNewRecipientLabel(e.target.value)}
-                  className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+                  className="w-full px-4 py-2"
                 />
               </div>
               <div className="md:col-span-1">

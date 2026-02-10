@@ -384,7 +384,7 @@ export default function BatchPayment() {
       {/* CSV Upload Tab */}
       {activeTab === "csv" && (
         <div className="space-y-4">
-          <div className="p-6 bg-white/20 border-2 border-dashed border-white/20 rounded-lg hover:border-[#ff7582]/50 transition-colors">
+          <div className="arc-card p-6 border-2 border-dashed border-white/20 hover:border-[#ff7582]/50 transition-colors">
             <input
               ref={fileInputRef}
               type="file"
@@ -433,7 +433,7 @@ export default function BatchPayment() {
       {/* Manual Entry Tab */}
       {activeTab === "manual" && (
         <div className="space-y-4">
-          <div className="grid gap-4">
+          <div className="arc-card p-6 grid gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Recipient Address</label>
               <input
@@ -441,7 +441,7 @@ export default function BatchPayment() {
                 placeholder="0x..."
                 value={manualAddress}
                 onChange={(e) => setManualAddress(e.target.value)}
-                className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+                className="w-full px-4 py-2"
               />
             </div>
 
@@ -454,7 +454,7 @@ export default function BatchPayment() {
                   step="0.01"
                   value={manualAmount}
                   onChange={(e) => setManualAmount(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+                  className="w-full px-4 py-2"
                 />
               </div>
 
@@ -465,7 +465,7 @@ export default function BatchPayment() {
                   placeholder="John Doe"
                   value={manualLabel}
                   onChange={(e) => setManualLabel(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/20 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
+                  className="w-full px-4 py-2"
                 />
               </div>
             </div>

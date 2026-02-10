@@ -83,9 +83,15 @@ export default function PaymentsTab() {
               {/* Features */}
               <div className="space-y-1">
                 {m.features.map((feature, i) => (
-                  <p key={i} className="text-xs text-gray-400">
-                    {feature}
-                  </p>
+                  <div key={i} className="flex items-center gap-2 text-xs text-gray-300">
+                    <img
+                      src="/chain-icons/check.svg"
+                      alt=""
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 opacity-80"
+                    />
+                    <span>{feature}</span>
+                  </div>
                 ))}
               </div>
 

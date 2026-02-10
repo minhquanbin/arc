@@ -751,6 +751,9 @@ export default function RecurringPayment() {
               const canExecute = s.active && nowSec >= Number(s.nextRun);
               const secondsLeft = Math.max(0, Number(s.nextRun) - nowSec);
               const hasSufficientAllowanceForSchedule = allowance >= total;
+              const isPayer =
+                Boolean(address) &&
+                address.toLowerCase() === (s.payer as string).toLowerCase();
               return (
                 <div
                   key={s.id.toString()}
@@ -796,22 +799,24 @@ export default function RecurringPayment() {
                           : "Execute"}
                       </button>
 
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => onToggleActive(s.id, !s.active)}
-                          disabled={!isConfigured || isBusy}
-                          className="flex-1 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {s.active ? "Pause" : "Resume"}
-                        </button>
-                        <button
-                          onClick={() => onDelete(s.id)}
-                          disabled={!isConfigured || isBusy}
-                          className="flex-1 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      {isPayer ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => onToggleActive(s.id, !s.active)}
+                            disabled={!isConfigured || isBusy}
+                            className="flex-1 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {s.active ? "Pause" : "Resume"}
+                          </button>
+                          <button
+                            onClick={() => onDelete(s.id)}
+                            disabled={!isConfigured || isBusy}
+                            className="flex-1 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>

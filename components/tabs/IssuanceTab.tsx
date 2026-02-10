@@ -735,7 +735,7 @@ export default function IssuanceTab() {
               <p className="text-xs text-gray-500 text-center">
                 {deployMode === "wallet"
                   ? "Deploys an ERC-20 on ARC via the connected wallet."
-                  : "Dùng Circle Smart Contract Platform để deploy"}
+                  : "Circle Smart Contract Platform"}
               </p>
             </div>
           </div>

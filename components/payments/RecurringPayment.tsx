@@ -66,6 +66,13 @@ const RECURRING_ABI = [
   },
   {
     type: "function",
+    name: "getSchedulesByPayer",
+    stateMutability: "view",
+    inputs: [{ name: "payer", type: "address" }],
+    outputs: [{ name: "", type: "uint256[]" }],
+  },
+  {
+    type: "function",
     name: "createSchedule",
     stateMutability: "nonpayable",
     inputs: [
@@ -243,12 +250,22 @@ export default function RecurringPayment() {
 
     const items: OnchainSchedule[] = [];
 
-    const ids = (await publicClient.readContract({
-      address: RECURRING_PAYMENTS_ADDRESS,
-      abi: RECURRING_ABI,
-      functionName: "getSchedulesByRecipient",
-      args: [address as Address],
-    })) as bigint[];
+    const [recipientIds, payerIds] = (await Promise.all([
+      publicClient.readContract({
+        address: RECURRING_PAYMENTS_ADDRESS,
+        abi: RECURRING_ABI,
+        functionName: "getSchedulesByRecipient",
+        args: [address as Address],
+      }),
+      publicClient.readContract({
+        address: RECURRING_PAYMENTS_ADDRESS,
+        abi: RECURRING_ABI,
+        functionName: "getSchedulesByPayer",
+        args: [address as Address],
+      }),
+    ])) as [bigint[], bigint[]];
+
+    const ids = Array.from(new Set([...recipientIds, ...payerIds].map((x) => x.toString()))).map(BigInt);
 
     for (const i of ids) {
       const [payer, token, schedName, intervalSeconds, nextRun, active, recs, amts] =

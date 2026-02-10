@@ -65,6 +65,8 @@ export default function StreamingPayment() {
   const [recipientAddress, setRecipientAddress] = useState("");
   const [salaryAmount, setSalaryAmount] = useState("");
   const [duration, setDuration] = useState<number>(STREAMING_DURATIONS.MONTHLY);
+  const [startDate, setStartDate] = useState<string>("");
+  const [startTime, setStartTime] = useState<string>("");
 
   const STREAMING_PAYMENTS_ADDRESS = (process.env.NEXT_PUBLIC_ARC_STREAMING_PAYMENTS ||
     "0x0000000000000000000000000000000000000000") as Address;
@@ -78,7 +80,8 @@ export default function StreamingPayment() {
   const [pendingCreate, setPendingCreate] = useState<{
     recipient: Address;
     total: bigint;
-    start: bigint;
+    startDay: bigint;
+    startTimeSeconds: number;
     end: bigint;
   } | null>(null);
 
@@ -208,7 +211,14 @@ export default function StreamingPayment() {
       address: STREAMING_PAYMENTS_ADDRESS,
       abi: STREAMING_ABI,
       functionName: "createStream",
-      args: [USDC_ADDRESS, pendingCreate.recipient, pendingCreate.total, pendingCreate.start, pendingCreate.end],
+      args: [
+        USDC_ADDRESS,
+        pendingCreate.recipient,
+        pendingCreate.total,
+        pendingCreate.startDay,
+        pendingCreate.startTimeSeconds,
+        pendingCreate.end,
+      ],
     });
     setPendingCreate(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,13 +265,40 @@ export default function StreamingPayment() {
         throw new Error("Recipient address must be a valid 0x address (42 chars).");
       }
 
+      // Require start date/time (UTC-based) to match the contract's computeStart() logic.
+      if (!startDate) throw new Error("Please select a start date (UTC).");
+      if (!startTime) throw new Error("Please select a start time (UTC).");
+
+      // Require start date/time (UTC-based) to match the contract's computeStart() logic.
+      if (!startDate) throw new Error("Please select a start date (UTC).");
+      if (!startTime) throw new Error("Please select a start time (UTC).");
+
       const recipient = recipientAddress as Address;
       const total = parseUnits(salaryAmount, 6);
-      const now = Math.floor(Date.now() / 1000);
-      const start = BigInt(now + 60); // avoid BadParams(start < now)
-      const end = BigInt(now + 60 + duration);
+      const [hhStr, mmStr] = startTime.split(":");
+      const hh = Number(hhStr);
+      const mm = Number(mmStr);
+      if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+        throw new Error("Start time must be a valid HH:MM value.");
+      }
+      const startTimeSeconds = hh * 3600 + mm * 60;
 
-      setPendingCreate({ recipient, total, start, end });
+      // startDay is midnight UTC for the chosen date.
+      const startDayNumber = Math.floor(Date.parse(`${startDate}T00:00:00.000Z`) / 1000);
+      if (!Number.isFinite(startDayNumber) || startDayNumber <= 0) {
+        throw new Error("Start date is invalid.");
+      }
+      const startDay = BigInt(startDayNumber);
+
+      const startTs = startDayNumber + startTimeSeconds;
+      const now = Math.floor(Date.now() / 1000);
+      if (startTs < now) {
+        throw new Error("Start time must be in the future (UTC).");
+      }
+
+      const end = BigInt(startTs + duration);
+
+      setPendingCreate({ recipient, total, startDay, startTimeSeconds, end });
       setStatus("Approving USDC...");
       writeContract({
         address: USDC_ADDRESS,
@@ -358,6 +395,48 @@ export default function StreamingPayment() {
               <option value={STREAMING_DURATIONS.QUARTERLY}>3 Months</option>
               <option value={STREAMING_DURATIONS.YEARLY}>1 Year</option>
             </select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Start date (UTC)</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-4 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Start time (UTC)</label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full px-4 py-2"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Start date (UTC)</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-4 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Start time (UTC)</label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full px-4 py-2"
+              />
+            </div>
           </div>
 
           {streamInfo && (

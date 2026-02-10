@@ -9,6 +9,14 @@ interface IERC20 {
 }
 
 contract StreamingPayments {
+  // Mirrors the front-end "start date" + "start time" UX:
+  // startDay: Unix timestamp (seconds) at 00:00:00 UTC of the chosen date.
+  // startTimeSeconds: seconds since midnight [0..86399].
+  function computeStart(uint64 startDay, uint32 startTimeSeconds) public pure returns (uint64 start) {
+    if (startTimeSeconds >= 24 * 60 * 60) revert BadParams();
+    start = uint64(uint256(startDay) + uint256(startTimeSeconds));
+  }
+
   struct Stream {
     address sender;
     address recipient;
@@ -45,11 +53,13 @@ contract StreamingPayments {
     address token,
     address recipient,
     uint256 total,
-    uint64 start,
+    uint64 startDay,
+    uint32 startTimeSeconds,
     uint64 end
   ) external returns (uint256 streamId) {
     if (token == address(0) || recipient == address(0)) revert BadParams();
     if (total == 0) revert BadParams();
+    uint64 start = computeStart(startDay, startTimeSeconds);
     if (end <= start) revert BadParams();
     if (start < block.timestamp) revert BadParams();
 

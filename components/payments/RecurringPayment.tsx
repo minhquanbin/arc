@@ -352,23 +352,6 @@ export default function RecurringPayment() {
         // If the deployed contract doesn't have getClaimable yet, ignore gracefully.
       }
 
-      let claimableRuns: bigint | undefined;
-      let claimableAmount: bigint | undefined;
-      let claimableNewNextRun: bigint | undefined;
-      try {
-        const res = (await publicClient.readContract({
-          address: RECURRING_PAYMENTS_ADDRESS,
-          abi: RECURRING_ABI,
-          functionName: "getClaimable",
-          args: [i],
-        })) as [bigint, bigint, bigint];
-        claimableRuns = res[0];
-        claimableAmount = res[1];
-        claimableNewNextRun = res[2];
-      } catch {
-        // If the deployed contract doesn't have getClaimable yet, ignore gracefully.
-      }
-
       items.push({
         id: i,
         name: schedName || getLocalScheduleName(i) || `Schedule #${i.toString()}`,

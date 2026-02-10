@@ -55,6 +55,8 @@ const RECURRING_ABI = [
       { name: "active", type: "bool" },
       { name: "recipients", type: "address[]" },
       { name: "amounts", type: "uint256[]" },
+      { name: "maxTotal", type: "uint256" },
+      { name: "totalPaid", type: "uint256" },
     ],
   },
   {
@@ -80,6 +82,7 @@ const RECURRING_ABI = [
       { name: "name", type: "string" },
       { name: "recipients", type: "address[]" },
       { name: "amounts", type: "uint256[]" },
+      { name: "maxTotal", type: "uint256" },
       { name: "intervalSeconds", type: "uint64" },
       { name: "firstRun", type: "uint64" },
     ],
@@ -121,6 +124,8 @@ type OnchainSchedule = {
   active: boolean;
   recipients: Address[];
   amounts: bigint[];
+  maxTotal: bigint;
+  totalPaid: bigint;
 };
 
 function setLocalScheduleName(id: bigint, name: string) {
@@ -184,6 +189,7 @@ export default function RecurringPayment() {
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState<"hourly" | "daily" | "weekly" | "biweekly" | "monthly">("monthly");
   const [time, setTime] = useState("09:00");
+  const [maxTotal, setMaxTotal] = useState("");
   const [recipients, setRecipients] = useState<PaymentRecipient[]>([]);
   const [newRecipientAddress, setNewRecipientAddress] = useState("");
   const [newRecipientAmount, setNewRecipientAmount] = useState("");
@@ -206,8 +212,8 @@ export default function RecurringPayment() {
 
   const [allowance, setAllowance] = useState<bigint>(0n);
 
-  const hasSufficientAllowance = useMemo(() => {
-    // For creating/executing schedules, allowance must cover at least the total amount per run.
+  const hasSufficientAllowanceForDraft = useMemo(() => {
+    // For schedule creation, allowance must cover at least the total amount per run.
     // If totalPerRun is 0, consider it "sufficient" so the UI doesn't block approval unnecessarily.
     if (totalPerRun === 0n) return true;
     return allowance >= totalPerRun;
@@ -226,6 +232,13 @@ export default function RecurringPayment() {
     } catch {
       setAllowance(0n);
     }
+  }
+
+  async function ensureAllowanceAtLeast(required: bigint): Promise<boolean> {
+    // Always refresh allowance before attempting execute/create flows.
+    await refreshAllowance();
+    if (required === 0n) return true;
+    return allowance >= required;
   }
 
   function humanizeWagmiError(e: unknown): string {
@@ -284,7 +297,18 @@ export default function RecurringPayment() {
           abi: RECURRING_ABI,
           functionName: "getSchedule",
           args: [i],
-        })) as [Address, Address, string, bigint, bigint, boolean, Address[], bigint[]];
+        })) as [
+          Address,
+          Address,
+          string,
+          bigint,
+          bigint,
+          boolean,
+          Address[],
+          bigint[],
+          bigint,
+          bigint,
+        ];
 
       items.push({
         id: i,
@@ -296,6 +320,8 @@ export default function RecurringPayment() {
         active,
         recipients: recs,
         amounts: amts,
+        maxTotal,
+        totalPaid,
       });
     }
 
@@ -429,13 +455,14 @@ export default function RecurringPayment() {
     if (!isConfigured) return;
     setLastError("");
 
-    if (!name || recipients.length === 0) {
-      alert("Please enter a name and add recipients");
+    if (!name || recipients.length === 0 || !maxTotal) {
+      alert("Please enter a name, max total, and add recipients");
       return;
     }
 
     const recs = recipients.map((r) => r.address as Address);
     const amts = recipients.map((r) => parseUnits(r.amount, 6));
+    const cap = parseUnits(maxTotal, 6);
 
     const interval = BigInt(intervalSecondsFromFrequency(frequency));
     const firstRun = computeFirstRunUnix();
@@ -446,7 +473,7 @@ export default function RecurringPayment() {
       address: RECURRING_PAYMENTS_ADDRESS,
       abi: RECURRING_ABI,
       functionName: "createSchedule",
-      args: [USDC_ADDRESS, name, recs, amts, interval, firstRun],
+      args: [USDC_ADDRESS, name, recs, amts, cap, interval, firstRun],
     });
 
     // We don't get the scheduleId easily without parsing logs; store name after next reload if it appears.
@@ -464,6 +491,7 @@ export default function RecurringPayment() {
 
     setShowCreateForm(false);
     setName("");
+    setMaxTotal("");
     setRecipients([]);
   }
 
@@ -490,19 +518,27 @@ export default function RecurringPayment() {
 
   function onExecute(scheduleId: bigint) {
     setLastError("");
-    try {
-      writeContract({
-        address: RECURRING_PAYMENTS_ADDRESS,
-        abi: RECURRING_ABI,
-        functionName: "execute",
-        args: [scheduleId],
-      });
-    } catch (e) {
-      setLastError(humanizeWagmiError(e));
-    }
+    // Guard: if allowance is not enough, instruct user to approve first.
+    const sched = scheduledPayments.find((s) => s.id === scheduleId);
+    const required = sched ? sched.amounts.reduce((acc, x) => acc + x, 0n) : 0n;
+
+    ensureAllowanceAtLeast(required)
+      .then((ok) => {
+        if (!ok) {
+          setLastError("ERC20: transfer amount exceeds allowance. Please approve USDC for at least the schedule total per run, then execute again.");
+          return;
+        }
+        writeContract({
+          address: RECURRING_PAYMENTS_ADDRESS,
+          abi: RECURRING_ABI,
+          functionName: "execute",
+          args: [scheduleId],
+        });
+      })
+      .catch((e) => setLastError(humanizeWagmiError(e)));
   }
 
-  const needsApproval = !hasSufficientAllowance;
+  const needsApproval = !hasSufficientAllowanceForDraft;
 
   return (
     <div className="space-y-6">
@@ -549,6 +585,21 @@ export default function RecurringPayment() {
               onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Max Total (USDC)</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="100"
+              value={maxTotal}
+              onChange={(e) => setMaxTotal(e.target.value)}
+              className="w-full px-4 py-2 bg-[#d9d9d9] text-black border border-white/15 rounded-lg focus:border-[#ff7582] focus:outline-none placeholder:text-gray-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Tổng tối đa sẽ trả cho tất cả recipients. Khi trả đủ, schedule sẽ tự dừng.
+            </p>
           </div>
 
           <div>
@@ -664,7 +715,7 @@ export default function RecurringPayment() {
             </button>
             <button
               onClick={onCreateSchedule}
-              disabled={!isConfigured || isBusy || !name || recipients.length === 0}
+              disabled={!isConfigured || isBusy || !name || !maxTotal || recipients.length === 0}
               className="flex-1 py-3 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isBusy ? "Confirming..." : "Create"}
@@ -688,6 +739,7 @@ export default function RecurringPayment() {
               const nextRunDate = new Date(Number(s.nextRun) * 1000);
               const canExecute = s.active && nowSec >= Number(s.nextRun);
               const secondsLeft = Math.max(0, Number(s.nextRun) - nowSec);
+              const hasSufficientAllowanceForSchedule = allowance >= total;
               return (
                 <div
                   key={s.id.toString()}
@@ -721,10 +773,16 @@ export default function RecurringPayment() {
                     <div className="flex flex-col gap-2 min-w-[160px]">
                       <button
                         onClick={() => onExecute(s.id)}
-                        disabled={!isConfigured || isBusy || !canExecute}
+                        disabled={!isConfigured || isBusy || !canExecute || !hasSufficientAllowanceForSchedule}
                         className="w-full py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {canExecute ? "Execute" : secondsLeft > 0 ? `Execute in ${formatDuration(secondsLeft)}` : "Execute"}
+                        {!hasSufficientAllowanceForSchedule
+                          ? "Approve required"
+                          : canExecute
+                          ? "Execute"
+                          : secondsLeft > 0
+                          ? `Execute in ${formatDuration(secondsLeft)}`
+                          : "Execute"}
                       </button>
 
                       <div className="flex gap-2">

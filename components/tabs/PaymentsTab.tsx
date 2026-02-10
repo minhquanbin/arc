@@ -42,7 +42,7 @@ export default function PaymentsTab() {
   const currentMode = modes.find((m) => m.id === mode);
 
   return (
-    <div className="space-y-6">
+    <div className="payments-scope space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-2">

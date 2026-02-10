@@ -17,3 +17,25 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Payments tab: force the "designed" gray field background */
+.payments-scope input[type="text"],
+.payments-scope input[type="number"],
+.payments-scope input[type="time"],
+.payments-scope select,
+.payments-scope textarea {
+  background-color: #d9d9d9 !important;
+  color: #000 !important;
+}
+
+.payments-scope input::placeholder,
+.payments-scope textarea::placeholder {
+  color: rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Make sure native select styling doesn't wash out the background */
+.payments-scope select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}

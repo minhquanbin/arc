@@ -147,6 +147,7 @@ export default function RecurringPayment() {
   const [scheduledPayments, setScheduledPayments] = useState<OnchainSchedule[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [nowSec, setNowSec] = useState<number>(Math.floor(Date.now() / 1000));
 
   // form
   const [name, setName] = useState("");
@@ -238,6 +239,16 @@ export default function RecurringPayment() {
     refreshAllowance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed]);
+
+  useEffect(() => {
+    const t = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   function addRecipientPrompt() {
     const addr = prompt("Recipient address (0x...):") || "";
@@ -482,6 +493,8 @@ export default function RecurringPayment() {
             {scheduledPayments.map((s) => {
               const total = s.amounts.reduce((acc, x) => acc + x, 0n);
               const nextRunDate = new Date(Number(s.nextRun) * 1000);
+              const canExecute = s.active && nowSec >= Number(s.nextRun);
+              const secondsLeft = Math.max(0, Number(s.nextRun) - nowSec);
               return (
                 <div
                   key={s.id.toString()}
@@ -512,10 +525,10 @@ export default function RecurringPayment() {
                     <div className="flex flex-col gap-2 min-w-[160px]">
                       <button
                         onClick={() => onExecute(s.id)}
-                        disabled={!isConfigured || isBusy}
+                        disabled={!isConfigured || isBusy || !canExecute}
                         className="w-full py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Execute
+                        {canExecute ? "Execute" : secondsLeft > 0 ? `Execute in ${secondsLeft}s` : "Execute"}
                       </button>
 
                       <div className="flex gap-2">

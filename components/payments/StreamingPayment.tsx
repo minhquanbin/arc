@@ -519,7 +519,7 @@ export default function StreamingPayment() {
                   <button
                     onClick={() => handleClaim(stream.id)}
                     disabled={!isRecipient || isBusy || claimable === 0n}
-                    className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     title={!isRecipient ? "Only recipient can claim" : ""}
                   >
                     {claimable === 0n ? "Nothing to Claim" : `Claim ${formatUSDC(claimable)} USDC`}

@@ -187,6 +187,20 @@ export const STREAMING_ABI = [
     ],
   },
   {
+    type: "function",
+    name: "getStreamsBySender",
+    stateMutability: "view",
+    inputs: [{ name: "sender", type: "address" }],
+    outputs: [{ name: "", type: "uint256[]" }],
+  },
+  {
+    type: "function",
+    name: "getStreamsByRecipient",
+    stateMutability: "view",
+    inputs: [{ name: "recipient", type: "address" }],
+    outputs: [{ name: "", type: "uint256[]" }],
+  },
+  {
     type: "event",
     name: "StreamCreated",
     inputs: [

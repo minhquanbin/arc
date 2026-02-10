@@ -113,10 +113,32 @@ export default function StreamingPayment() {
   async function refreshMyStreams() {
     if (!publicClient || !address || !isConfigured) return;
     try {
+      // Prefer on-chain indexes; fall back to localStorage ids.
+      const [senderIds, recipientIds] = (await Promise.all([
+        publicClient.readContract({
+          address: STREAMING_PAYMENTS_ADDRESS,
+          abi: STREAMING_ABI,
+          functionName: "getStreamsBySender",
+          args: [address],
+        }) as Promise<bigint[]>,
+        publicClient.readContract({
+          address: STREAMING_PAYMENTS_ADDRESS,
+          abi: STREAMING_ABI,
+          functionName: "getStreamsByRecipient",
+          args: [address],
+        }) as Promise<bigint[]>,
+      ]).catch(() => [[], []])) as [bigint[], bigint[]];
+
+      const merged = new Set<string>([
+        ...senderIds.map((x) => x.toString()),
+        ...recipientIds.map((x) => x.toString()),
+        ...myStreamIds.map((x) => String(x)),
+      ]);
+
       const next: ActiveStream[] = [];
 
-      for (const idNum of myStreamIds) {
-        const id = BigInt(idNum);
+      for (const idStr of merged) {
+        const id = BigInt(idStr);
         const s = (await publicClient.readContract({
           address: STREAMING_PAYMENTS_ADDRESS,
           abi: STREAMING_ABI,

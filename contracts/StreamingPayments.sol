@@ -22,6 +22,8 @@ contract StreamingPayments {
 
   uint256 public streamCount;
   mapping(uint256 => Stream) public streams;
+  mapping(address => uint256[]) private streamsBySender;
+  mapping(address => uint256[]) private streamsByRecipient;
 
   event StreamCreated(uint256 indexed streamId, address indexed sender, address indexed recipient, address token);
   event StreamClaimed(uint256 indexed streamId, address indexed to, uint256 amount);
@@ -30,6 +32,14 @@ contract StreamingPayments {
   error BadParams();
   error NotSender();
   error NotRecipient();
+
+  function getStreamsBySender(address sender) external view returns (uint256[] memory) {
+    return streamsBySender[sender];
+  }
+
+  function getStreamsByRecipient(address recipient) external view returns (uint256[] memory) {
+    return streamsByRecipient[recipient];
+  }
 
   function createStream(
     address token,
@@ -55,6 +65,9 @@ contract StreamingPayments {
       claimed: 0,
       canceled: false
     });
+
+    streamsBySender[msg.sender].push(streamId);
+    streamsByRecipient[recipient].push(streamId);
 
     require(IERC20(token).transferFrom(msg.sender, address(this), total), "TRANSFER_FROM_FAILED");
 

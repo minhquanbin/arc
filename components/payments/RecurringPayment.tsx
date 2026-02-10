@@ -669,26 +669,29 @@ export default function RecurringPayment() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Start date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-2"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Start date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Start time</label>
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="w-full px-4 py-2"
+                />
+              </div>
+            </div>
             <p className="text-xs text-gray-400 mt-1">
               The schedule will start at this date/time (local time), then run based on the interval.
             </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Start time</label>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="w-full px-4 py-2"
-            />
           </div>
 
           <div>
@@ -805,12 +808,16 @@ export default function RecurringPayment() {
               const secondsLeft = Math.max(0, Number(s.nextRun) - nowSec);
               const claimableAmount = s.claimableAmount ?? (canExecute ? total : 0n);
               const claimableRuns = s.claimableRuns ?? (canExecute ? 1n : 0n);
+              // UX: payer should see "Pay", recipients should see "Claim"
+              const actionVerb = viewerIsPayer ? "Pay" : "Claim";
               const claimableLabel =
                 claimableRuns > 1n
-                  ? `Claim ${formatUSDC(claimableAmount)} USDC (${claimableRuns.toString()} runs)`
+                  ? `${actionVerb} ${formatUSDC(claimableAmount)} USDC (${claimableRuns.toString()} runs)`
                   : claimableRuns === 1n
-                  ? `Claim ${formatUSDC(claimableAmount)} USDC`
-                  : "Execute";
+                  ? `${actionVerb} ${formatUSDC(claimableAmount)} USDC`
+                  : viewerIsPayer
+                  ? "Pay"
+                  : "Claim";
               const hasSufficientAllowanceForSchedule = allowance >= total;
               const isPayer =
                 !!address &&

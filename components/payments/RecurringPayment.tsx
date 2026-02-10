@@ -445,9 +445,11 @@ export default function RecurringPayment() {
 
     const first = new Date();
     if (frequency === "hourly") {
-      // "Hourly" ignores the time picker; schedule the next whole hour.
-      first.setMinutes(0, 0, 0);
-      first.setHours(first.getHours() + 1);
+      // "Hourly" uses the time picker as the anchor time-of-day for the first run.
+      // If that time has already passed today, schedule it for tomorrow.
+      const [hh, mm] = time.split(":").map(Number);
+      first.setHours(hh, mm, 0, 0);
+      if (first <= now) first.setDate(first.getDate() + 1);
     } else {
       const [hh, mm] = time.split(":").map(Number);
       first.setHours(hh, mm, 0, 0);

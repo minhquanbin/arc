@@ -808,6 +808,13 @@ export default function RecurringPayment() {
               const secondsLeft = Math.max(0, Number(s.nextRun) - nowSec);
               const claimableAmount = s.claimableAmount ?? (canExecute ? total : 0n);
               const claimableRuns = s.claimableRuns ?? (canExecute ? 1n : 0n);
+              const hasSufficientAllowanceForSchedule = allowance >= total;
+              const isPayer =
+                !!address &&
+                address.toLowerCase() === (s.payer as string).toLowerCase();
+              // Only the payer's allowance matters because execute() pulls funds from s.payer.
+              // If viewer is not payer, allowance shown here is irrelevant and should not block execute UI.
+              const viewerIsPayer = isPayer;
               // UX: payer should see "Pay", recipients should see "Claim"
               const actionVerb = viewerIsPayer ? "Pay" : "Claim";
               const claimableLabel =
@@ -818,13 +825,6 @@ export default function RecurringPayment() {
                   : viewerIsPayer
                   ? "Pay"
                   : "Claim";
-              const hasSufficientAllowanceForSchedule = allowance >= total;
-              const isPayer =
-                !!address &&
-                address.toLowerCase() === (s.payer as string).toLowerCase();
-              // Only the payer's allowance matters because execute() pulls funds from s.payer.
-              // If viewer is not payer, allowance shown here is irrelevant and should not block execute UI.
-              const viewerIsPayer = isPayer;
               return (
                 <div
                   key={s.id.toString()}

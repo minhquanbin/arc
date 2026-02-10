@@ -501,6 +501,26 @@ export default function RecurringPayment() {
     }
   }
 
+  async function onApproveMaxTotal() {
+    if (!isConfigured) return;
+    setLastError("");
+    try {
+      const cap = parseUnits(maxTotal || "0", 6);
+      if (cap <= 0n) {
+        setLastError("Please enter Max Total (USDC) first, then approve.");
+        return;
+      }
+      writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [RECURRING_PAYMENTS_ADDRESS, cap],
+      });
+    } catch (e) {
+      setLastError(humanizeWagmiError(e));
+    }
+  }
+
   async function onCreateSchedule() {
     if (!publicClient || !address) return;
     if (!isConfigured) return;
@@ -806,12 +826,12 @@ export default function RecurringPayment() {
 
           <div className="flex gap-2">
             <button
-              onClick={() => onApproveExact(totalPerRun)}
-              disabled={!isConfigured || isBusy || totalPerRun === 0n}
+              onClick={onApproveMaxTotal}
+              disabled={!isConfigured || isBusy || !maxTotal}
               className="flex-1 py-3 bg-white/10 hover:bg-gray-200/20 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Approve exactly the total per run amount"
+              title="Approve up to Max Total so recipients can claim multiple times without running out of allowance"
             >
-              {isBusy ? "Confirming..." : `Approve (${formatUSDC(totalPerRun)} USDC)`}
+              {isBusy ? "Confirming..." : `Approve Max Total (${maxTotal || "0"} USDC)`}
             </button>
             <button
               onClick={onCreateSchedule}

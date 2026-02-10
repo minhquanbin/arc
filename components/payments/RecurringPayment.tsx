@@ -625,7 +625,7 @@ export default function RecurringPayment() {
       )}
 
       {showCreateForm && (
-        <div className="arc-card p-6 space-y-4">
+        <div className="arc-card-light p-6 space-y-4">
           <h3 className="text-lg font-medium">Create Schedule</h3>
 
           <div>
@@ -792,7 +792,7 @@ export default function RecurringPayment() {
         <h3 className="text-lg font-medium">Your Schedules</h3>
 
         {scheduledPayments.length === 0 ? (
-          <div className="p-12 bg-white/5 border border-white/10 rounded-lg text-center">
+          <div className="arc-card p-12 text-center">
             <img src="/chain-icons/browser.svg" alt="Browser" className="h-12 w-12 mx-auto mb-4 opacity-80" />
             <p className="text-gray-400">No schedules yet</p>
           </div>
@@ -821,7 +821,7 @@ export default function RecurringPayment() {
               return (
                 <div
                   key={s.id.toString()}
-                  className="p-4 bg-white/5 border border-white/10 rounded-lg hover:border-[#ff7582]/30 transition-colors"
+                  className="arc-card p-4 hover:border-[#ff7582]/30 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">

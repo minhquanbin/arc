@@ -433,7 +433,7 @@ export default function BatchPayment() {
       {/* Manual Entry Tab */}
       {activeTab === "manual" && (
         <div className="space-y-4">
-          <div className="arc-card p-6 grid gap-4">
+          <div className="arc-card-light p-6 grid gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Recipient Address</label>
               <input
@@ -540,7 +540,7 @@ export default function BatchPayment() {
       {/* Summary & Execute */}
       {summary && summary.totalRecipients > 0 && (
         <div className="space-y-4">
-          <div className="p-6 bg-gradient-to-br from-[#ff7582]/10 to-[#725a7a]/10 rounded-lg border border-white/10">
+          <div className="arc-card p-6 bg-gradient-to-br from-[#ff7582]/10 to-[#725a7a]/10">
             <h3 className="text-lg font-medium mb-4">Payment Summary</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">

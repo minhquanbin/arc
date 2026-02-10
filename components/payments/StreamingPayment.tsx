@@ -101,7 +101,7 @@ export default function StreamingPayment() {
 
       {/* Create Form */}
       {showCreateForm && (
-        <div className="arc-card p-6 space-y-4">
+        <div className="arc-card-light p-6 space-y-4">
           <h3 className="text-lg font-medium">Create Payment Stream</h3>
           
           {/* Recipient */}

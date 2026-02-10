@@ -49,6 +49,7 @@ const RECURRING_ABI = [
     outputs: [
       { name: "payer", type: "address" },
       { name: "token", type: "address" },
+      { name: "name", type: "string" },
       { name: "intervalSeconds", type: "uint64" },
       { name: "nextRun", type: "uint64" },
       { name: "active", type: "bool" },
@@ -62,6 +63,7 @@ const RECURRING_ABI = [
     stateMutability: "nonpayable",
     inputs: [
       { name: "token", type: "address" },
+      { name: "name", type: "string" },
       { name: "recipients", type: "address[]" },
       { name: "amounts", type: "uint256[]" },
       { name: "intervalSeconds", type: "uint64" },
@@ -227,19 +229,19 @@ export default function RecurringPayment() {
 
     const items: OnchainSchedule[] = [];
     for (let i = 1n; i <= count; i++) {
-      const [payer, token, intervalSeconds, nextRun, active, recs, amts] =
+      const [payer, token, schedName, intervalSeconds, nextRun, active, recs, amts] =
         (await publicClient.readContract({
           address: RECURRING_PAYMENTS_ADDRESS,
           abi: RECURRING_ABI,
           functionName: "getSchedule",
           args: [i],
-        })) as [Address, Address, bigint, bigint, boolean, Address[], bigint[]];
+        })) as [Address, Address, string, bigint, bigint, boolean, Address[], bigint[]];
 
       if (payer.toLowerCase() !== (address as Address).toLowerCase()) continue;
 
       items.push({
         id: i,
-        name: getLocalScheduleName(i) || `Schedule #${i.toString()}`,
+        name: schedName || getLocalScheduleName(i) || `Schedule #${i.toString()}`,
         payer,
         token,
         intervalSeconds,
@@ -361,7 +363,7 @@ export default function RecurringPayment() {
       address: RECURRING_PAYMENTS_ADDRESS,
       abi: RECURRING_ABI,
       functionName: "createSchedule",
-      args: [USDC_ADDRESS, recs, amts, interval, firstRun],
+      args: [USDC_ADDRESS, name, recs, amts, interval, firstRun],
     });
 
     // We don't get the scheduleId easily without parsing logs; store name after next reload if it appears.

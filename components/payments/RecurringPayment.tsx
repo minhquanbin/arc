@@ -247,6 +247,16 @@ export default function RecurringPayment() {
     if (!publicClient || !address || !isConfigured) return;
     setStatus("Loading schedules...");
     setLastError("");
+    try {
+      const contractBytecode = await publicClient.getBytecode({ address: RECURRING_PAYMENTS_ADDRESS });
+      if (!contractBytecode) {
+        setLastError(`No contract code found at ${RECURRING_PAYMENTS_ADDRESS}. Check NEXT_PUBLIC_ARC_RECURRING_PAYMENTS.`);
+        setStatus("");
+        return;
+      }
+    } catch {
+      // ignore
+    }
 
     const items: OnchainSchedule[] = [];
 
@@ -291,6 +301,14 @@ export default function RecurringPayment() {
 
     setScheduledPayments(items);
     setStatus("");
+    // Helpful debug signal (safe in prod)
+    console.log("[RecurringPayment] loaded schedules", {
+      contract: RECURRING_PAYMENTS_ADDRESS,
+      recipientIds: recipientIds.length,
+      payerIds: payerIds.length,
+      total: ids.length,
+    });
+    setLastError("");
   }
 
   useEffect(() => {

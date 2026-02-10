@@ -194,13 +194,6 @@ export default function RecurringPayment() {
     return allowance >= totalPerRun;
   }, [allowance, totalPerRun]);
 
-  const hasSufficientAllowance = useMemo(() => {
-    // For creating/executing schedules, allowance must cover at least the total amount per run.
-    // If totalPerRun is 0, consider it "sufficient" so the UI doesn't block approval unnecessarily.
-    if (totalPerRun === 0n) return true;
-    return allowance >= totalPerRun;
-  }, [allowance, totalPerRun]);
-
   const [allowance, setAllowance] = useState<bigint>(0n);
 
   async function refreshAllowance() {
@@ -533,47 +526,6 @@ export default function RecurringPayment() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium">Recipients</label>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 mb-3">
-              <div className="md:col-span-6">
-                <input
-                  type="text"
-                  placeholder="Recipient address (0x...)"
-                  value={newRecipientAddress}
-                  onChange={(e) => setNewRecipientAddress(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none font-mono text-sm"
-                />
-              </div>
-              <div className="md:col-span-3">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="Amount (USDC)"
-                  value={newRecipientAmount}
-                  onChange={(e) => setNewRecipientAmount(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <input
-                  type="text"
-                  placeholder="Label (optional)"
-                  value={newRecipientLabel}
-                  onChange={(e) => setNewRecipientLabel(e.target.value)}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:border-[#ff7582] focus:outline-none"
-                />
-              </div>
-              <div className="md:col-span-1">
-                <button
-                  type="button"
-                  onClick={addRecipientInline}
-                  disabled={!newRecipientAddress.trim() || !newRecipientAmount.trim() || isBusy}
-                  className="w-full h-full px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Add
-                </button>
-              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 mb-3">

@@ -5,10 +5,10 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 import BridgeTab from "@/components/tabs/BridgeTab";
 import IssuanceTab from "@/components/tabs/IssuanceTab";
-import LiquidityTab from "@/components/tabs/LiquidityTab";
 import PaymentsTab from "@/components/tabs/PaymentsTab";
 
-type TabType = "swap" | "bridge" | "liquidity" | "payment" | "issuance";
+type TabType = "swap" | "bridge" | "invoices" | "payment" | "issuance";
+
 
 function ArcLogoIcon({ className }: { className?: string }) {
   const gid0 = useId();
@@ -210,11 +210,10 @@ export default function Home() {
           }
         >
           {/* Tabs */}
-          <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl p-2">
-            <div className="flex gap-2">
-              {(["bridge", "issuance", "payment", "liquidity"] as TabType[]).map((t) => {
+          <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl p-2">            <div className="flex gap-2">
+              {(["bridge", "issuance", "payment", "invoices"] as TabType[]).map((t) => {
                 const enabled = t === "bridge" || t === "issuance" || t === "payment";
-                const active = tab === t;
+                const active = tab === t;;
 
                 const base = "flex-1 px-6 py-4 text-lg font-semibold transition-all rounded-xl";
 
@@ -245,9 +244,8 @@ export default function Home() {
               <>
                 {tab === "bridge" && <BridgeTab />}
                 {tab === "issuance" && <IssuanceTab />}
-                {tab === "liquidity" && <LiquidityTab />}
                 {tab === "payment" && <PaymentsTab />}
-                {tab !== "bridge" && tab !== "issuance" && tab !== "liquidity" && tab !== "payment" && (
+                {tab !== "bridge" && tab !== "issuance" && tab !== "payment" && (
                   <div className="py-12 text-center">
                     <div className="mb-4 text-4xl">🚧</div>
                     <p className="text-gray-600">This feature is coming soon!</p>

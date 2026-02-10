@@ -604,6 +604,24 @@ export default function RecurringPayment() {
       .catch((e) => setLastError(humanizeWagmiError(e)));
   }
 
+  function onClaim(scheduleId: bigint) {
+    setLastError("");
+    const sched = scheduledPayments.find((s) => s.id === scheduleId);
+    const viewerIsPayer =
+      !!address && !!sched && address.toLowerCase() === (sched.payer as string).toLowerCase();
+    if (viewerIsPayer) {
+      setLastError("Only recipients can claim. Switch to a recipient wallet to claim.");
+      return;
+    }
+    // In this contract design, "claim" is simply permissionless execute() that pulls funds from the payer.
+    writeContract({
+      address: RECURRING_PAYMENTS_ADDRESS,
+      abi: RECURRING_ABI,
+      functionName: "execute",
+      args: [scheduleId],
+    });
+  }
+
   const needsApproval = !hasSufficientAllowanceForDraft;
 
   return (
@@ -827,9 +845,13 @@ export default function RecurringPayment() {
               const isPayer =
                 !!address &&
                 address.toLowerCase() === (s.payer as string).toLowerCase();
+              const isRecipient =
+                !!address &&
+                s.recipients.some((r) => (r as string).toLowerCase() === address.toLowerCase());
               // Only the payer's allowance matters because execute() pulls funds from s.payer.
               // If viewer is not payer, allowance shown here is irrelevant and should not block execute UI.
               const viewerIsPayer = isPayer;
+              const viewerIsRecipient = isRecipient;
               // UX: payer should see "Pay", recipients should see "Claim"
               const actionVerb = viewerIsPayer ? "Pay" : "Claim";
               const claimableLabel =
@@ -881,12 +903,13 @@ export default function RecurringPayment() {
 
                     <div className="flex flex-col gap-2 min-w-[160px]">
                       <button
-                        onClick={() => onExecute(s.id)}
+                        onClick={() => (viewerIsPayer ? onExecute(s.id) : onClaim(s.id))}
                         disabled={
                           !isConfigured ||
                           isBusy ||
                           !canExecute ||
-                          (viewerIsPayer && !hasSufficientAllowanceForSchedule)
+                          (viewerIsPayer && !hasSufficientAllowanceForSchedule) ||
+                          (!viewerIsPayer && !viewerIsRecipient)
                         }
                         className="w-full py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -896,7 +919,9 @@ export default function RecurringPayment() {
                           ? claimableLabel
                           : secondsLeft > 0
                           ? `Execute in ${formatDuration(secondsLeft)}`
-                          : "Execute"}
+                          : viewerIsPayer
+                          ? "Pay"
+                          : "Claim"}
                       </button>
 
                       {isPayer ? (

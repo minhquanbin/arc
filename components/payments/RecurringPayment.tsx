@@ -125,7 +125,9 @@ function getLocalScheduleName(id: bigint): string {
   }
 }
 
-function intervalSecondsFromFrequency(freq: "daily" | "weekly" | "biweekly" | "monthly"): number {
+function intervalSecondsFromFrequency(
+  freq: "hourly" | "daily" | "weekly" | "biweekly" | "monthly",
+): number {
   if (freq === "hourly") return 60 * 60;
   if (freq === "daily") return 24 * 60 * 60;
   if (freq === "weekly") return 7 * 24 * 60 * 60;

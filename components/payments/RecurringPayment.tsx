@@ -112,6 +112,17 @@ const RECURRING_ABI = [
     inputs: [{ name: "scheduleId", type: "uint256" }],
     outputs: [],
   },
+  {
+    type: "function",
+    name: "getClaimable",
+    stateMutability: "view",
+    inputs: [{ name: "scheduleId", type: "uint256" }],
+    outputs: [
+      { name: "runs", type: "uint256" },
+      { name: "claimableAmount", type: "uint256" },
+      { name: "newNextRun", type: "uint64" },
+    ],
+  },
 ] as const;
 
 type OnchainSchedule = {
@@ -126,6 +137,9 @@ type OnchainSchedule = {
   amounts: bigint[];
   maxTotal: bigint;
   totalPaid: bigint;
+  claimableRuns?: bigint;
+  claimableAmount?: bigint;
+  claimableNewNextRun?: bigint;
 };
 
 function setLocalScheduleName(id: bigint, name: string) {
@@ -321,6 +335,40 @@ export default function RecurringPayment() {
           bigint,
         ];
 
+      let claimableRuns: bigint | undefined;
+      let claimableAmount: bigint | undefined;
+      let claimableNewNextRun: bigint | undefined;
+      try {
+        const res = (await publicClient.readContract({
+          address: RECURRING_PAYMENTS_ADDRESS,
+          abi: RECURRING_ABI,
+          functionName: "getClaimable",
+          args: [i],
+        })) as [bigint, bigint, bigint];
+        claimableRuns = res[0];
+        claimableAmount = res[1];
+        claimableNewNextRun = res[2];
+      } catch {
+        // If the deployed contract doesn't have getClaimable yet, ignore gracefully.
+      }
+
+      let claimableRuns: bigint | undefined;
+      let claimableAmount: bigint | undefined;
+      let claimableNewNextRun: bigint | undefined;
+      try {
+        const res = (await publicClient.readContract({
+          address: RECURRING_PAYMENTS_ADDRESS,
+          abi: RECURRING_ABI,
+          functionName: "getClaimable",
+          args: [i],
+        })) as [bigint, bigint, bigint];
+        claimableRuns = res[0];
+        claimableAmount = res[1];
+        claimableNewNextRun = res[2];
+      } catch {
+        // If the deployed contract doesn't have getClaimable yet, ignore gracefully.
+      }
+
       items.push({
         id: i,
         name: schedName || getLocalScheduleName(i) || `Schedule #${i.toString()}`,
@@ -333,6 +381,9 @@ export default function RecurringPayment() {
         amounts: amts,
         maxTotal: maxTotalOnchain,
         totalPaid: totalPaidOnchain,
+        claimableRuns,
+        claimableAmount,
+        claimableNewNextRun,
       });
     }
 
@@ -750,10 +801,21 @@ export default function RecurringPayment() {
               const nextRunDate = new Date(Number(s.nextRun) * 1000);
               const canExecute = s.active && nowSec >= Number(s.nextRun);
               const secondsLeft = Math.max(0, Number(s.nextRun) - nowSec);
+              const claimableAmount = s.claimableAmount ?? (canExecute ? total : 0n);
+              const claimableRuns = s.claimableRuns ?? (canExecute ? 1n : 0n);
+              const claimableLabel =
+                claimableRuns > 1n
+                  ? `Claim ${formatUSDC(claimableAmount)} USDC (${claimableRuns.toString()} runs)`
+                  : claimableRuns === 1n
+                  ? `Claim ${formatUSDC(claimableAmount)} USDC`
+                  : "Execute";
               const hasSufficientAllowanceForSchedule = allowance >= total;
               const isPayer =
                 !!address &&
                 address.toLowerCase() === (s.payer as string).toLowerCase();
+              // Only the payer's allowance matters because execute() pulls funds from s.payer.
+              // If viewer is not payer, allowance shown here is irrelevant and should not block execute UI.
+              const viewerIsPayer = isPayer;
               return (
                 <div
                   key={s.id.toString()}
@@ -781,19 +843,33 @@ export default function RecurringPayment() {
                         <p>Next run: {nextRunDate.toLocaleString()}</p>
                         <p>Recipients: {s.recipients.length}</p>
                         <p>Total per run: {formatUSDC(total)} USDC</p>
+                        {s.claimableAmount !== undefined ? (
+                          <p>
+                            Claimable now:{" "}
+                            {formatUSDC(s.claimableAmount)} USDC
+                            {s.claimableRuns && s.claimableRuns > 1n
+                              ? ` (${s.claimableRuns.toString()} runs)`
+                              : ""}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-2 min-w-[160px]">
                       <button
                         onClick={() => onExecute(s.id)}
-                        disabled={!isConfigured || isBusy || !canExecute || !hasSufficientAllowanceForSchedule}
+                        disabled={
+                          !isConfigured ||
+                          isBusy ||
+                          !canExecute ||
+                          (viewerIsPayer && !hasSufficientAllowanceForSchedule)
+                        }
                         className="w-full py-2 bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:opacity-90 rounded-lg font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {!hasSufficientAllowanceForSchedule
+                        {viewerIsPayer && !hasSufficientAllowanceForSchedule
                           ? "Approve required"
                           : canExecute
-                          ? "Execute"
+                          ? claimableLabel
                           : secondsLeft > 0
                           ? `Execute in ${formatDuration(secondsLeft)}`
                           : "Execute"}

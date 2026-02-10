@@ -42,6 +42,7 @@ contract RecurringPayments {
     uint256 maxTotal
   );
   event ScheduleExecuted(uint256 indexed scheduleId, uint64 nextRun);
+  event ScheduleExecutedWithCatchUp(uint256 indexed scheduleId, uint64 newNextRun, uint256 runs, uint256 paid);
   event ScheduleToggled(uint256 indexed scheduleId, bool active);
   event ScheduleDeleted(uint256 indexed scheduleId);
 
@@ -50,6 +51,49 @@ contract RecurringPayments {
   error TooEarly(uint64 nextRun);
   error BadParams();
   error Completed();
+
+  function _transferFrom(address token, address from, address to, uint256 amount) private {
+    IERC20 t = IERC20(token);
+    if (permissiveToken) {
+      // Some ERC20s don't return a value; a low-level call avoids abi decoding issues.
+      (bool ok, bytes memory data) = address(t).call(
+        abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount)
+      );
+      require(ok && (data.length == 0 || abi.decode(data, (bool))), "TRANSFER_FROM_FAILED");
+    } else {
+      require(t.transferFrom(from, to, amount), "TRANSFER_FROM_FAILED");
+    }
+  }
+
+  function getClaimable(uint256 scheduleId)
+    external
+    view
+    returns (uint256 runs, uint256 claimableAmount, uint64 newNextRun)
+  {
+    Schedule storage s = schedules[scheduleId];
+    if (!s.active) return (0, 0, s.nextRun);
+    if (s.totalPaid >= s.maxTotal) return (0, 0, s.nextRun);
+    if (block.timestamp < s.nextRun) return (0, 0, s.nextRun);
+
+    uint256 len = s.recipients.length;
+    uint256 perRunTotal = 0;
+    for (uint256 i = 0; i < len; i++) {
+      perRunTotal += s.amounts[i];
+    }
+    if (perRunTotal == 0) return (0, 0, s.nextRun);
+
+    // runs due = 1 + number of full intervals elapsed since nextRun
+    uint256 elapsed = block.timestamp - uint256(s.nextRun);
+    uint256 due = 1 + (elapsed / uint256(s.intervalSeconds));
+
+    uint256 remaining = s.maxTotal - s.totalPaid;
+    uint256 maxRunsByCap = remaining / perRunTotal;
+    if (maxRunsByCap == 0) return (0, 0, s.nextRun);
+
+    runs = due < maxRunsByCap ? due : maxRunsByCap;
+    claimableAmount = runs * perRunTotal;
+    newNextRun = uint64(uint256(s.nextRun) + runs * uint256(s.intervalSeconds));
+  }
 
   function getSchedulesByRecipient(address recipient) external view returns (uint256[] memory scheduleIds) {
     return schedulesByRecipient[recipient];
@@ -164,30 +208,35 @@ contract RecurringPayments {
       perRunTotal += s.amounts[i];
     }
     if (perRunTotal == 0) revert BadParams();
-    if (s.totalPaid + perRunTotal > s.maxTotal) revert Completed();
+
+    // Catch-up: allow executing multiple missed intervals in one tx (accrue over time),
+    // capped by maxTotal.
+    uint256 elapsed = block.timestamp - uint256(s.nextRun);
+    uint256 dueRuns = 1 + (elapsed / uint256(s.intervalSeconds));
+
+    uint256 remaining = s.maxTotal - s.totalPaid;
+    uint256 maxRunsByCap = remaining / perRunTotal;
+    if (maxRunsByCap == 0) revert Completed();
+
+    uint256 runs = dueRuns < maxRunsByCap ? dueRuns : maxRunsByCap;
+    uint256 payTotal = runs * perRunTotal;
 
     // Effects first (avoid double execution within same block if token is weird)
-    uint64 next = uint64(block.timestamp) + s.intervalSeconds;
+    uint64 next = uint64(uint256(s.nextRun) + runs * uint256(s.intervalSeconds));
     s.nextRun = next;
-    s.totalPaid += perRunTotal;
+    s.totalPaid += payTotal;
     if (s.totalPaid >= s.maxTotal) {
       // auto-stop once the cap has been fully paid
       s.active = false;
     }
 
-    IERC20 t = IERC20(s.token);
-    for (uint256 i = 0; i < len; i++) {
-      if (permissiveToken) {
-        // Some ERC20s don't return a value; a low-level call avoids abi decoding issues.
-        (bool ok, bytes memory data) = address(t).call(
-          abi.encodeWithSelector(IERC20.transferFrom.selector, s.payer, s.recipients[i], s.amounts[i])
-        );
-        require(ok && (data.length == 0 || abi.decode(data, (bool))), "TRANSFER_FROM_FAILED");
-      } else {
-        require(t.transferFrom(s.payer, s.recipients[i], s.amounts[i]), "TRANSFER_FROM_FAILED");
+    for (uint256 r = 0; r < runs; r++) {
+      for (uint256 i = 0; i < len; i++) {
+        _transferFrom(s.token, s.payer, s.recipients[i], s.amounts[i]);
       }
     }
 
     emit ScheduleExecuted(scheduleId, next);
+    emit ScheduleExecutedWithCatchUp(scheduleId, next, runs, payTotal);
   }
 }

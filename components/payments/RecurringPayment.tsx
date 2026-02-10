@@ -456,6 +456,10 @@ export default function RecurringPayment() {
     first.setFullYear(yyyy, (mmDate || 1) - 1, dd || 1);
     first.setHours(hh || 0, mmTime || 0, 0, 0);
 
+    // Semantics: the selected start date/time is the *anchor*.
+    // The first claim becomes available after 1 full interval has elapsed (for all frequencies).
+    first.setTime(first.getTime() + intervalSecondsFromFrequency(frequency) * 1000);
+
     // Prevent creating schedules in the past (contract also enforces this).
     if (first <= now) {
       // Minimum behavior: bump to the next whole minute to avoid accidental "past" due to clock skew.

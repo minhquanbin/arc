@@ -265,36 +265,35 @@ export default function StreamingPayment() {
         throw new Error("Recipient address must be a valid 0x address (42 chars).");
       }
 
-      // Require start date/time (UTC-based) to match the contract's computeStart() logic.
-      if (!startDate) throw new Error("Please select a start date (UTC).");
-      if (!startTime) throw new Error("Please select a start time (UTC).");
-
-      // Require start date/time (UTC-based) to match the contract's computeStart() logic.
-      if (!startDate) throw new Error("Please select a start date (UTC).");
-      if (!startTime) throw new Error("Please select a start time (UTC).");
+      // Require start date/time in the user's local timezone.
+      if (!startDate) throw new Error("Please select a start date.");
+      if (!startTime) throw new Error("Please select a start time.");
 
       const recipient = recipientAddress as Address;
       const total = parseUnits(salaryAmount, 6);
-      const [hhStr, mmStr] = startTime.split(":");
-      const hh = Number(hhStr);
-      const mm = Number(mmStr);
-      if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
-        throw new Error("Start time must be a valid HH:MM value.");
-      }
-      const startTimeSeconds = hh * 3600 + mm * 60;
 
-      // startDay is midnight UTC for the chosen date.
-      const startDayNumber = Math.floor(Date.parse(`${startDate}T00:00:00.000Z`) / 1000);
-      if (!Number.isFinite(startDayNumber) || startDayNumber <= 0) {
-        throw new Error("Start date is invalid.");
-      }
-      const startDay = BigInt(startDayNumber);
+      // Build start timestamp from local date + time (same pattern as RecurringPayment.computeFirstRunUnix()).
+      const [yyyy, mmDate, dd] = startDate.split("-").map(Number);
+      const [hh, mmTime] = startTime.split(":").map(Number);
+      const startLocal = new Date();
+      startLocal.setFullYear(yyyy, (mmDate || 1) - 1, dd || 1);
+      startLocal.setHours(hh || 0, mmTime || 0, 0, 0);
 
-      const startTs = startDayNumber + startTimeSeconds;
+      const startTs = Math.floor(startLocal.getTime() / 1000);
+      if (!Number.isFinite(startTs) || startTs <= 0) {
+        throw new Error("Start date/time is invalid.");
+      }
+
       const now = Math.floor(Date.now() / 1000);
       if (startTs < now) {
-        throw new Error("Start time must be in the future (UTC).");
+        throw new Error("Start time must be in the future.");
       }
+
+      // Convert unix startTs into (startDay at 00:00:00 UTC) + (seconds since midnight UTC),
+      // because the contract's computeStart() is UTC-based.
+      const startDayNumber = startTs - (startTs % 86400);
+      const startTimeSeconds = startTs % 86400;
+      const startDay = BigInt(startDayNumber);
 
       const end = BigInt(startTs + duration);
 
@@ -399,7 +398,7 @@ export default function StreamingPayment() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Start date (UTC)</label>
+              <label className="block text-sm font-medium mb-2">Start date</label>
               <input
                 type="date"
                 value={startDate}
@@ -408,28 +407,7 @@ export default function StreamingPayment() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Start time (UTC)</label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-4 py-2"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Start date (UTC)</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Start time (UTC)</label>
+              <label className="block text-sm font-medium mb-2">Start time</label>
               <input
                 type="time"
                 value={startTime}

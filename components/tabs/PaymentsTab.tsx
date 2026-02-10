@@ -52,18 +52,19 @@ export default function PaymentsTab() {
       </div>
 
       {/* Mode Selection */}
-      <div className="arc-card p-4 space-y-4 border-2 border-white/20">
+      <div className="arc-card-light p-4 space-y-4 border-2 border-[#ff7582]/40 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-700">Payment Options</h2>
         <div className="grid md:grid-cols-3 gap-4">
           {modes.map((m) => (
             <button
               key={m.id}
               onClick={() => setMode(m.id)}
               className={`
-                p-6 rounded-lg border-2 transition-all text-left
+                p-6 rounded-xl border-2 transition-all text-left shadow-sm
                 ${
                   mode === m.id
-                    ? "border-[#ff7582]/60 bg-gradient-to-br from-[#ff7582]/20 to-[#725a7a]/20"
-                    : "border-white/20 bg-white/70 hover:border-[#ff7582]/40"
+                    ? "border-[#ff7582]/70 bg-gradient-to-br from-[#ff7582]/18 to-[#725a7a]/12"
+                    : "border-gray-300 bg-white hover:border-[#ff7582]/50"
                 }
               `}
             >

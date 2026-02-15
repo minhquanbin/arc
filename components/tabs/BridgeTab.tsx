@@ -466,7 +466,18 @@ export default function BridgeTab() {
       if (!isOnSelectedSource) {
         setStatus(`Bạn đang ở sai mạng. Đang chuyển ví sang chain nguồn: ${sourceLabel}...`);
         await switchToSelectedSource();
-        throw new Error(`Vui lòng bấm Bridge lại sau khi đã switch sang ${sourceLabel}`);
+
+        // Wait a bit for wagmi to reflect the chain change (avoids "keep asking to switch" loop).
+        const target = srcChainIdResolved;
+        const deadline = Date.now() + 12_000;
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 300));
+          if (chain?.id === target) break;
+        }
+
+        if (chain?.id !== target) {
+          throw new Error(`Đã gửi yêu cầu switch sang ${sourceLabel} nhưng app chưa nhận được chain mới. Vui lòng thử lại.`);
+        }
       }
 
       // === ARC -> Other ===

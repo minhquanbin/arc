@@ -141,10 +141,70 @@ export default function BridgeTab() {
     return id || 0;
   }, [sourceKey, expectedArcChainId]);
 
+  // On Vercel/Next, client-side env vars are injected at build time.
+  // Fall back to a small built-in map so switching works even if env isn't present in the bundle.
+  const fallbackChainIds: Record<string, number> = useMemo(
+    () => ({
+      ETH_SEPOLIA: 11155111,
+      BASE_SEPOLIA: 84532,
+      ARB_SEPOLIA: 421614,
+      OP_SEPOLIA: 11155420,
+      AVAX_FUJI: 43113,
+      POLYGON_AMOY: 80002,
+      UNICHAIN_SEPOLIA: 1301,
+      LINEA_SEPOLIA: 59141,
+      XDC_APOTHEM: 51,
+      WORLD_CHAIN_SEPOLIA: 4801,
+      MONAD_TESTNET: 10143,
+      SEI_TESTNET: 1328,
+      HYPEREVM_TESTNET: 999,
+      INK_TESTNET: 763373,
+      SONIC_TESTNET: 14601,
+      PLUME_TESTNET: 98867,
+      CODEX_TESTNET: 812242,
+    }),
+    []
+  );
+
+  const srcChainIdResolved = useMemo(() => {
+    if (sourceKey === "ARC") return expectedArcChainId;
+    return srcChainId || fallbackChainIds[sourceKey] || 0;
+  }, [sourceKey, expectedArcChainId, srcChainId, fallbackChainIds]);
+
+  // On Vercel/Next, client-side env vars are injected at build time.
+  // Fall back to a small built-in map so switching works even if env isn't present in the bundle.
+  const fallbackChainIds: Record<string, number> = useMemo(
+    () => ({
+      ETH_SEPOLIA: 11155111,
+      BASE_SEPOLIA: 84532,
+      ARB_SEPOLIA: 421614,
+      OP_SEPOLIA: 11155420,
+      AVAX_FUJI: 43113,
+      POLYGON_AMOY: 80002,
+      UNICHAIN_SEPOLIA: 1301,
+      LINEA_SEPOLIA: 59141,
+      XDC_APOTHEM: 51,
+      WORLD_CHAIN_SEPOLIA: 4801,
+      MONAD_TESTNET: 10143,
+      SEI_TESTNET: 1328,
+      HYPEREVM_TESTNET: 999,
+      INK_TESTNET: 763373,
+      SONIC_TESTNET: 14601,
+      PLUME_TESTNET: 98867,
+      CODEX_TESTNET: 812242,
+    }),
+    []
+  );
+
+  const srcChainIdResolved = useMemo(() => {
+    if (sourceKey === "ARC") return expectedArcChainId;
+    return srcChainId || fallbackChainIds[sourceKey] || 0;
+  }, [sourceKey, expectedArcChainId, srcChainId, fallbackChainIds]);
+
   const isOnSelectedSource = useMemo(() => {
     if (!isConnected || !chain?.id) return false;
-    return chain.id === srcChainId;
-  }, [isConnected, chain?.id, srcChainId]);
+    return chain.id === srcChainIdResolved;
+  }, [isConnected, chain?.id, srcChainIdResolved]);
 
   // Debug helper: lets you see which env keys resolved at runtime in the browser.
   const envDebug = useMemo(() => {
@@ -159,11 +219,12 @@ export default function BridgeTab() {
       rpcRaw: (process.env as any)[rpcKey],
       explorerKey,
       explorerRaw: (process.env as any)[explorerKey],
+      chainIdResolved: srcChainIdResolved,
     };
-  }, [sourceKey]);
+  }, [sourceKey, srcChainIdResolved]);
 
   async function switchToSelectedSource() {
-    if (!srcChainId) {
+    if (!srcChainIdResolved) {
       throw new Error(
         `Missing source chain id for ${sourceKey}. ` +
           `Set NEXT_PUBLIC_${sourceKey}_CHAIN_ID (and NEXT_PUBLIC_${sourceKey}_RPC_URL) in Vercel env /.env.local.`
@@ -171,7 +232,7 @@ export default function BridgeTab() {
     }
     if (!window.ethereum) throw new Error("No injected wallet found");
 
-    const chainIdHex = `0x${srcChainId.toString(16)}`;
+    const chainIdHex = `0x${srcChainIdResolved.toString(16)}`;
     try {
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
@@ -558,7 +619,7 @@ export default function BridgeTab() {
                   Switch wallet to {sourceLabel}
                 </button>
               ) : null}
-              {!srcChainId ? (
+              {!srcChainIdResolved ? (
                 <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800">
                   Thiếu cấu hình chain nguồn:{" "}
                   <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_CHAIN_ID`}</span>{" "}
@@ -566,10 +627,11 @@ export default function BridgeTab() {
                   <div className="mt-2 text-[11px] text-orange-900">
                     Debug: <span className="font-mono">{String(envDebug.chainIdRaw || "")}</span>{" "}
                     | <span className="font-mono">{String(envDebug.rpcRaw || "")}</span>
+                    {"  "}→ resolved chainId: <span className="font-mono">{String(envDebug.chainIdResolved || "")}</span>
                   </div>
                 </div>
               ) : null}
-              {!srcChainId ? (
+              {!srcChainIdResolved ? (
                 <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800">
                   Thiếu cấu hình chain nguồn:{" "}
                   <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_CHAIN_ID`}</span>{" "}
@@ -577,6 +639,7 @@ export default function BridgeTab() {
                   <div className="mt-2 text-[11px] text-orange-900">
                     Debug: <span className="font-mono">{String(envDebug.chainIdRaw || "")}</span>{" "}
                     | <span className="font-mono">{String(envDebug.rpcRaw || "")}</span>
+                    {"  "}→ resolved chainId: <span className="font-mono">{String(envDebug.chainIdResolved || "")}</span>
                   </div>
                 </div>
               ) : null}

@@ -181,12 +181,18 @@ export default function BridgeTab() {
     const chainIdKey = `NEXT_PUBLIC_${sourceKey}_CHAIN_ID`;
     const rpcKey = `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
     const explorerKey = `NEXT_PUBLIC_${sourceKey}_EXPLORER_URL`;
+    const rpcKeyAlt = `NEXT_PUBLIC_${sourceKey}_RPC`;
+    const chainIdKeyAlt = `NEXT_PUBLIC_${sourceKey}_CHAINID`;
     return {
       sourceKey,
       chainIdKey,
+      chainIdKeyAlt,
       chainIdRaw: (process.env as any)[chainIdKey],
+      chainIdRawAlt: (process.env as any)[chainIdKeyAlt],
       rpcKey,
+      rpcKeyAlt,
       rpcRaw: (process.env as any)[rpcKey],
+      rpcRawAlt: (process.env as any)[rpcKeyAlt],
       explorerKey,
       explorerRaw: (process.env as any)[explorerKey],
       chainIdResolved: srcChainIdResolved,
@@ -256,7 +262,11 @@ export default function BridgeTab() {
 
       const rpcKey = sourceKey === "ARC" ? "NEXT_PUBLIC_ARC_RPC_URL" : `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
       const rpcUrl =
-        sourceKey === "ARC" ? process.env.NEXT_PUBLIC_ARC_RPC_URL : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`];
+        sourceKey === "ARC"
+          ? process.env.NEXT_PUBLIC_ARC_RPC_URL
+          : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
+            // some projects accidentally use *_RPC instead of *_RPC_URL
+            (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC`];
 
       // If the user just updated env vars on Vercel but didn't redeploy,
       // the running bundle can still have the old values (undefined).
@@ -264,7 +274,7 @@ export default function BridgeTab() {
         setStatus(
           `Thiếu RPC URL cho chain nguồn (${sourceLabel}).\n` +
             `Vercel chỉ inject NEXT_PUBLIC_* vào bundle lúc build/deploy. Bạn cần redeploy để giá trị mới có hiệu lực.\n\n` +
-            `Biến cần có: ${rpcKey}\n` +
+            `Biến cần có: ${rpcKey} (hoặc NEXT_PUBLIC_${sourceKey}_RPC)\n` +
             `Giá trị đọc được hiện tại: ${String(rpcUrl)}\n\n` +
             `Debug: ${JSON.stringify(envDebug, null, 2)}`
         );
@@ -311,7 +321,11 @@ export default function BridgeTab() {
 
       const rpcKey = sourceKey === "ARC" ? "NEXT_PUBLIC_ARC_RPC_URL" : `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
       const rpcUrl =
-        sourceKey === "ARC" ? process.env.NEXT_PUBLIC_ARC_RPC_URL : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`];
+        sourceKey === "ARC"
+          ? process.env.NEXT_PUBLIC_ARC_RPC_URL
+          : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
+            // some projects accidentally use *_RPC instead of *_RPC_URL
+            (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC`];
 
       // If the user just updated env vars on Vercel but didn't redeploy,
       // the running bundle can still have the old values (undefined).
@@ -319,7 +333,7 @@ export default function BridgeTab() {
         setStatus(
           `Thiếu RPC URL cho chain nguồn (${sourceLabel}).\n` +
             `Vercel chỉ inject NEXT_PUBLIC_* vào bundle lúc build/deploy. Bạn cần redeploy để giá trị mới có hiệu lực.\n\n` +
-            `Biến cần có: ${rpcKey}\n` +
+            `Biến cần có: ${rpcKey} (hoặc NEXT_PUBLIC_${sourceKey}_RPC)\n` +
             `Giá trị đọc được hiện tại: ${String(rpcUrl)}\n\n` +
             `Debug: ${JSON.stringify(envDebug, null, 2)}`
         );

@@ -193,6 +193,108 @@ export default function BridgeTab() {
     };
   }, [sourceKey, srcChainIdResolved]);
 
+  // Auto switch whenever the user changes the "Source chain" selector.
+  // Note: browsers/wallets may require a user gesture for chain switching; in that case we surface a clear message.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      if (!isConnected) return;
+      if (!srcChainIdResolved) return;
+      if (chain?.id === srcChainIdResolved) return;
+
+      const rpcKey = sourceKey === "ARC" ? "NEXT_PUBLIC_ARC_RPC_URL" : `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
+      const rpcUrl =
+        sourceKey === "ARC" ? process.env.NEXT_PUBLIC_ARC_RPC_URL : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`];
+
+      if (!rpcUrl) {
+        setStatus(
+          `Thiếu RPC URL cho chain nguồn (${sourceLabel}).\n` +
+            `Vui lòng set biến môi trường: ${rpcKey}\n\n` +
+            `Debug: ${JSON.stringify(envDebug, null, 2)}`
+        );
+        return;
+      }
+
+      try {
+        setStatus(`Đang chuyển ví sang chain nguồn: ${sourceLabel}...`);
+        await switchToSelectedSource();
+        if (!cancelled) setStatus(`Đã gửi yêu cầu chuyển chain sang: ${sourceLabel}.`);
+      } catch (e: any) {
+        const msg =
+          typeof e?.message === "string"
+            ? e.message
+            : typeof e === "string"
+              ? e
+              : JSON.stringify(e);
+        if (!cancelled) {
+          setStatus(
+            `Không thể tự động chuyển chain sang: ${sourceLabel}.\n` +
+              `Lỗi: ${msg}\n\n` +
+              `Gợi ý: một số ví (hoặc trình duyệt) chặn switch chain nếu không có thao tác click trực tiếp.\n` +
+              `Bạn có thể thử bấm lại nút Bridge/Switch trong UI để tạo "user gesture".`
+          );
+        }
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, chain?.id, sourceKey, sourceLabel, srcChainIdResolved, envDebug]);
+
+  // Auto switch whenever the user changes the "Source chain" selector.
+  // Note: browsers/wallets may require a user gesture for chain switching; in that case we surface a clear message.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      if (!isConnected) return;
+      if (!srcChainIdResolved) return;
+      if (chain?.id === srcChainIdResolved) return;
+
+      const rpcKey = sourceKey === "ARC" ? "NEXT_PUBLIC_ARC_RPC_URL" : `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
+      const rpcUrl =
+        sourceKey === "ARC" ? process.env.NEXT_PUBLIC_ARC_RPC_URL : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`];
+
+      if (!rpcUrl) {
+        setStatus(
+          `Thiếu RPC URL cho chain nguồn (${sourceLabel}).\n` +
+            `Vui lòng set biến môi trường: ${rpcKey}\n\n` +
+            `Debug: ${JSON.stringify(envDebug, null, 2)}`
+        );
+        return;
+      }
+
+      try {
+        setStatus(`Đang chuyển ví sang chain nguồn: ${sourceLabel}...`);
+        await switchToSelectedSource();
+        if (!cancelled) setStatus(`Đã gửi yêu cầu chuyển chain sang: ${sourceLabel}.`);
+      } catch (e: any) {
+        const msg =
+          typeof e?.message === "string"
+            ? e.message
+            : typeof e === "string"
+              ? e
+              : JSON.stringify(e);
+        if (!cancelled) {
+          setStatus(
+            `Không thể tự động chuyển chain sang: ${sourceLabel}.\n` +
+              `Lỗi: ${msg}\n\n` +
+              `Gợi ý: một số ví (hoặc trình duyệt) chặn switch chain nếu không có thao tác click trực tiếp.\n` +
+              `Bạn có thể thử bấm lại nút Bridge/Switch trong UI để tạo "user gesture".`
+          );
+        }
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, chain?.id, sourceKey, sourceLabel, srcChainIdResolved, envDebug]);
+
   async function switchToSelectedSource() {
     if (!srcChainIdResolved) {
       throw new Error(

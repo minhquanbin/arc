@@ -166,40 +166,7 @@ export default function BridgeTab() {
     []
   );
 
-  const srcChainIdResolved = useMemo(() => {
-    if (sourceKey === "ARC") return expectedArcChainId;
-    return srcChainId || fallbackChainIds[sourceKey] || 0;
-  }, [sourceKey, expectedArcChainId, srcChainId, fallbackChainIds]);
-
-  // On Vercel/Next, client-side env vars are injected at build time.
-  // Fall back to a small built-in map so switching works even if env isn't present in the bundle.
-  const fallbackChainIds: Record<string, number> = useMemo(
-    () => ({
-      ETH_SEPOLIA: 11155111,
-      BASE_SEPOLIA: 84532,
-      ARB_SEPOLIA: 421614,
-      OP_SEPOLIA: 11155420,
-      AVAX_FUJI: 43113,
-      POLYGON_AMOY: 80002,
-      UNICHAIN_SEPOLIA: 1301,
-      LINEA_SEPOLIA: 59141,
-      XDC_APOTHEM: 51,
-      WORLD_CHAIN_SEPOLIA: 4801,
-      MONAD_TESTNET: 10143,
-      SEI_TESTNET: 1328,
-      HYPEREVM_TESTNET: 999,
-      INK_TESTNET: 763373,
-      SONIC_TESTNET: 14601,
-      PLUME_TESTNET: 98867,
-      CODEX_TESTNET: 812242,
-    }),
-    []
-  );
-
-  const srcChainIdResolved = useMemo(() => {
-    if (sourceKey === "ARC") return expectedArcChainId;
-    return srcChainId || fallbackChainIds[sourceKey] || 0;
-  }, [sourceKey, expectedArcChainId, srcChainId, fallbackChainIds]);
+  // (de-duplicated) fallbackChainIds + srcChainIdResolved are defined below
 
   const isOnSelectedSource = useMemo(() => {
     if (!isConnected || !chain?.id) return false;

@@ -136,7 +136,8 @@ export default function BridgeTab() {
 
   const srcChainId = useMemo(() => {
     if (sourceKey === "ARC") return expectedArcChainId;
-    const id = Number((process.env as any)[`NEXT_PUBLIC_${sourceKey}_CHAIN_ID`] || 0);
+    const key = `NEXT_PUBLIC_${sourceKey}_CHAIN_ID`;
+    const id = Number((process.env as any)[key] || 0);
     return id || 0;
   }, [sourceKey, expectedArcChainId]);
 
@@ -144,6 +145,22 @@ export default function BridgeTab() {
     if (!isConnected || !chain?.id) return false;
     return chain.id === srcChainId;
   }, [isConnected, chain?.id, srcChainId]);
+
+  // Debug helper: lets you see which env keys resolved at runtime in the browser.
+  const envDebug = useMemo(() => {
+    const chainIdKey = `NEXT_PUBLIC_${sourceKey}_CHAIN_ID`;
+    const rpcKey = `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
+    const explorerKey = `NEXT_PUBLIC_${sourceKey}_EXPLORER_URL`;
+    return {
+      sourceKey,
+      chainIdKey,
+      chainIdRaw: (process.env as any)[chainIdKey],
+      rpcKey,
+      rpcRaw: (process.env as any)[rpcKey],
+      explorerKey,
+      explorerRaw: (process.env as any)[explorerKey],
+    };
+  }, [sourceKey]);
 
   async function switchToSelectedSource() {
     if (!srcChainId) {
@@ -546,6 +563,10 @@ export default function BridgeTab() {
                   Thiếu cấu hình chain nguồn:{" "}
                   <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_CHAIN_ID`}</span>{" "}
                   / <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_RPC_URL`}</span>
+                  <div className="mt-2 text-[11px] text-orange-900">
+                    Debug: <span className="font-mono">{String(envDebug.chainIdRaw || "")}</span>{" "}
+                    | <span className="font-mono">{String(envDebug.rpcRaw || "")}</span>
+                  </div>
                 </div>
               ) : null}
               {!srcChainId ? (
@@ -553,6 +574,10 @@ export default function BridgeTab() {
                   Thiếu cấu hình chain nguồn:{" "}
                   <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_CHAIN_ID`}</span>{" "}
                   / <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_RPC_URL`}</span>
+                  <div className="mt-2 text-[11px] text-orange-900">
+                    Debug: <span className="font-mono">{String(envDebug.chainIdRaw || "")}</span>{" "}
+                    | <span className="font-mono">{String(envDebug.rpcRaw || "")}</span>
+                  </div>
                 </div>
               ) : null}
             </div>

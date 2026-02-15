@@ -103,21 +103,6 @@ export default function BridgeTab() {
     []
   );
 
-  // NOTE: In the Next.js App Router, `process.env.NEXT_PUBLIC_*` is statically replaced at build time.
-  // Some bundlers/optimizations can make dynamic lookups like `process.env[key]` unreliable.
-  // We keep an explicit snapshot to improve reliability across deploys.
-  const envPublic = useMemo(
-    () => ({
-      NEXT_PUBLIC_ARC_RPC_URL: process.env.NEXT_PUBLIC_ARC_RPC_URL,
-
-      NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID: process.env.NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID,
-      NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL: process.env.NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL,
-      NEXT_PUBLIC_ETH_SEPOLIA_RPC: (process.env as any).NEXT_PUBLIC_ETH_SEPOLIA_RPC,
-      NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL: process.env.NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL,
-    }),
-    []
-  );
-
   const [sourceKey, setSourceKey] = useState<"ARC" | (typeof DESTS)[number]["key"]>("ARC");
   const [destKey, setDestKey] = useState(DESTS[0].key);
   const [sourceOpen, setSourceOpen] = useState(false);

@@ -88,8 +88,9 @@ export default function BridgeTab() {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
-  const [direction, setDirection] = useState<"ARC_TO_OTHER" | "OTHER_TO_ARC">("ARC_TO_OTHER");
+  const [sourceKey, setSourceKey] = useState<"ARC" | (typeof DESTS)[number]["key"]>("ARC");
   const [destKey, setDestKey] = useState(DESTS[0].key);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
   const [amountUsdc, setAmountUsdc] = useState("");
   const [recipient, setRecipient] = useState<string>("");
@@ -123,16 +124,26 @@ export default function BridgeTab() {
   const expectedArcChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
   const isOnArc = isConnected && chain?.id === expectedArcChainId;
 
-  // Identify current chain as one of DESTS (by env chainId) to enable OTHER->ARC
+  const sourceLabel = useMemo(() => {
+    if (sourceKey === "ARC") return "ARC Testnet";
+    return DESTS.find((d) => d.key === sourceKey)?.name || sourceKey;
+  }, [sourceKey]);
+
   const src = useMemo(() => {
-    if (direction !== "OTHER_TO_ARC") return null;
-    if (!chain?.id) return null;
-    for (const d of DESTS) {
-      const id = Number((process.env as any)[`NEXT_PUBLIC_${d.key}_CHAIN_ID`] || 0);
-      if (id && id === chain.id) return d;
-    }
-    return null;
-  }, [direction, chain?.id]);
+    if (sourceKey === "ARC") return null;
+    return DESTS.find((d) => d.key === sourceKey) || null;
+  }, [sourceKey]);
+
+  const srcChainId = useMemo(() => {
+    if (sourceKey === "ARC") return expectedArcChainId;
+    const id = Number((process.env as any)[`NEXT_PUBLIC_${sourceKey}_CHAIN_ID`] || 0);
+    return id || 0;
+  }, [sourceKey, expectedArcChainId]);
+
+  const isOnSelectedSource = useMemo(() => {
+    if (!isConnected || !chain?.id) return false;
+    return chain.id === srcChainId;
+  }, [isConnected, chain?.id, srcChainId]);
 
   function computeMaxFee(amountUsdcStr: string, destinationDomain: number) {
     const amount = parseUnits(amountUsdcStr, 6);
@@ -166,9 +177,12 @@ export default function BridgeTab() {
       const amount = parseUnits(amountUsdc, 6);
       const minFinality = Number(process.env.NEXT_PUBLIC_MIN_FINALITY_THRESHOLD || "1000");
 
-      if (direction === "ARC_TO_OTHER") {
-        if (!isOnArc) throw new Error(`Please switch to ARC Testnet (Chain ID: ${expectedArcChainId})`);
+      if (!isOnSelectedSource) {
+        throw new Error(`Vui lòng switch ví sang chain nguồn: ${sourceLabel}`);
+      }
 
+      // === ARC -> Other ===
+      if (sourceKey === "ARC") {
         const router = (process.env.NEXT_PUBLIC_ARC_ROUTER ||
           "0xEc02A909701A8eB9C84B93b55B6d4A7ca215CFca") as `0x${string}`;
         let arcUsdc = ((process.env.NEXT_PUBLIC_ARC_USDC || process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
@@ -291,13 +305,8 @@ export default function BridgeTab() {
             `Waiting for forwarding...`
         );
       } else {
-        // OTHER -> ARC
-        if (isOnArc) throw new Error("Bạn đang ở ARC. Hãy switch sang chain nguồn để bridge về ARC.");
-        if (!src) {
-          throw new Error(
-            "Chain hiện tại chưa được cấu hình. Hãy set NEXT_PUBLIC_<DEST_KEY>_CHAIN_ID + RPC/USDC trong .env.local."
-          );
-        }
+        // === Other -> ARC ===
+        if (!src) throw new Error("Chain nguồn không hợp lệ.");
 
         const srcUsdc = ((process.env as any)[`NEXT_PUBLIC_${src.key}_USDC`] ||
           (process.env as any)[`NEXT_PUBLIC_${src.key}_USDC_ADDRESS`]) as `0x${string}` | undefined;
@@ -393,41 +402,67 @@ export default function BridgeTab() {
         {/* Left */}
         <div className="h-full rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
           <div className="space-y-5">
-            {/* Direction */}
+            {/* Source chain */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Direction</label>
-              <div className="grid grid-cols-2 gap-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">Source chain</label>
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setDirection("ARC_TO_OTHER")}
+                  onClick={() => setSourceOpen((v) => !v)}
                   disabled={loading}
-                  className={[
-                    "rounded-xl border px-4 py-3 text-sm font-semibold transition-all",
-                    direction === "ARC_TO_OTHER"
-                      ? "border-[#ff7582]/60 bg-gradient-to-r from-[#ff7582]/15 to-[#725a7a]/10"
-                      : "border-gray-300 bg-white hover:bg-gray-50",
-                  ].join(" ")}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 disabled:cursor-not-allowed disabled:bg-gray-100"
                 >
-                  ARC → Other
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={sourceKey === "ARC" ? "/chain-icons/arc-logo.svg" : (DESTS.find((d) => d.key === sourceKey)?.iconPath || "/chain-icons/browser.svg")}
+                      alt={sourceLabel}
+                      className="h-6 w-6 rounded-md"
+                    />
+                    <span className="font-medium">{sourceLabel}</span>
+                  </div>
+                  <span className="text-gray-400">▾</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setDirection("OTHER_TO_ARC")}
-                  disabled={loading}
-                  className={[
-                    "rounded-xl border px-4 py-3 text-sm font-semibold transition-all",
-                    direction === "OTHER_TO_ARC"
-                      ? "border-[#ff7582]/60 bg-gradient-to-r from-[#ff7582]/15 to-[#725a7a]/10"
-                      : "border-gray-300 bg-white hover:bg-gray-50",
-                  ].join(" ")}
-                >
-                  Other → ARC
-                </button>
+
+                {sourceOpen && (
+                  <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                    <div className="max-h-72 overflow-auto py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSourceKey("ARC");
+                          setSourceOpen(false);
+                        }}
+                        className={[
+                          "flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50",
+                          sourceKey === "ARC" ? "bg-gray-50" : "",
+                        ].join(" ")}
+                      >
+                        <img src="/chain-icons/arc-logo.svg" alt="ARC" className="h-6 w-6 rounded-md" />
+                        <span className="font-medium text-gray-900">ARC Testnet</span>
+                      </button>
+                      {DESTS.map((d) => (
+                        <button
+                          key={d.key}
+                          type="button"
+                          onClick={() => {
+                            setSourceKey(d.key as any);
+                            setSourceOpen(false);
+                          }}
+                          className={[
+                            "flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50",
+                            d.key === sourceKey ? "bg-gray-50" : "",
+                          ].join(" ")}
+                        >
+                          <img src={d.iconPath} alt={d.name} className="h-6 w-6 rounded-md" />
+                          <span className="font-medium text-gray-900">{d.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="mt-1 text-xs text-gray-500">
-                {direction === "ARC_TO_OTHER"
-                  ? "Bạn đang bridge USDC từ ARC sang chain khác."
-                  : "Hãy switch ví sang chain nguồn (Sepolia/Base/...) rồi bridge về ARC."}
+                {isOnSelectedSource ? "✅ Ví đang ở đúng chain nguồn." : "ℹ️ Hãy switch ví sang chain nguồn để gửi burn."}
               </div>
             </div>
 
@@ -443,11 +478,11 @@ export default function BridgeTab() {
                 >
                   <div className="flex items-center gap-3">
                     <img
-                      src={direction === "ARC_TO_OTHER" ? dest.iconPath : "/chain-icons/arc-logo.svg"}
-                      alt={direction === "ARC_TO_OTHER" ? dest.name : "ARC Testnet"}
+                      src={sourceKey === "ARC" ? dest.iconPath : "/chain-icons/arc-logo.svg"}
+                      alt={sourceKey === "ARC" ? dest.name : "ARC Testnet"}
                       className="h-6 w-6 rounded-md"
                     />
-                    <span className="font-medium">{direction === "ARC_TO_OTHER" ? dest.name : "ARC Testnet"}</span>
+                    <span className="font-medium">{sourceKey === "ARC" ? dest.name : "ARC Testnet"}</span>
                   </div>
                   <span className="text-gray-400">▾</span>
                 </button>
@@ -455,7 +490,7 @@ export default function BridgeTab() {
                 {destOpen && (
                   <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                     <div className="max-h-72 overflow-auto py-1">
-                      {(direction === "ARC_TO_OTHER"
+                      {(sourceKey === "ARC"
                         ? DESTS
                         : [
                             {
@@ -471,12 +506,12 @@ export default function BridgeTab() {
                           key={d.key}
                           type="button"
                           onClick={() => {
-                            if (direction === "ARC_TO_OTHER") setDestKey(d.key);
+                            if (sourceKey === "ARC") setDestKey(d.key);
                             setDestOpen(false);
                           }}
                           className={[
                             "flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50",
-                            direction === "ARC_TO_OTHER" && d.key === destKey ? "bg-gray-50" : "",
+                            sourceKey === "ARC" && d.key === destKey ? "bg-gray-50" : "",
                           ].join(" ")}
                         >
                           <img src={d.iconPath} alt={d.name} className="h-6 w-6 rounded-md" />
@@ -492,7 +527,7 @@ export default function BridgeTab() {
             {/* Recipient */}
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                {direction === "ARC_TO_OTHER" ? "Recipient address" : "Recipient (ARC) address"}
+                {sourceKey === "ARC" ? "Recipient address" : "Recipient (ARC) address"}
               </label>
               <input
                 type="text"
@@ -555,7 +590,7 @@ export default function BridgeTab() {
                   : "bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:from-[#ff5f70] hover:to-[#664f6e] active:scale-[0.98]",
               ].join(" ")}
             >
-              {loading ? "Processing..." : direction === "ARC_TO_OTHER" ? "Bridge out" : "Bridge to ARC"}
+              {loading ? "Processing..." : sourceKey === "ARC" ? "Bridge out" : "Bridge to ARC"}
             </button>
           </div>
         </div>

@@ -166,7 +166,10 @@ export default function BridgeTab() {
     []
   );
 
-  // (de-duplicated) fallbackChainIds + srcChainIdResolved are defined below
+  const srcChainIdResolved = useMemo(() => {
+    if (sourceKey === "ARC") return expectedArcChainId;
+    return srcChainId || fallbackChainIds[sourceKey] || 0;
+  }, [sourceKey, expectedArcChainId, srcChainId, fallbackChainIds]);
 
   const isOnSelectedSource = useMemo(() => {
     if (!isConnected || !chain?.id) return false;

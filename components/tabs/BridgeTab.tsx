@@ -191,52 +191,6 @@ export default function BridgeTab() {
     }
   }
 
-  async function switchToSelectedSource() {
-    if (!srcChainId) throw new Error("Missing source chain id");
-    if (!window.ethereum) throw new Error("No injected wallet found");
-
-    const chainIdHex = `0x${srcChainId.toString(16)}`;
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: chainIdHex }],
-      });
-    } catch (switchError: any) {
-      // If the chain isn't added, try adding it with the RPC URL from env.
-      if (switchError?.code === 4902) {
-        const rpcUrl =
-          sourceKey === "ARC"
-            ? process.env.NEXT_PUBLIC_ARC_RPC_URL
-            : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`];
-        const explorerUrl =
-          sourceKey === "ARC"
-            ? "https://testnet.arcscan.app"
-            : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_EXPLORER_URL`];
-
-        if (!rpcUrl) throw new Error("Missing RPC URL for selected source chain");
-
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [
-            {
-              chainId: chainIdHex,
-              chainName: sourceLabel,
-              nativeCurrency: {
-                name: "ETH",
-                symbol: "ETH",
-                decimals: 18,
-              },
-              rpcUrls: [rpcUrl],
-              blockExplorerUrls: explorerUrl ? [explorerUrl] : undefined,
-            },
-          ],
-        });
-      } else {
-        throw switchError;
-      }
-    }
-  }
-
   function computeMaxFee(amountUsdcStr: string, destinationDomain: number) {
     const amount = parseUnits(amountUsdcStr, 6);
     const minForwardFeeUsdc = destinationDomain === 0 ? "1.25" : "0.2";

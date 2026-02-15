@@ -88,20 +88,135 @@ export default function BridgeTab() {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
-  // NOTE: In the Next.js App Router, `process.env.NEXT_PUBLIC_*` is statically replaced at build time.
-  // Some bundlers/optimizations can make dynamic lookups like `process.env[key]` unreliable.
-  // We keep an explicit snapshot to improve reliability across deploys.
-  const envPublic = useMemo(
-    () => ({
-      NEXT_PUBLIC_ARC_RPC_URL: process.env.NEXT_PUBLIC_ARC_RPC_URL,
+  // Client-side env vars in Next are inlined at build time; dynamic `process.env[key]` can be unreliable.
+  // Use a safe lookup helper with a small hand-maintained allowlist for supported chains.
+  function getEnv(key: string): string | undefined {
+    switch (key) {
+      case "NEXT_PUBLIC_ARC_RPC_URL":
+        return process.env.NEXT_PUBLIC_ARC_RPC_URL;
 
-      NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID: process.env.NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID,
-      NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL: process.env.NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL,
-      NEXT_PUBLIC_ETH_SEPOLIA_RPC: (process.env as any).NEXT_PUBLIC_ETH_SEPOLIA_RPC,
-      NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL: process.env.NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL,
-    }),
-    []
-  );
+      case "NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID":
+        return process.env.NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID;
+      case "NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL":
+        return process.env.NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL;
+      case "NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL":
+        return process.env.NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_AVAX_FUJI_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_AVAX_FUJI_CHAIN_ID;
+      case "NEXT_PUBLIC_AVAX_FUJI_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_AVAX_FUJI_RPC_URL;
+      case "NEXT_PUBLIC_AVAX_FUJI_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_AVAX_FUJI_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_OP_SEPOLIA_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_OP_SEPOLIA_CHAIN_ID;
+      case "NEXT_PUBLIC_OP_SEPOLIA_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_OP_SEPOLIA_RPC_URL;
+      case "NEXT_PUBLIC_OP_SEPOLIA_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_OP_SEPOLIA_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_ARB_SEPOLIA_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_ARB_SEPOLIA_CHAIN_ID;
+      case "NEXT_PUBLIC_ARB_SEPOLIA_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_ARB_SEPOLIA_RPC_URL;
+      case "NEXT_PUBLIC_ARB_SEPOLIA_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_ARB_SEPOLIA_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID;
+      case "NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL;
+      case "NEXT_PUBLIC_BASE_SEPOLIA_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_BASE_SEPOLIA_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_POLYGON_AMOY_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_POLYGON_AMOY_CHAIN_ID;
+      case "NEXT_PUBLIC_POLYGON_AMOY_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_POLYGON_AMOY_RPC_URL;
+      case "NEXT_PUBLIC_POLYGON_AMOY_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_POLYGON_AMOY_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_UNICHAIN_SEPOLIA_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_UNICHAIN_SEPOLIA_CHAIN_ID;
+      case "NEXT_PUBLIC_UNICHAIN_SEPOLIA_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_UNICHAIN_SEPOLIA_RPC_URL;
+      case "NEXT_PUBLIC_UNICHAIN_SEPOLIA_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_UNICHAIN_SEPOLIA_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_LINEA_SEPOLIA_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_LINEA_SEPOLIA_CHAIN_ID;
+      case "NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL;
+      case "NEXT_PUBLIC_LINEA_SEPOLIA_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_LINEA_SEPOLIA_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_CODEX_TESTNET_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_CODEX_TESTNET_CHAIN_ID;
+      case "NEXT_PUBLIC_CODEX_TESTNET_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_CODEX_TESTNET_RPC_URL;
+      case "NEXT_PUBLIC_CODEX_TESTNET_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_CODEX_TESTNET_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_SONIC_TESTNET_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_SONIC_TESTNET_CHAIN_ID;
+      case "NEXT_PUBLIC_SONIC_TESTNET_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_SONIC_TESTNET_RPC_URL;
+      case "NEXT_PUBLIC_SONIC_TESTNET_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_SONIC_TESTNET_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_WORLD_CHAIN_SEPOLIA_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_WORLD_CHAIN_SEPOLIA_CHAIN_ID;
+      case "NEXT_PUBLIC_WORLD_CHAIN_SEPOLIA_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_WORLD_CHAIN_SEPOLIA_RPC_URL;
+      case "NEXT_PUBLIC_WORLD_CHAIN_SEPOLIA_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_WORLD_CHAIN_SEPOLIA_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_MONAD_TESTNET_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_MONAD_TESTNET_CHAIN_ID;
+      case "NEXT_PUBLIC_MONAD_TESTNET_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_MONAD_TESTNET_RPC_URL;
+      case "NEXT_PUBLIC_MONAD_TESTNET_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_MONAD_TESTNET_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_SEI_TESTNET_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_SEI_TESTNET_CHAIN_ID;
+      case "NEXT_PUBLIC_SEI_TESTNET_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_SEI_TESTNET_RPC_URL;
+      case "NEXT_PUBLIC_SEI_TESTNET_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_SEI_TESTNET_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_XDC_APOTHEM_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_XDC_APOTHEM_CHAIN_ID;
+      case "NEXT_PUBLIC_XDC_APOTHEM_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_XDC_APOTHEM_RPC_URL;
+      case "NEXT_PUBLIC_XDC_APOTHEM_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_XDC_APOTHEM_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_HYPEREVM_TESTNET_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_HYPEREVM_TESTNET_CHAIN_ID;
+      case "NEXT_PUBLIC_HYPEREVM_TESTNET_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_HYPEREVM_TESTNET_RPC_URL;
+      case "NEXT_PUBLIC_HYPEREVM_TESTNET_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_HYPEREVM_TESTNET_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_INK_TESTNET_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_INK_TESTNET_CHAIN_ID;
+      case "NEXT_PUBLIC_INK_TESTNET_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_INK_TESTNET_RPC_URL;
+      case "NEXT_PUBLIC_INK_TESTNET_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_INK_TESTNET_EXPLORER_URL;
+
+      case "NEXT_PUBLIC_PLUME_TESTNET_CHAIN_ID":
+        return (process.env as any).NEXT_PUBLIC_PLUME_TESTNET_CHAIN_ID;
+      case "NEXT_PUBLIC_PLUME_TESTNET_RPC_URL":
+        return (process.env as any).NEXT_PUBLIC_PLUME_TESTNET_RPC_URL;
+      case "NEXT_PUBLIC_PLUME_TESTNET_EXPLORER_URL":
+        return (process.env as any).NEXT_PUBLIC_PLUME_TESTNET_EXPLORER_URL;
+      default:
+        return undefined;
+    }
+  }
 
   const [sourceKey, setSourceKey] = useState<"ARC" | (typeof DESTS)[number]["key"]>("ARC");
   const [destKey, setDestKey] = useState(DESTS[0].key);
@@ -152,9 +267,9 @@ export default function BridgeTab() {
   const srcChainId = useMemo(() => {
     if (sourceKey === "ARC") return expectedArcChainId;
     const key = `NEXT_PUBLIC_${sourceKey}_CHAIN_ID`;
-    const id = Number((envPublic as any)[key] ?? (process.env as any)[key] ?? 0);
+    const id = Number(getEnv(key) ?? 0);
     return id || 0;
-  }, [sourceKey, expectedArcChainId, envPublic]);
+  }, [sourceKey, expectedArcChainId]);
 
   // On Vercel/Next, client-side env vars are injected at build time.
   // Fall back to a small built-in map so switching works even if env isn't present in the bundle.
@@ -202,17 +317,17 @@ export default function BridgeTab() {
       sourceKey,
       chainIdKey,
       chainIdKeyAlt,
-      chainIdRaw: (envPublic as any)[chainIdKey] ?? (process.env as any)[chainIdKey],
-      chainIdRawAlt: (envPublic as any)[chainIdKeyAlt] ?? (process.env as any)[chainIdKeyAlt],
+      chainIdRaw: getEnv(chainIdKey),
+      chainIdRawAlt: getEnv(chainIdKeyAlt),
       rpcKey,
       rpcKeyAlt,
-      rpcRaw: (envPublic as any)[rpcKey] ?? (process.env as any)[rpcKey],
-      rpcRawAlt: (envPublic as any)[rpcKeyAlt] ?? (process.env as any)[rpcKeyAlt],
+      rpcRaw: getEnv(rpcKey),
+      rpcRawAlt: getEnv(rpcKeyAlt),
       explorerKey,
-      explorerRaw: (envPublic as any)[explorerKey] ?? (process.env as any)[explorerKey],
+      explorerRaw: getEnv(explorerKey),
       chainIdResolved: srcChainIdResolved,
     };
-  }, [sourceKey, srcChainIdResolved, envPublic]);
+  }, [sourceKey, srcChainIdResolved]);
 
   async function switchToSelectedSource() {
     if (!srcChainIdResolved) {
@@ -234,12 +349,12 @@ export default function BridgeTab() {
       if (switchError?.code === 4902) {
         const rpcUrl =
           sourceKey === "ARC"
-            ? process.env.NEXT_PUBLIC_ARC_RPC_URL
-            : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`];
+            ? getEnv("NEXT_PUBLIC_ARC_RPC_URL")
+            : getEnv(`NEXT_PUBLIC_${sourceKey}_RPC_URL`) ?? getEnv(`NEXT_PUBLIC_${sourceKey}_RPC`);
         const explorerUrl =
           sourceKey === "ARC"
             ? "https://testnet.arcscan.app"
-            : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_EXPLORER_URL`];
+            : getEnv(`NEXT_PUBLIC_${sourceKey}_EXPLORER_URL`);
 
         if (!rpcUrl) throw new Error("Missing RPC URL for selected source chain");
 
@@ -278,84 +393,13 @@ export default function BridgeTab() {
       const rpcKey = sourceKey === "ARC" ? "NEXT_PUBLIC_ARC_RPC_URL" : `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
       const rpcUrl =
         sourceKey === "ARC"
-          ? envPublic.NEXT_PUBLIC_ARC_RPC_URL ?? process.env.NEXT_PUBLIC_ARC_RPC_URL
-          : (envPublic as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
-            (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
-            // some projects accidentally use *_RPC instead of *_RPC_URL
-            (envPublic as any)[`NEXT_PUBLIC_${sourceKey}_RPC`] ||
-            (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC`];
+          ? getEnv("NEXT_PUBLIC_ARC_RPC_URL")
+          : getEnv(`NEXT_PUBLIC_${sourceKey}_RPC_URL`) ?? getEnv(`NEXT_PUBLIC_${sourceKey}_RPC`);
 
       // If the user just updated env vars on Vercel but didn't redeploy,
       // the running bundle can still have the old values (undefined).
       if (!rpcUrl) {
-        setStatus(
-          `Thiếu RPC URL cho chain nguồn (${sourceLabel}).\n` +
-            `Vercel chỉ inject NEXT_PUBLIC_* vào bundle lúc build/deploy. Bạn cần redeploy để giá trị mới có hiệu lực.\n\n` +
-            `Biến cần có: ${rpcKey} (hoặc NEXT_PUBLIC_${sourceKey}_RPC)\n` +
-            `Giá trị đọc được hiện tại: ${String(rpcUrl)}\n\n` +
-            `Debug: ${JSON.stringify(envDebug, null, 2)}`
-        );
-        return;
-      }
-
-      try {
-        setStatus(`Đang chuyển ví sang chain nguồn: ${sourceLabel}...`);
-        await switchToSelectedSource();
-        if (!cancelled) setStatus(`Đã gửi yêu cầu chuyển chain sang: ${sourceLabel}.`);
-      } catch (e: any) {
-        const msg =
-          typeof e?.message === "string"
-            ? e.message
-            : typeof e === "string"
-              ? e
-              : JSON.stringify(e);
-        if (!cancelled) {
-          setStatus(
-            `Không thể tự động chuyển chain sang: ${sourceLabel}.\n` +
-              `Lỗi: ${msg}\n\n` +
-              `Gợi ý: một số ví (hoặc trình duyệt) chặn switch chain nếu không có thao tác click trực tiếp.\n` +
-              `Bạn có thể thử bấm lại nút Bridge/Switch trong UI để tạo "user gesture".`
-          );
-        }
-      }
-    }
-
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [isConnected, chain?.id, sourceKey, sourceLabel, srcChainIdResolved, envDebug]);
-
-  // Auto switch whenever the user changes the "Source chain" selector.
-  // Note: browsers/wallets may require a user gesture for chain switching; in that case we surface a clear message.
-  useEffect(() => {
-    let cancelled = false;
-
-    async function run() {
-      if (!isConnected) return;
-      if (!srcChainIdResolved) return;
-      if (chain?.id === srcChainIdResolved) return;
-
-      const rpcKey = sourceKey === "ARC" ? "NEXT_PUBLIC_ARC_RPC_URL" : `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
-      const rpcUrl =
-        sourceKey === "ARC"
-          ? envPublic.NEXT_PUBLIC_ARC_RPC_URL ?? process.env.NEXT_PUBLIC_ARC_RPC_URL
-          : (envPublic as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
-            (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
-            // some projects accidentally use *_RPC instead of *_RPC_URL
-            (envPublic as any)[`NEXT_PUBLIC_${sourceKey}_RPC`] ||
-            (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC`];
-
-      // If the user just updated env vars on Vercel but didn't redeploy,
-      // the running bundle can still have the old values (undefined).
-      if (!rpcUrl) {
-        setStatus(
-          `Thiếu RPC URL cho chain nguồn (${sourceLabel}).\n` +
-            `Vercel chỉ inject NEXT_PUBLIC_* vào bundle lúc build/deploy. Bạn cần redeploy để giá trị mới có hiệu lực.\n\n` +
-            `Biến cần có: ${rpcKey} (hoặc NEXT_PUBLIC_${sourceKey}_RPC)\n` +
-            `Giá trị đọc được hiện tại: ${String(rpcUrl)}\n\n` +
-            `Debug: ${JSON.stringify(envDebug, null, 2)}`
-        );
+        setStatus(`Missing RPC URL for selected source chain\n\nDebug: ${JSON.stringify(envDebug, null, 2)}`);
         return;
       }
 

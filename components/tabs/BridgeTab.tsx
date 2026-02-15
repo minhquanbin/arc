@@ -88,6 +88,36 @@ export default function BridgeTab() {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
+  // NOTE: In the Next.js App Router, `process.env.NEXT_PUBLIC_*` is statically replaced at build time.
+  // Some bundlers/optimizations can make dynamic lookups like `process.env[key]` unreliable.
+  // We keep an explicit snapshot to improve reliability across deploys.
+  const envPublic = useMemo(
+    () => ({
+      NEXT_PUBLIC_ARC_RPC_URL: process.env.NEXT_PUBLIC_ARC_RPC_URL,
+
+      NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID: process.env.NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID,
+      NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL: process.env.NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL,
+      NEXT_PUBLIC_ETH_SEPOLIA_RPC: (process.env as any).NEXT_PUBLIC_ETH_SEPOLIA_RPC,
+      NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL: process.env.NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL,
+    }),
+    []
+  );
+
+  // NOTE: In the Next.js App Router, `process.env.NEXT_PUBLIC_*` is statically replaced at build time.
+  // Some bundlers/optimizations can make dynamic lookups like `process.env[key]` unreliable.
+  // We keep an explicit snapshot to improve reliability across deploys.
+  const envPublic = useMemo(
+    () => ({
+      NEXT_PUBLIC_ARC_RPC_URL: process.env.NEXT_PUBLIC_ARC_RPC_URL,
+
+      NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID: process.env.NEXT_PUBLIC_ETH_SEPOLIA_CHAIN_ID,
+      NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL: process.env.NEXT_PUBLIC_ETH_SEPOLIA_RPC_URL,
+      NEXT_PUBLIC_ETH_SEPOLIA_RPC: (process.env as any).NEXT_PUBLIC_ETH_SEPOLIA_RPC,
+      NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL: process.env.NEXT_PUBLIC_ETH_SEPOLIA_EXPLORER_URL,
+    }),
+    []
+  );
+
   const [sourceKey, setSourceKey] = useState<"ARC" | (typeof DESTS)[number]["key"]>("ARC");
   const [destKey, setDestKey] = useState(DESTS[0].key);
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -137,9 +167,9 @@ export default function BridgeTab() {
   const srcChainId = useMemo(() => {
     if (sourceKey === "ARC") return expectedArcChainId;
     const key = `NEXT_PUBLIC_${sourceKey}_CHAIN_ID`;
-    const id = Number((process.env as any)[key] || 0);
+    const id = Number((envPublic as any)[key] ?? (process.env as any)[key] ?? 0);
     return id || 0;
-  }, [sourceKey, expectedArcChainId]);
+  }, [sourceKey, expectedArcChainId, envPublic]);
 
   // On Vercel/Next, client-side env vars are injected at build time.
   // Fall back to a small built-in map so switching works even if env isn't present in the bundle.
@@ -187,17 +217,17 @@ export default function BridgeTab() {
       sourceKey,
       chainIdKey,
       chainIdKeyAlt,
-      chainIdRaw: (process.env as any)[chainIdKey],
-      chainIdRawAlt: (process.env as any)[chainIdKeyAlt],
+      chainIdRaw: (envPublic as any)[chainIdKey] ?? (process.env as any)[chainIdKey],
+      chainIdRawAlt: (envPublic as any)[chainIdKeyAlt] ?? (process.env as any)[chainIdKeyAlt],
       rpcKey,
       rpcKeyAlt,
-      rpcRaw: (process.env as any)[rpcKey],
-      rpcRawAlt: (process.env as any)[rpcKeyAlt],
+      rpcRaw: (envPublic as any)[rpcKey] ?? (process.env as any)[rpcKey],
+      rpcRawAlt: (envPublic as any)[rpcKeyAlt] ?? (process.env as any)[rpcKeyAlt],
       explorerKey,
-      explorerRaw: (process.env as any)[explorerKey],
+      explorerRaw: (envPublic as any)[explorerKey] ?? (process.env as any)[explorerKey],
       chainIdResolved: srcChainIdResolved,
     };
-  }, [sourceKey, srcChainIdResolved]);
+  }, [sourceKey, srcChainIdResolved, envPublic]);
 
   async function switchToSelectedSource() {
     if (!srcChainIdResolved) {
@@ -263,9 +293,11 @@ export default function BridgeTab() {
       const rpcKey = sourceKey === "ARC" ? "NEXT_PUBLIC_ARC_RPC_URL" : `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
       const rpcUrl =
         sourceKey === "ARC"
-          ? process.env.NEXT_PUBLIC_ARC_RPC_URL
-          : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
+          ? envPublic.NEXT_PUBLIC_ARC_RPC_URL ?? process.env.NEXT_PUBLIC_ARC_RPC_URL
+          : (envPublic as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
+            (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
             // some projects accidentally use *_RPC instead of *_RPC_URL
+            (envPublic as any)[`NEXT_PUBLIC_${sourceKey}_RPC`] ||
             (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC`];
 
       // If the user just updated env vars on Vercel but didn't redeploy,
@@ -322,9 +354,11 @@ export default function BridgeTab() {
       const rpcKey = sourceKey === "ARC" ? "NEXT_PUBLIC_ARC_RPC_URL" : `NEXT_PUBLIC_${sourceKey}_RPC_URL`;
       const rpcUrl =
         sourceKey === "ARC"
-          ? process.env.NEXT_PUBLIC_ARC_RPC_URL
-          : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
+          ? envPublic.NEXT_PUBLIC_ARC_RPC_URL ?? process.env.NEXT_PUBLIC_ARC_RPC_URL
+          : (envPublic as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
+            (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`] ||
             // some projects accidentally use *_RPC instead of *_RPC_URL
+            (envPublic as any)[`NEXT_PUBLIC_${sourceKey}_RPC`] ||
             (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC`];
 
       // If the user just updated env vars on Vercel but didn't redeploy,

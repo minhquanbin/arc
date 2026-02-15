@@ -8,7 +8,6 @@ import { WagmiProvider, createConfig, http } from "wagmi";
 import { defineChain } from "viem";
 import { DESTS } from "@/lib/chains";
 
-import { DESTS } from "@/lib/chains";
 
 
 const arc = defineChain({

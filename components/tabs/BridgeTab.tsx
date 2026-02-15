@@ -145,6 +145,98 @@ export default function BridgeTab() {
     return chain.id === srcChainId;
   }, [isConnected, chain?.id, srcChainId]);
 
+  async function switchToSelectedSource() {
+    if (!srcChainId) throw new Error("Missing source chain id");
+    if (!window.ethereum) throw new Error("No injected wallet found");
+
+    const chainIdHex = `0x${srcChainId.toString(16)}`;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: chainIdHex }],
+      });
+    } catch (switchError: any) {
+      // If the chain isn't added, try adding it with the RPC URL from env.
+      if (switchError?.code === 4902) {
+        const rpcUrl =
+          sourceKey === "ARC"
+            ? process.env.NEXT_PUBLIC_ARC_RPC_URL
+            : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`];
+        const explorerUrl =
+          sourceKey === "ARC"
+            ? "https://testnet.arcscan.app"
+            : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_EXPLORER_URL`];
+
+        if (!rpcUrl) throw new Error("Missing RPC URL for selected source chain");
+
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: chainIdHex,
+              chainName: sourceLabel,
+              nativeCurrency: {
+                name: "ETH",
+                symbol: "ETH",
+                decimals: 18,
+              },
+              rpcUrls: [rpcUrl],
+              blockExplorerUrls: explorerUrl ? [explorerUrl] : undefined,
+            },
+          ],
+        });
+      } else {
+        throw switchError;
+      }
+    }
+  }
+
+  async function switchToSelectedSource() {
+    if (!srcChainId) throw new Error("Missing source chain id");
+    if (!window.ethereum) throw new Error("No injected wallet found");
+
+    const chainIdHex = `0x${srcChainId.toString(16)}`;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: chainIdHex }],
+      });
+    } catch (switchError: any) {
+      // If the chain isn't added, try adding it with the RPC URL from env.
+      if (switchError?.code === 4902) {
+        const rpcUrl =
+          sourceKey === "ARC"
+            ? process.env.NEXT_PUBLIC_ARC_RPC_URL
+            : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_RPC_URL`];
+        const explorerUrl =
+          sourceKey === "ARC"
+            ? "https://testnet.arcscan.app"
+            : (process.env as any)[`NEXT_PUBLIC_${sourceKey}_EXPLORER_URL`];
+
+        if (!rpcUrl) throw new Error("Missing RPC URL for selected source chain");
+
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: chainIdHex,
+              chainName: sourceLabel,
+              nativeCurrency: {
+                name: "ETH",
+                symbol: "ETH",
+                decimals: 18,
+              },
+              rpcUrls: [rpcUrl],
+              blockExplorerUrls: explorerUrl ? [explorerUrl] : undefined,
+            },
+          ],
+        });
+      } else {
+        throw switchError;
+      }
+    }
+  }
+
   function computeMaxFee(amountUsdcStr: string, destinationDomain: number) {
     const amount = parseUnits(amountUsdcStr, 6);
     const minForwardFeeUsdc = destinationDomain === 0 ? "1.25" : "0.2";
@@ -178,7 +270,9 @@ export default function BridgeTab() {
       const minFinality = Number(process.env.NEXT_PUBLIC_MIN_FINALITY_THRESHOLD || "1000");
 
       if (!isOnSelectedSource) {
-        throw new Error(`Vui lòng switch ví sang chain nguồn: ${sourceLabel}`);
+        setStatus(`Bạn đang ở sai mạng. Đang chuyển ví sang chain nguồn: ${sourceLabel}...`);
+        await switchToSelectedSource();
+        throw new Error(`Vui lòng bấm Bridge lại sau khi đã switch sang ${sourceLabel}`);
       }
 
       // === ARC -> Other ===
@@ -478,6 +572,16 @@ export default function BridgeTab() {
               <div className="mt-1 text-xs text-gray-500">
                 {isOnSelectedSource ? "✅ Ví đang ở đúng chain nguồn." : "ℹ️ Hãy switch ví sang chain nguồn để gửi burn."}
               </div>
+              {!isOnSelectedSource ? (
+                <button
+                  type="button"
+                  onClick={() => switchToSelectedSource().catch((e) => setStatus(e?.message || "Switch failed"))}
+                  disabled={loading || !isConnected}
+                  className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Switch wallet to {sourceLabel}
+                </button>
+              ) : null}
             </div>
 
             {/* Destination Chain */}
@@ -536,6 +640,16 @@ export default function BridgeTab() {
                   </div>
                 )}
               </div>
+              {!isOnSelectedSource ? (
+                <button
+                  type="button"
+                  onClick={() => switchToSelectedSource().catch((e) => setStatus(e?.message || "Switch failed"))}
+                  disabled={loading || !isConnected}
+                  className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Switch wallet to {sourceLabel}
+                </button>
+              ) : null}
             </div>
 
             {/* Recipient */}

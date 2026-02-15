@@ -292,7 +292,14 @@ export default function BridgeTab() {
         if (receipt.status !== "success") throw new Error("burn+message transaction reverted");
 
         setHistory((prev) => [
-          { ts: Date.now(), from: address, to: recipientAddr, txHash: burnTx, memo: memo || undefined, direction },
+          {
+            ts: Date.now(),
+            from: address,
+            to: recipientAddr,
+            txHash: burnTx,
+            memo: memo || undefined,
+            direction: "ARC_TO_OTHER",
+          },
           ...prev,
         ]);
 
@@ -375,7 +382,14 @@ export default function BridgeTab() {
         if (receipt.status !== "success") throw new Error("burn+message transaction reverted");
 
         setHistory((prev) => [
-          { ts: Date.now(), from: address, to: recipientAddr, txHash: burnTx, memo: memo || undefined, direction },
+          {
+            ts: Date.now(),
+            from: address,
+            to: recipientAddr,
+            txHash: burnTx,
+            memo: memo || undefined,
+            direction: "ARC_TO_OTHER",
+          },
           ...prev,
         ]);
 

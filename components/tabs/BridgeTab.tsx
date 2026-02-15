@@ -585,9 +585,9 @@ export default function BridgeTab() {
                 </div>
               </div>
               <div className="mt-1 text-xs text-gray-500">
-                {direction === "ARC_TO_OTHER" ? "Suggested minimum: 5 USDC" : "Suggested minimum: 5 USDC"}
+                Suggested minimum: 5 USDC
               </div>
-              {direction === "OTHER_TO_ARC" ? (
+              {sourceKey !== "ARC" ? (
                 <div className="mt-1 text-[11px] text-gray-500">
                   Source chain detected: <span className="font-semibold">{src?.name || "Unknown"}</span>
                 </div>

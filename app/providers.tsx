@@ -58,8 +58,8 @@ const config = createConfig({
     ),
   },
   ssr: true,
-,
 });
+
 
 const qc = new QueryClient({
   defaultOptions: {

@@ -54,6 +54,7 @@ type BridgeHistoryItem = {
   to: `0x${string}`;
   txHash: `0x${string}`;
   memo?: string;
+  direction?: "ARC_TO_OTHER" | "OTHER_TO_ARC";
 };
 
 function UsdcIcon({ className }: { className?: string }) {
@@ -69,18 +70,15 @@ function UsdcIcon({ className }: { className?: string }) {
       role="img"
       focusable="false"
     >
-      <path
-        fill="#0B53BF"
-        d="M60 120c33.137 0 60-26.863 60-60S93.137 0 60 0 0 26.863 0 60s26.863 60 60 60"
-      ></path>
+      <path fill="#0B53BF" d="M60 120c33.137 0 60-26.863 60-60S93.137 0 60 0 0 26.863 0 60s26.863 60 60 60" />
       <path
         fill="#fff"
         d="M70.8 16.313v7.725C86.211 28.688 97.498 43.013 97.498 60s-11.287 31.313-26.7 35.963v7.725C90.45 98.888 105 81.15 105 60s-14.55-38.887-34.2-43.687M22.499 60c0-16.987 11.287-31.312 26.7-35.962v-7.725c-19.65 4.8-34.2 22.537-34.2 43.687s14.55 38.888 34.2 43.688v-7.725C33.786 91.35 22.499 76.988 22.499 60"
-      ></path>
+      />
       <path
         fill="#fff"
         d="M76.124 68.363c0-15.338-24.037-9.038-24.037-17.513 0-3.037 2.437-4.987 7.087-4.987 5.55 0 7.463 2.7 8.063 6.337h7.65c-.683-6.826-4.6-11.137-11.138-12.42v-6.03h-7.5v5.814c-7.161.912-11.662 5.083-11.662 11.286 0 15.413 24.075 9.638 24.075 17.963 0 3.15-3.038 5.25-8.176 5.25-6.712 0-8.924-2.963-9.75-7.05h-7.462c.483 7.477 5.094 12.157 12.975 13.324v5.913h7.5v-5.834c7.692-.994 12.375-5.468 12.375-12.053"
-      ></path>
+      />
     </svg>
   );
 }
@@ -90,6 +88,7 @@ export default function BridgeTab() {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
+  const [direction, setDirection] = useState<"ARC_TO_OTHER" | "OTHER_TO_ARC">("ARC_TO_OTHER");
   const [destKey, setDestKey] = useState(DESTS[0].key);
   const [destOpen, setDestOpen] = useState(false);
   const [amountUsdc, setAmountUsdc] = useState("");
@@ -102,38 +101,41 @@ export default function BridgeTab() {
   const [history, setHistory] = useState<BridgeHistoryItem[]>([]);
   const [historyPage, setHistoryPage] = useState(0);
 
-  // Load history từ localStorage khi component mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem("bridge_history");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setHistory(parsed);
-      }
-    } catch (error) {
-      console.error("Failed to load bridge history:", error);
+      if (saved) setHistory(JSON.parse(saved));
+    } catch {
+      // ignore
     }
   }, []);
 
-  // Save history vào localStorage mỗi khi history thay đổi
   useEffect(() => {
     try {
-      if (history.length > 0) {
-        localStorage.setItem("bridge_history", JSON.stringify(history));
-      }
-    } catch (error) {
-      console.error("Failed to save bridge history:", error);
+      if (history.length > 0) localStorage.setItem("bridge_history", JSON.stringify(history));
+    } catch {
+      // ignore
     }
   }, [history]);
 
   const dest = useMemo(() => DESTS.find((d) => d.key === destKey) || DESTS[0], [destKey]);
 
-  const expectedChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
-  const isWrongNetwork = isConnected && chain?.id !== expectedChainId;
+  const expectedArcChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
+  const isOnArc = isConnected && chain?.id === expectedArcChainId;
 
-  // Compute maxFee
-  function computeMaxFee(amountUsdc: string, destinationDomain: number) {
-    const amount = parseUnits(amountUsdc, 6);
+  // Identify current chain as one of DESTS (by env chainId) to enable OTHER->ARC
+  const src = useMemo(() => {
+    if (direction !== "OTHER_TO_ARC") return null;
+    if (!chain?.id) return null;
+    for (const d of DESTS) {
+      const id = Number((process.env as any)[`NEXT_PUBLIC_${d.key}_CHAIN_ID`] || 0);
+      if (id && id === chain.id) return d;
+    }
+    return null;
+  }, [direction, chain?.id]);
+
+  function computeMaxFee(amountUsdcStr: string, destinationDomain: number) {
+    const amount = parseUnits(amountUsdcStr, 6);
     const minForwardFeeUsdc = destinationDomain === 0 ? "1.25" : "0.2";
     const minForwardFee = parseUnits(minForwardFeeUsdc, 6);
     const maxFeeBps = BigInt(process.env.NEXT_PUBLIC_MAX_FEE_BPS || "500");
@@ -141,21 +143,9 @@ export default function BridgeTab() {
     let maxFeeToUse = maxFeeFromPct < minForwardFee ? minForwardFee : maxFeeFromPct;
     const maxFeeUsdcCapStr = process.env.NEXT_PUBLIC_MAX_FEE_USDC_CAP || "0";
     const maxFeeUsdcCap = parseUnits(maxFeeUsdcCapStr, 6);
-
-    if (maxFeeUsdcCap > 0n && maxFeeToUse > maxFeeUsdcCap) {
-      maxFeeToUse = maxFeeUsdcCap;
-    }
-
+    if (maxFeeUsdcCap > 0n && maxFeeToUse > maxFeeUsdcCap) maxFeeToUse = maxFeeUsdcCap;
     const maxFeeCap = amount - 1n;
-    if (maxFeeToUse > maxFeeCap) {
-      throw new Error(
-        `Amount is too small for maxFee constraints. ` +
-          `Amount: ${Number(amount) / 1e6} USDC, ` +
-          `computed maxFee: ${Number(maxFeeToUse) / 1e6} USDC, ` +
-          `minFee: ${Number(minForwardFee) / 1e6} USDC (domain ${destinationDomain})`
-      );
-    }
-
+    if (maxFeeToUse > maxFeeCap) throw new Error("Amount is too small for maxFee constraints.");
     return { amount, maxFee: maxFeeToUse };
   }
 
@@ -165,55 +155,38 @@ export default function BridgeTab() {
       setTxHash("");
       setLoading(true);
 
-      if (!isConnected || !address || !walletClient || !publicClient) {
-        throw new Error("Please connect your wallet first");
-      }
+      if (!isConnected || !address || !walletClient || !publicClient) throw new Error("Please connect your wallet first");
 
-      if (isWrongNetwork) {
-        throw new Error(`Please switch to ARC Testnet (Chain ID: ${expectedChainId})`);
-      }
+      setStatus("Validating inputs...");
+      validateAmount(amountUsdc);
+      if (memo) validateMemo(memo);
 
-      const router = (process.env.NEXT_PUBLIC_ARC_ROUTER ||
-        "0xEc02A909701A8eB9C84B93b55B6d4A7ca215CFca") as `0x${string}`;
-      let arcUsdc = ((process.env.NEXT_PUBLIC_ARC_USDC ||
-        process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
-        "0x3600000000000000000000000000000000000000") as `0x${string}`;
+      const recipientAddr = recipient.trim() ? validateRecipient(recipient.trim()) : address;
+      const finalHookData = buildHookDataWithMemo(HOOK_DATA, memo);
+      const amount = parseUnits(amountUsdc, 6);
       const minFinality = Number(process.env.NEXT_PUBLIC_MIN_FINALITY_THRESHOLD || "1000");
 
-      let feeCollector = FEE_RECEIVER;
-      let feeAmount = parseUnits(FEE_USDC, 6);
-      let tokenMessengerV2Addr: `0x${string}` | "" = "";
-      let destinationCallerBytes32: `0x${string}` | "" = "";
+      if (direction === "ARC_TO_OTHER") {
+        if (!isOnArc) throw new Error(`Please switch to ARC Testnet (Chain ID: ${expectedArcChainId})`);
 
-      setStatus("Reading Router config...");
-      try {
+        const router = (process.env.NEXT_PUBLIC_ARC_ROUTER ||
+          "0xEc02A909701A8eB9C84B93b55B6d4A7ca215CFca") as `0x${string}`;
+        let arcUsdc = ((process.env.NEXT_PUBLIC_ARC_USDC || process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
+          "0x3600000000000000000000000000000000000000") as `0x${string}`;
+
+        let feeCollector = FEE_RECEIVER;
+        let feeAmount = parseUnits(FEE_USDC, 6);
+        let tokenMessengerV2Addr: `0x${string}` | "" = "";
+        let destinationCallerBytes32: `0x${string}` | "" = "";
+
+        setStatus("Reading Router config...");
         const [routerUsdc, routerFeeCollector, routerServiceFee, routerDestCaller, routerTokenMessengerV2] =
           await Promise.all([
-            publicClient.readContract({
-              address: router,
-              abi: ROUTER_ABI,
-              functionName: "usdc",
-            }) as Promise<`0x${string}`>,
-            publicClient.readContract({
-              address: router,
-              abi: ROUTER_ABI,
-              functionName: "feeCollector",
-            }) as Promise<`0x${string}`>,
-            publicClient.readContract({
-              address: router,
-              abi: ROUTER_ABI,
-              functionName: "serviceFee",
-            }) as Promise<bigint>,
-            publicClient.readContract({
-              address: router,
-              abi: ROUTER_ABI,
-              functionName: "destinationCaller",
-            }) as Promise<`0x${string}`>,
-            publicClient.readContract({
-              address: router,
-              abi: ROUTER_ABI,
-              functionName: "tokenMessengerV2",
-            }) as Promise<`0x${string}`>,
+            publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: "usdc" }) as Promise<`0x${string}`>,
+            publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: "feeCollector" }) as Promise<`0x${string}`>,
+            publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: "serviceFee" }) as Promise<bigint>,
+            publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: "destinationCaller" }) as Promise<`0x${string}`>,
+            publicClient.readContract({ address: router, abi: ROUTER_ABI, functionName: "tokenMessengerV2" }) as Promise<`0x${string}`>,
           ]);
 
         arcUsdc = routerUsdc;
@@ -222,147 +195,90 @@ export default function BridgeTab() {
         tokenMessengerV2Addr = routerTokenMessengerV2;
         destinationCallerBytes32 = routerDestCaller;
 
-        setStatus(
-          "Router config:\n" +
-            `USDC: ${routerUsdc}\n` +
-            `TokenMessengerV2: ${routerTokenMessengerV2}\n` +
-            `FeeCollector: ${routerFeeCollector}\n` +
-            `ServiceFee: ${Number(routerServiceFee) / 1e6} USDC`
-        );
-      } catch (readCfgErr: any) {
-        console.error("Failed to read Router config:", readCfgErr);
-        throw new Error(
-          `Failed to read Router on-chain config. ` +
-            `Details: ${readCfgErr?.shortMessage || readCfgErr?.message || "Unknown error"}`
-        );
-      }
+        let maxFee: bigint;
+        ({ maxFee } = computeMaxFee(amountUsdc, dest.domain));
 
-      setStatus("Validating inputs...");
-      validateAmount(amountUsdc);
-      if (memo) validateMemo(memo);
-
-      let amount: bigint, maxFee: bigint;
-      try {
-        ({ amount, maxFee } = computeMaxFee(amountUsdc, dest.domain));
-      } catch (feeErr: any) {
-        throw new Error(`Fee calculation error: ${feeErr.message}`);
-      }
-
-      setStatus("Reading minFee from TokenMessengerV2...");
-      let minProtocolFee = 0n;
-      try {
-        const tokenMessenger = tokenMessengerV2Addr;
-        minProtocolFee = (await publicClient.readContract({
-          address: tokenMessenger,
-          abi: TOKEN_MESSENGER_V2_FEE_ABI,
-          functionName: "getMinFeeAmount",
-          args: [amount],
-        })) as bigint;
-
-        if (minProtocolFee > maxFee) {
-          const bufferedMinFee = (minProtocolFee * 110n) / 100n;
-          const maxFeeCap = amount - 1n;
-          maxFee = bufferedMinFee > maxFeeCap ? maxFeeCap : bufferedMinFee;
+        setStatus("Reading minFee from TokenMessengerV2...");
+        try {
+          const minProtocolFee = (await publicClient.readContract({
+            address: tokenMessengerV2Addr as `0x${string}`,
+            abi: TOKEN_MESSENGER_V2_FEE_ABI,
+            functionName: "getMinFeeAmount",
+            args: [amount],
+          })) as bigint;
+          if (minProtocolFee > maxFee) {
+            const bufferedMinFee = (minProtocolFee * 110n) / 100n;
+            const maxFeeCap = amount - 1n;
+            maxFee = bufferedMinFee > maxFeeCap ? maxFeeCap : bufferedMinFee;
+          }
+        } catch {
+          // ignore
         }
-      } catch (minFeeErr: any) {
-        console.warn("Failed to read getMinFeeAmount:", minFeeErr);
-      }
 
-      if (maxFee >= amount) {
-        throw new Error(
-          `Invalid fee: maxFee (${Number(maxFee) / 1e6}) must be less than amount (${Number(amount) / 1e6}). ` +
-            `Please increase the amount.`
-        );
-      }
+        if (maxFee >= amount) throw new Error("Invalid fee: maxFee must be less than amount");
 
-      setStatus("Checking USDC balance...");
-      const bal = await publicClient.readContract({
-        address: arcUsdc,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [address],
-      });
-
-      const totalNeed = amount + feeAmount;
-      if (bal < totalNeed) {
-        throw new Error(
-          `Insufficient USDC balance.\n` +
-            `Required: ${(Number(totalNeed) / 1e6).toFixed(6)} USDC\n` +
-            `Available: ${(Number(bal) / 1e6).toFixed(6)} USDC`
-        );
-      }
-
-      let recipientAddr: `0x${string}`;
-      try {
-        recipientAddr = recipient.trim() ? validateRecipient(recipient.trim()) : address;
-      } catch (err: any) {
-        throw new Error(`Invalid recipient: ${err.message}`);
-      }
-
-      const finalHookData = buildHookDataWithMemo(HOOK_DATA, memo);
-
-      if (!tokenMessengerV2Addr || !destinationCallerBytes32) {
-        throw new Error("Failed to read tokenMessengerV2/destinationCaller from Router.");
-      }
-
-      setStatus("Checking TokenMessengerV2 allowance...");
-      const tmAllowance = (await publicClient.readContract({
-        address: arcUsdc,
-        abi: ERC20_ABI,
-        functionName: "allowance",
-        args: [address, tokenMessengerV2Addr],
-      })) as bigint;
-
-      if (tmAllowance < amount) {
-        setStatus("Please approve USDC for TokenMessengerV2...");
-        const approveTx = await walletClient.writeContract({
+        setStatus("Checking USDC balance...");
+        const bal = (await publicClient.readContract({
           address: arcUsdc,
           abi: ERC20_ABI,
-          functionName: "approve",
-          args: [tokenMessengerV2Addr, amount],
+          functionName: "balanceOf",
+          args: [address],
+        })) as bigint;
+        const totalNeed = amount + feeAmount;
+        if (bal < totalNeed) throw new Error("Insufficient USDC balance");
+
+        setStatus("Checking TokenMessengerV2 allowance...");
+        const tmAllowance = (await publicClient.readContract({
+          address: arcUsdc,
+          abi: ERC20_ABI,
+          functionName: "allowance",
+          args: [address, tokenMessengerV2Addr as `0x${string}`],
+        })) as bigint;
+
+        if (tmAllowance < amount) {
+          setStatus("Please approve USDC for TokenMessengerV2...");
+          const approveTx = await walletClient.writeContract({
+            address: arcUsdc,
+            abi: ERC20_ABI,
+            functionName: "approve",
+            args: [tokenMessengerV2Addr as `0x${string}`, amount],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: approveTx });
+        }
+
+        setStatus("Sending service fee transfer...");
+        const feeTx = await walletClient.writeContract({
+          address: arcUsdc,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [feeCollector, feeAmount],
         });
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
-      }
+        await publicClient.waitForTransactionReceipt({ hash: feeTx });
 
-      setStatus("Sending service fee transfer...");
-      const feeTx = await walletClient.writeContract({
-        address: arcUsdc,
-        abi: ERC20_ABI,
-        functionName: "transfer",
-        args: [feeCollector, feeAmount],
-      });
-      await publicClient.waitForTransactionReceipt({ hash: feeTx });
+        setStatus("Sending burn+message transaction...");
+        const burnTx = await walletClient.writeContract({
+          address: tokenMessengerV2Addr as `0x${string}`,
+          abi: TOKEN_MESSENGER_V2_ABI,
+          functionName: "depositForBurnWithHook",
+          args: [
+            amount,
+            dest.domain,
+            addressToBytes32(recipientAddr),
+            arcUsdc,
+            destinationCallerBytes32 as `0x${string}`,
+            maxFee,
+            minFinality,
+            finalHookData,
+          ],
+        });
 
-      setStatus("Sending burn+message transaction...");
-      const burnTx = await walletClient.writeContract({
-        address: tokenMessengerV2Addr,
-        abi: TOKEN_MESSENGER_V2_ABI,
-        functionName: "depositForBurnWithHook",
-        args: [
-          amount,
-          dest.domain,
-          addressToBytes32(recipientAddr),
-          arcUsdc,
-          destinationCallerBytes32,
-          maxFee,
-          minFinality,
-          finalHookData,
-        ],
-      });
+        setTxHash(burnTx);
+        setStatus("Waiting for burn+message confirmation...");
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: burnTx });
+        if (receipt.status !== "success") throw new Error("burn+message transaction reverted");
 
-      setTxHash(burnTx);
-      setStatus("Waiting for burn+message confirmation...");
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: burnTx });
-
-      if (receipt.status === "success") {
         setHistory((prev) => [
-          {
-            ts: Date.now(),
-            from: address,
-            to: recipientAddr,
-            txHash: burnTx,
-            memo: memo || undefined,
-          },
+          { ts: Date.now(), from: address, to: recipientAddr, txHash: burnTx, memo: memo || undefined, direction },
           ...prev,
         ]);
 
@@ -375,7 +291,93 @@ export default function BridgeTab() {
             `Waiting for forwarding...`
         );
       } else {
-        throw new Error("burn+message transaction reverted");
+        // OTHER -> ARC
+        if (isOnArc) throw new Error("Bạn đang ở ARC. Hãy switch sang chain nguồn để bridge về ARC.");
+        if (!src) {
+          throw new Error(
+            "Chain hiện tại chưa được cấu hình. Hãy set NEXT_PUBLIC_<DEST_KEY>_CHAIN_ID + RPC/USDC trong .env.local."
+          );
+        }
+
+        const srcUsdc = ((process.env as any)[`NEXT_PUBLIC_${src.key}_USDC`] ||
+          (process.env as any)[`NEXT_PUBLIC_${src.key}_USDC_ADDRESS`]) as `0x${string}` | undefined;
+        const srcTokenMessengerV2 = (process.env as any)[`NEXT_PUBLIC_${src.key}_TOKEN_MESSENGER_V2`] as
+          | `0x${string}`
+          | undefined;
+
+        if (!srcUsdc) throw new Error(`Thiếu NEXT_PUBLIC_${src.key}_USDC`);
+        if (!srcTokenMessengerV2) throw new Error(`Thiếu NEXT_PUBLIC_${src.key}_TOKEN_MESSENGER_V2`);
+
+        const arcDomain = Number(process.env.NEXT_PUBLIC_ARC_CCTP_DOMAIN || "26");
+        let maxFee: bigint;
+        ({ maxFee } = computeMaxFee(amountUsdc, arcDomain));
+        if (maxFee >= amount) throw new Error("Invalid fee: maxFee must be less than amount");
+
+        setStatus("Checking USDC balance on source chain...");
+        const bal = (await publicClient.readContract({
+          address: srcUsdc,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [address],
+        })) as bigint;
+        if (bal < amount) throw new Error("Insufficient USDC balance");
+
+        setStatus("Approving USDC for TokenMessengerV2 (source chain)...");
+        const allowance = (await publicClient.readContract({
+          address: srcUsdc,
+          abi: ERC20_ABI,
+          functionName: "allowance",
+          args: [address, srcTokenMessengerV2],
+        })) as bigint;
+
+        if (allowance < amount) {
+          const approveTx = await walletClient.writeContract({
+            address: srcUsdc,
+            abi: ERC20_ABI,
+            functionName: "approve",
+            args: [srcTokenMessengerV2, amount],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: approveTx });
+        }
+
+        // Destination caller is optional; use zero.
+        const destinationCallerBytes32 = addressToBytes32("0x0000000000000000000000000000000000000000");
+
+        setStatus("Sending burn+message transaction (source chain)...");
+        const burnTx = await walletClient.writeContract({
+          address: srcTokenMessengerV2,
+          abi: TOKEN_MESSENGER_V2_ABI,
+          functionName: "depositForBurnWithHook",
+          args: [
+            amount,
+            arcDomain,
+            addressToBytes32(recipientAddr),
+            srcUsdc,
+            destinationCallerBytes32,
+            maxFee,
+            minFinality,
+            finalHookData,
+          ],
+        });
+
+        setTxHash(burnTx);
+        setStatus("Waiting for burn+message confirmation...");
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: burnTx });
+        if (receipt.status !== "success") throw new Error("burn+message transaction reverted");
+
+        setHistory((prev) => [
+          { ts: Date.now(), from: address, to: recipientAddr, txHash: burnTx, memo: memo || undefined, direction },
+          ...prev,
+        ]);
+
+        setStatus(
+          `Success!\n\n` +
+            `Amount: ${Number(amount) / 1e6} USDC\n` +
+            `From: ${src.name}\n` +
+            `To: ARC Testnet\n` +
+            `Recipient (ARC): ${recipientAddr}\n\n` +
+            `Waiting for attestation + mint on ARC...`
+        );
       }
     } catch (err: any) {
       console.error("Bridge error:", err);
@@ -391,6 +393,44 @@ export default function BridgeTab() {
         {/* Left */}
         <div className="h-full rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
           <div className="space-y-5">
+            {/* Direction */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Direction</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDirection("ARC_TO_OTHER")}
+                  disabled={loading}
+                  className={[
+                    "rounded-xl border px-4 py-3 text-sm font-semibold transition-all",
+                    direction === "ARC_TO_OTHER"
+                      ? "border-[#ff7582]/60 bg-gradient-to-r from-[#ff7582]/15 to-[#725a7a]/10"
+                      : "border-gray-300 bg-white hover:bg-gray-50",
+                  ].join(" ")}
+                >
+                  ARC → Other
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDirection("OTHER_TO_ARC")}
+                  disabled={loading}
+                  className={[
+                    "rounded-xl border px-4 py-3 text-sm font-semibold transition-all",
+                    direction === "OTHER_TO_ARC"
+                      ? "border-[#ff7582]/60 bg-gradient-to-r from-[#ff7582]/15 to-[#725a7a]/10"
+                      : "border-gray-300 bg-white hover:bg-gray-50",
+                  ].join(" ")}
+                >
+                  Other → ARC
+                </button>
+              </div>
+              <div className="mt-1 text-xs text-gray-500">
+                {direction === "ARC_TO_OTHER"
+                  ? "Bạn đang bridge USDC từ ARC sang chain khác."
+                  : "Hãy switch ví sang chain nguồn (Sepolia/Base/...) rồi bridge về ARC."}
+              </div>
+            </div>
+
             {/* Destination Chain */}
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Destination chain</label>
@@ -402,8 +442,12 @@ export default function BridgeTab() {
                   className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 disabled:cursor-not-allowed disabled:bg-gray-100"
                 >
                   <div className="flex items-center gap-3">
-                    <img src={dest.iconPath} alt={dest.name} className="h-6 w-6 rounded-md" />
-                    <span className="font-medium">{dest.name}</span>
+                    <img
+                      src={direction === "ARC_TO_OTHER" ? dest.iconPath : "/chain-icons/arc-logo.svg"}
+                      alt={direction === "ARC_TO_OTHER" ? dest.name : "ARC Testnet"}
+                      className="h-6 w-6 rounded-md"
+                    />
+                    <span className="font-medium">{direction === "ARC_TO_OTHER" ? dest.name : "ARC Testnet"}</span>
                   </div>
                   <span className="text-gray-400">▾</span>
                 </button>
@@ -411,17 +455,28 @@ export default function BridgeTab() {
                 {destOpen && (
                   <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                     <div className="max-h-72 overflow-auto py-1">
-                      {DESTS.map((d) => (
+                      {(direction === "ARC_TO_OTHER"
+                        ? DESTS
+                        : [
+                            {
+                              key: "ARC",
+                              name: "ARC Testnet",
+                              domain: Number(process.env.NEXT_PUBLIC_ARC_CCTP_DOMAIN || "26"),
+                              symbol: "USDC",
+                              iconPath: "/chain-icons/arc-logo.svg",
+                            },
+                          ]
+                      ).map((d: any) => (
                         <button
                           key={d.key}
                           type="button"
                           onClick={() => {
-                            setDestKey(d.key);
+                            if (direction === "ARC_TO_OTHER") setDestKey(d.key);
                             setDestOpen(false);
                           }}
                           className={[
                             "flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50",
-                            d.key === destKey ? "bg-gray-50" : "",
+                            direction === "ARC_TO_OTHER" && d.key === destKey ? "bg-gray-50" : "",
                           ].join(" ")}
                         >
                           <img src={d.iconPath} alt={d.name} className="h-6 w-6 rounded-md" />
@@ -436,7 +491,9 @@ export default function BridgeTab() {
 
             {/* Recipient */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Recipient address</label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                {direction === "ARC_TO_OTHER" ? "Recipient address" : "Recipient (ARC) address"}
+              </label>
               <input
                 type="text"
                 value={recipient}
@@ -478,156 +535,97 @@ export default function BridgeTab() {
                   <UsdcIcon className="h-6 w-6" />
                 </div>
               </div>
-              <div className="mt-1 text-xs text-gray-500">Suggested minimum: 5 USDC</div>
-            </div>
-
-            {/* Info Box */}
-            <div className="rounded-xl bg-gradient-to-r from-[#fff0f2] to-[#f3eef6] p-5">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Bridge amount</span>
-                  <span className="flex items-center gap-2 font-semibold text-gray-900">
-                    {amountUsdc || "0"}
-                    <UsdcIcon className="h-4 w-4" />
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Service fee</span>
-                  <span className="flex items-center gap-2 font-semibold text-gray-900">
-                    {FEE_USDC}
-                    <UsdcIcon className="h-4 w-4" />
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">From</span>
-                  <span className="font-semibold text-gray-900">ARC Testnet</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">To</span>
-                  <span className="font-semibold text-gray-900">{dest.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Estimated time</span>
-                  <span className="font-semibold text-gray-900">~5s - 2min</span>
-                </div>
+              <div className="mt-1 text-xs text-gray-500">
+                {direction === "ARC_TO_OTHER" ? "Suggested minimum: 5 USDC" : "Suggested minimum: 5 USDC"}
               </div>
+              {direction === "OTHER_TO_ARC" ? (
+                <div className="mt-1 text-[11px] text-gray-500">
+                  Source chain detected: <span className="font-semibold">{src?.name || "Unknown"}</span>
+                </div>
+              ) : null}
             </div>
 
-            {/* Bridge Button */}
             <button
               onClick={onBridge}
-              disabled={loading || isWrongNetwork || !amountUsdc || parseFloat(amountUsdc) < 5}
+              disabled={loading || !isConnected}
               className={[
-                "w-full rounded-xl px-6 py-4 font-semibold text-white shadow-lg transition-all",
-                loading || isWrongNetwork || !amountUsdc || parseFloat(amountUsdc) < 5
+                "w-full rounded-xl px-6 py-3 font-semibold text-white shadow-lg transition-all",
+                loading || !isConnected
                   ? "cursor-not-allowed bg-gray-300"
                   : "bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:from-[#ff5f70] hover:to-[#664f6e] active:scale-[0.98]",
               ].join(" ")}
             >
-              {loading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Processing...</span>
-                </div>
-              ) : isWrongNetwork ? (
-                "Wrong network"
-              ) : (
-                "Send USDC"
-              )}
+              {loading ? "Processing..." : direction === "ARC_TO_OTHER" ? "Bridge out" : "Bridge to ARC"}
             </button>
-
-            {/* Status Messages */}
-            {status && (
-              <div
-                className={[
-                  "rounded-xl border p-4 text-sm",
-                  status.toLowerCase().includes("success")
-                    ? "border-green-200 bg-green-50 text-green-800"
-                    : status.toLowerCase().includes("error")
-                    ? "border-red-200 bg-red-50 text-red-800"
-                    : "border-blue-200 bg-blue-50 text-blue-800",
-                ].join(" ")}
-              >
-                <div className="flex items-start gap-3">
-                  {loading && (
-                    <div className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                  )}
-                  <div className="flex-1 whitespace-pre-line">
-                    {status}
-                    {txHash && (
-                      <a
-                        href={`https://testnet.arcscan.app/tx/${txHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-900 underline"
-                      >
-                        View transaction →
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-
           </div>
         </div>
 
         {/* Right */}
         <div className="h-full rounded-2xl bg-white shadow-xl p-6 min-h-[70vh]">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="text-sm font-semibold text-gray-900">Bridge history</div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setHistoryPage((p) => Math.max(0, p - 1))}
-                disabled={historyPage === 0}
-                className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Prev
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoryPage((p) => p + 1)}
-                disabled={(historyPage + 1) * 10 >= history.length}
-                className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
-              </button>
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-gray-900">Status</h3>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800 whitespace-pre-wrap min-h-[140px]">
+              {status || "—"}
             </div>
-          </div>
 
-          {history.length === 0 ? (
-            <div className="text-sm text-gray-500">No transactions yet.</div>
-          ) : (
+            {txHash ? (
+              <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-800">
+                <div className="text-xs text-gray-500 mb-1">Tx Hash</div>
+                <div className="font-mono break-all">{txHash}</div>
+              </div>
+            ) : null}
+
+            <div className="border-t border-gray-200" />
+
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">History</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  disabled={historyPage <= 0}
+                  onClick={() => setHistoryPage((p) => Math.max(0, p - 1))}
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  disabled={(historyPage + 1) * 5 >= history.length}
+                  onClick={() => setHistoryPage((p) => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              {history.slice(historyPage * 10, historyPage * 10 + 10).map((h) => (
-                <div key={`${h.txHash}-${h.ts}`} className="rounded-lg bg-gray-50 p-3 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-xs text-gray-600">{new Date(h.ts).toLocaleString()}</div>
-                    <a
-                      href={`https://testnet.arcscan.app/tx/${h.txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-[#725a7a] underline"
-                    >
-                      TX
-                    </a>
+              {history.slice(historyPage * 5, historyPage * 5 + 5).map((h) => (
+                <div key={`${h.txHash}-${h.ts}`} className="rounded-xl border border-gray-200 bg-white p-4 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-gray-800">
+                      {h.direction === "OTHER_TO_ARC" ? "Other → ARC" : "ARC → Other"}
+                    </div>
+                    <div className="text-gray-500">{new Date(h.ts).toLocaleString()}</div>
                   </div>
-                  <div className="mt-1 text-sm text-gray-900">
-                    <span className="font-semibold">
-                      {h.from.slice(0, 6)}…{h.from.slice(-4)}
-                    </span>
-                    <span className="mx-2 text-gray-400">→</span>
-                    <span className="font-semibold">
-                      {h.to.slice(0, 6)}…{h.to.slice(-4)}
-                    </span>
+                  <div className="mt-2 text-gray-600">
+                    to: <span className="font-mono">{h.to}</span>
                   </div>
-                  {h.memo && <div className="mt-1 text-xs text-gray-600">Message: {h.memo}</div>}
+                  {h.memo ? (
+                    <div className="mt-1 text-gray-600">
+                      memo: <span className="font-mono">{h.memo}</span>
+                    </div>
+                  ) : null}
+                  <div className="mt-2 text-gray-600">
+                    tx: <span className="font-mono break-all">{h.txHash}</span>
+                  </div>
                 </div>
               ))}
+              {history.length === 0 ? (
+                <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">No history</div>
+              ) : null}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

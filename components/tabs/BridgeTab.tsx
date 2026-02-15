@@ -146,7 +146,12 @@ export default function BridgeTab() {
   }, [isConnected, chain?.id, srcChainId]);
 
   async function switchToSelectedSource() {
-    if (!srcChainId) throw new Error("Missing source chain id");
+    if (!srcChainId) {
+      throw new Error(
+        `Missing source chain id for ${sourceKey}. ` +
+          `Set NEXT_PUBLIC_${sourceKey}_CHAIN_ID (and NEXT_PUBLIC_${sourceKey}_RPC_URL) in Vercel env /.env.local.`
+      );
+    }
     if (!window.ethereum) throw new Error("No injected wallet found");
 
     const chainIdHex = `0x${srcChainId.toString(16)}`;
@@ -535,6 +540,20 @@ export default function BridgeTab() {
                 >
                   Switch wallet to {sourceLabel}
                 </button>
+              ) : null}
+              {!srcChainId ? (
+                <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800">
+                  Thiếu cấu hình chain nguồn:{" "}
+                  <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_CHAIN_ID`}</span>{" "}
+                  / <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_RPC_URL`}</span>
+                </div>
+              ) : null}
+              {!srcChainId ? (
+                <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800">
+                  Thiếu cấu hình chain nguồn:{" "}
+                  <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_CHAIN_ID`}</span>{" "}
+                  / <span className="font-mono">{`NEXT_PUBLIC_${sourceKey}_RPC_URL`}</span>
+                </div>
               ) : null}
             </div>
 

@@ -355,8 +355,11 @@ export default function InvoicesTab() {
                     readOnly
                     className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-mono"
                   />
-                  <div className="mt-1 text-xs text-gray-500">Memo này sẽ encode invoiceId (<=128 bytes).</div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    Memo này sẽ encode invoiceId (&lt;=128 bytes).
+                  </div>
                 </div>
+
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700 space-y-2">

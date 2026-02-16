@@ -71,8 +71,8 @@ const config = createConfig({
     [ethSepolia.id]: http(ethSepolia.rpcUrls.default.http[0]),
     [baseSepolia.id]: http(baseSepolia.rpcUrls.default.http[0]),
   },
-,
   ssr: true,
+
 });
 
 const qc = new QueryClient({

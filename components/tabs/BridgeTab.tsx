@@ -382,7 +382,7 @@ export default function BridgeTab() {
 
   // Auto switch whenever the user changes the "Source chain" selector.
   // Note: browsers/wallets may require a user gesture for chain switching; in that case we surface a clear message.
-  useEffect(() => {
+  /* useEffect(() => {
     let cancelled = false;
 
     async function run() {
@@ -429,7 +429,7 @@ export default function BridgeTab() {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, chain?.id, sourceKey, sourceLabel, srcChainIdResolved, envDebug]);
+  }, [isConnected, chain?.id, sourceKey, sourceLabel, srcChainIdResolved, envDebug]); */
 
   function computeMaxFee(amountUsdcStr: string, destinationDomain: number) {
     const amount = parseUnits(amountUsdcStr, 6);

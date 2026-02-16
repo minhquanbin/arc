@@ -144,8 +144,6 @@ export default function BridgeTab() {
 
   const hasOtherChains = enabledOtherChains.length > 0;
 
-  const hasOtherChains = enabledOtherChains.length > 0;
-
   const isWrongNetwork = isConnected && chain?.id !== source.chainId;
 
   useEffect(() => {

@@ -562,7 +562,7 @@ export default function BridgeTab() {
                 <button
                   type="button"
                   onClick={() => setDestOpen((v) => !v)}
-                  disabled={loading || direction === "OTHER_TO_ARC"}
+                  disabled={loading || direction === "OTHER_TO_ARC" || enabledOtherChains.length === 0}
                   className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 disabled:cursor-not-allowed disabled:bg-gray-100"
                 >
                   <div className="flex items-center gap-3">
@@ -578,7 +578,7 @@ export default function BridgeTab() {
                   <span className="text-gray-400">▾</span>
                 </button>
 
-                {destOpen && direction === "ARC_TO_OTHER" && (
+                {destOpen && direction === "ARC_TO_OTHER" && enabledOtherChains.length > 0 && (
                   <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                     <div className="max-h-72 overflow-auto py-1">
                       {enabledOtherChains.map((d) => (
@@ -608,6 +608,12 @@ export default function BridgeTab() {
                   </div>
                 )}
               </div>
+              {direction === "ARC_TO_OTHER" && enabledOtherChains.length === 0 && (
+                <div className="mt-1 text-xs text-gray-500">
+                  No destination chains enabled. Uncomment at least one chain config in{" "}
+                  <code className="rounded bg-white/70 px-1">.env.local</code>.
+                </div>
+              )}
             </div>
 
             {/* Recipient */}
@@ -691,6 +697,12 @@ export default function BridgeTab() {
                   <span className="font-semibold text-gray-900">~5s - 2min</span>
                 </div>
               </div>
+              {direction === "ARC_TO_OTHER" && enabledOtherChains.length === 0 && (
+                <div className="mt-1 text-xs text-gray-500">
+                  No destination chains enabled. Uncomment at least one chain config in{" "}
+                  <code className="rounded bg-white/70 px-1">.env.local</code>.
+                </div>
+              )}
             </div>
 
             {/* Bridge Button */}

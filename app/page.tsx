@@ -163,17 +163,18 @@ export default function Home() {
                   </button>
 
 
+
                   <button
                     onClick={openAccountModal}
                     type="button"
-
                     className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50"
-                  >                    <span className="flex items-center gap-1">
+                  >
+                    <span className="flex items-center gap-1">
                       <span>{account?.displayBalance ?? "—"}</span>
                       <UsdcIcon className="h-4 w-4" />
->
                     </span>
                     <span className="text-gray-400">|</span>
+
                     <span>{account?.displayName}</span>
                   </button>
                 </div>

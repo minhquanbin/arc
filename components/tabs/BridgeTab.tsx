@@ -164,37 +164,6 @@ export default function BridgeTab() {
     await walletClient.switchChain({ id: expectedChainId });
   }
 
-  async function ensureArcNetwork() {
-    if (!walletClient) throw new Error("Wallet not ready");
-    if (chain?.id === expectedChainId) return;
-
-    const arcRpcUrl = process.env.NEXT_PUBLIC_ARC_RPC_URL || "https://rpc.testnet.arc.network";
-    const arcExplorer = process.env.NEXT_PUBLIC_ARC_EXPLORER_URL || "https://testnet.arcscan.app";
-    const arcName = process.env.NEXT_PUBLIC_ARC_NAME || "ARC Testnet";
-    const arcNativeSymbol = process.env.NEXT_PUBLIC_ARC_NATIVE_SYMBOL || "USDC";
-
-    try {
-      await walletClient.switchChain({ id: expectedChainId });
-      return;
-    } catch (err: any) {
-      const code = err?.code;
-      const msg = String(err?.message || "");
-      const isUnadded = code === 4902 || msg.includes("4902");
-      if (!isUnadded) throw err;
-    }
-
-    await walletClient.addChain({
-      chain: {
-        id: expectedChainId,
-        name: arcName,
-        nativeCurrency: { name: arcNativeSymbol, symbol: arcNativeSymbol, decimals: 6 },
-        rpcUrls: { default: { http: [arcRpcUrl] } },
-        blockExplorers: { default: { name: "Explorer", url: arcExplorer } },
-      },
-    });
-
-    await walletClient.switchChain({ id: expectedChainId });
-  }
 
 
   // Compute maxFee
@@ -582,29 +551,31 @@ export default function BridgeTab() {
             </div>
 
             {/* Bridge Button */}
-            <butt              onClick={onBridge}
+            <button
+              type="button"
+              onClick={onBridge}
               disabled={loading || !isConnected || isWrongNetwork || !amountUsdc || parseFloat(amountUsdc) < 5}
               className={[
                 "w-full rounded-xl px-6 py-4 font-semibold text-white shadow-lg transition-all",
                 loading || !isConnected || isWrongNetwork || !amountUsdc || parseFloat(amountUsdc) < 5
                   ? "cursor-not-allowed bg-gray-300"
-300"
                   : "bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:from-[#ff5f70] hover:to-[#664f6e] active:scale-[0.98]",
               ].join(" ")}
             >
               {loading ? (
                 <div className="flex items-center justify-center gap-2">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Processing...</s                </div>
+                  <span>Processing...</span>
+                </div>
               ) : !isConnected ? (
                 "Connect wallet"
               ) : isWrongNetwork ? (
-k ? (
                 "Wrong network"
               ) : (
                 "Send USDC"
               )}
             </button>
+
 
             {/* Status Messages */}
             {status && (

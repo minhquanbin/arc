@@ -100,6 +100,8 @@ export default function BridgeTab() {
   const { data: walletClient } = useWalletClient();
 
   const enabledOtherChains = OTHER_EVM_CHAINS;
+  const enabledOtherChainKeys = enabledOtherChains.map((c) => c.key).join(", ");
+  const enabledOtherChainKeys = enabledOtherChains.map((c) => c.key).join(", ");
 
   const [direction, setDirection] = useState<Direction>("ARC_TO_OTHER");
 
@@ -462,14 +464,14 @@ export default function BridgeTab() {
                 </button>
                 <button
                   type="button"
-                  disabled={loading || enabledOtherChains.length === 0}
+                  disabled={loading}
                   onClick={() => setDirection("OTHER_TO_ARC")}
                   className={[
                     "flex-1 rounded-xl border px-4 py-3 text-sm font-semibold shadow-sm",
                     direction === "OTHER_TO_ARC"
                       ? "border-transparent bg-gradient-to-r from-[#ff7582] to-[#725a7a] text-white"
                       : "border-gray-300 bg-white text-gray-900 hover:bg-gray-50",
-                    enabledOtherChains.length === 0 ? "cursor-not-allowed opacity-50" : "",
+                    enabledOtherChains.length === 0 ? "opacity-50" : "",
                   ].join(" ")}
                 >
                   Other → ARC
@@ -477,8 +479,17 @@ export default function BridgeTab() {
               </div>
               {enabledOtherChains.length === 0 && (
                 <div className="mt-1 text-xs text-gray-500">
-                  To enable Other → ARC, uncomment at least one chain config in{" "}
-                  <code className="rounded bg-white/70 px-1">.env.local</code>.
+                  Other → ARC will be enabled once at least one source chain is configured via Vercel Env Vars.
+                </div>
+              )}
+              {enabledOtherChains.length > 0 && (
+                <div className="mt-1 text-[11px] text-gray-400">
+                  Enabled destination chains: {enabledOtherChainKeys}
+                </div>
+              )}
+              {enabledOtherChains.length > 0 && (
+                <div className="mt-1 text-[11px] text-gray-400">
+                  Enabled destination chains: {enabledOtherChainKeys}
                 </div>
               )}
             </div>

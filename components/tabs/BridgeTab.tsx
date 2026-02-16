@@ -142,6 +142,10 @@ export default function BridgeTab() {
     return otherChainsByKey.get(String(destKey)) || ARC_CHAIN;
   }, [direction, otherChainsByKey, destKey]);
 
+  const hasOtherChains = enabledOtherChains.length > 0;
+
+  const hasOtherChains = enabledOtherChains.length > 0;
+
   const isWrongNetwork = isConnected && chain?.id !== source.chainId;
 
   useEffect(() => {
@@ -519,7 +523,7 @@ export default function BridgeTab() {
                     <span className="text-gray-400">▾</span>
                   </button>
 
-                  {sourceOpen && (
+                  {sourceOpen && hasOtherChains && (
                     <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                       <div className="max-h-72 overflow-auto py-1">
                         {enabledOtherChains.map((c) => (
@@ -548,7 +552,19 @@ export default function BridgeTab() {
                           </button>
                         ))}
                       </div>
+                {!hasOtherChains && (
+                  <div className="mt-1 text-xs text-gray-500">
+                    No source chains enabled. Double-check your Vercel Env Vars
+                    names (e.g. <code className="rounded bg-white/70 px-1">NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID</code>).
+                  </div>
+                )}
                     </div>
+                {!hasOtherChains && (
+                  <div className="mt-1 text-xs text-gray-500">
+                    No source chains enabled. Double-check your Vercel Env Vars
+                    names (e.g. <code className="rounded bg-white/70 px-1">NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID</code>).
+                  </div>
+                )}
                   )}
                 </div>
 
@@ -572,7 +588,7 @@ export default function BridgeTab() {
                 <button
                   type="button"
                   onClick={() => setDestOpen((v) => !v)}
-                  disabled={loading || direction === "OTHER_TO_ARC" || enabledOtherChains.length === 0}
+                  disabled={loading || direction === "OTHER_TO_ARC" || !hasOtherChains}
                   className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm transition-all focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 disabled:cursor-not-allowed disabled:bg-gray-100"
                 >
                   <div className="flex items-center gap-3">
@@ -588,7 +604,7 @@ export default function BridgeTab() {
                   <span className="text-gray-400">▾</span>
                 </button>
 
-                {destOpen && direction === "ARC_TO_OTHER" && enabledOtherChains.length > 0 && (
+                {destOpen && direction === "ARC_TO_OTHER" && hasOtherChains && (
                   <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                     <div className="max-h-72 overflow-auto py-1">
                       {enabledOtherChains.map((d) => (
@@ -618,7 +634,7 @@ export default function BridgeTab() {
                   </div>
                 )}
               </div>
-              {direction === "ARC_TO_OTHER" && enabledOtherChains.length === 0 && (
+              {direction === "ARC_TO_OTHER" && !hasOtherChains && (
                 <div className="mt-1 text-xs text-gray-500">
                   No destination chains enabled. Uncomment at least one chain config in{" "}
                   <code className="rounded bg-white/70 px-1">.env.local</code>.
@@ -707,7 +723,7 @@ export default function BridgeTab() {
                   <span className="font-semibold text-gray-900">~5s - 2min</span>
                 </div>
               </div>
-              {direction === "ARC_TO_OTHER" && enabledOtherChains.length === 0 && (
+              {direction === "ARC_TO_OTHER" && !hasOtherChains && (
                 <div className="mt-1 text-xs text-gray-500">
                   No destination chains enabled. Uncomment at least one chain config in{" "}
                   <code className="rounded bg-white/70 px-1">.env.local</code>.

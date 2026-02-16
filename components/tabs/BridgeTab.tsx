@@ -552,21 +552,27 @@ export default function BridgeTab() {
                           </button>
                         ))}
                       </div>
-                {!hasOtherChains && (
-                  <div className="mt-1 text-xs text-gray-500">
-                    No source chains enabled. Double-check your Vercel Env Vars
-                    names (e.g. <code className="rounded bg-white/70 px-1">NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID</code>).
-                  </div>
-                )}
                     </div>
-                {!hasOtherChains && (
-                  <div className="mt-1 text-xs text-gray-500">
-                    No source chains enabled. Double-check your Vercel Env Vars
-                    names (e.g. <code className="rounded bg-white/70 px-1">NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID</code>).
-                  </div>
-                )}
                   )}
                 </div>
+                {!hasOtherChains && (
+                  <div className="mt-1 text-xs text-gray-500">
+                    No source chains enabled. Double-check your Vercel Env Vars names (e.g.{" "}
+                    <code className="rounded bg-white/70 px-1">
+                      NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID
+                    </code>
+                    ).
+                  </div>
+                {!hasOtherChains && (
+                  <div className="mt-1 text-xs text-gray-500">
+                    No source chains enabled. Double-check your Vercel Env Vars names (e.g.{" "}
+                    <code className="rounded bg-white/70 px-1">
+                      NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID
+                    </code>
+                    ).
+                  </div>
+                )}
+                )}
 
                 <button
                   type="button"

@@ -101,7 +101,6 @@ export default function BridgeTab() {
 
   const enabledOtherChains = OTHER_EVM_CHAINS;
   const enabledOtherChainKeys = enabledOtherChains.map((c) => c.key).join(", ");
-  const enabledOtherChainKeys = enabledOtherChains.map((c) => c.key).join(", ");
 
   const [direction, setDirection] = useState<Direction>("ARC_TO_OTHER");
 

@@ -241,6 +241,80 @@ export default function BridgeTab() {
     }
   }, []);
 
+  // Keep UI state in sync with wallet events.
+  // This reduces cases where the wallet has switched accounts/chains but wagmi state lags for a moment.
+  useEffect(() => {
+    const eth = (globalThis as any).ethereum;
+    if (!eth?.on) return;
+
+    const handleChainChanged = () => {
+      setStatus("");
+      setTxHash("");
+      setLoading(false);
+      // Close dropdowns to avoid stale chain labels while wagmi updates.
+      setSourceOpen(false);
+      setDestOpen(false);
+    };
+
+    const handleAccountsChanged = () => {
+      setStatus("");
+      setTxHash("");
+      setLoading(false);
+      // Clear inputs that are account-specific.
+      setAmountUsdc("");
+      setRecipient("");
+      setMemo("");
+    };
+
+    eth.on("chainChanged", handleChainChanged);
+    eth.on("accountsChanged", handleAccountsChanged);
+    return () => {
+      try {
+        eth.removeListener?.("chainChanged", handleChainChanged);
+        eth.removeListener?.("accountsChanged", handleAccountsChanged);
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  // Keep UI state in sync with wallet events.
+  // This reduces cases where the wallet has switched accounts/chains but wagmi state lags for a moment.
+  useEffect(() => {
+    const eth = (globalThis as any).ethereum;
+    if (!eth?.on) return;
+
+    const handleChainChanged = () => {
+      setStatus("");
+      setTxHash("");
+      setLoading(false);
+      // Close dropdowns to avoid stale chain labels while wagmi updates.
+      setSourceOpen(false);
+      setDestOpen(false);
+    };
+
+    const handleAccountsChanged = () => {
+      setStatus("");
+      setTxHash("");
+      setLoading(false);
+      // Clear inputs that are account-specific.
+      setAmountUsdc("");
+      setRecipient("");
+      setMemo("");
+    };
+
+    eth.on("chainChanged", handleChainChanged);
+    eth.on("accountsChanged", handleAccountsChanged);
+    return () => {
+      try {
+        eth.removeListener?.("chainChanged", handleChainChanged);
+        eth.removeListener?.("accountsChanged", handleAccountsChanged);
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
   useEffect(() => {
     try {
       if (history.length > 0) localStorage.setItem("bridge_history", JSON.stringify(history));

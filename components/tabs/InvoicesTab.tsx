@@ -109,20 +109,6 @@ function statusLabel(status: number): string {
   return "UNKNOWN";
 }
 
-function statusIcon(status: number): { src: string; alt: string } | null {
-  if (status === 1) return { src: "/icons/invoice-created.svg", alt: "Created" };
-  if (status === 2) return { src: "/icons/invoice-cancelled.svg", alt: "Cancelled" };
-  if (status === 3) return { src: "/icons/invoice-paid.svg", alt: "Paid" };
-  return null;
-}
-
-function statusIcon(status: number): { src: string; alt: string } | null {
-  if (status === 1) return { src: "/icons/invoice-created.svg", alt: "Created" };
-  if (status === 2) return { src: "/icons/invoice-cancelled.svg", alt: "Cancelled" };
-  if (status === 3) return { src: "/icons/invoice-paid.svg", alt: "Paid" };
-  return null;
-}
-
 function parseLocalDateToUnixSeconds(dateStr: string): number {
   // Expects YYYY-MM-DD in user's local timezone
   if (!dateStr) return 0;

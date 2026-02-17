@@ -120,6 +120,15 @@ function parseLocalDateToUnixSeconds(dateStr: string): number {
   return Math.floor(d.getTime() / 1000);
 }
 
+function formatDue(dueDate: bigint): string {
+  if (!dueDate || dueDate <= 0n) return "—";
+  try {
+    return new Date(Number(dueDate) * 1000).toISOString().slice(0, 10);
+  } catch {
+    return "—";
+  }
+}
+
 export default function InvoicesTab() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
@@ -136,6 +145,8 @@ export default function InvoicesTab() {
   const isConfigured =
     INVOICE_REGISTRY_ADDRESS !== ("0x0000000000000000000000000000000000000000" as Address);
 
+  const myLower = (address || "").toLowerCase();
+
   // allowance: USDC => InvoiceRegistry
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
@@ -145,11 +156,6 @@ export default function InvoicesTab() {
     query: { enabled: Boolean(address) && isConfigured },
   });
   const allowance = (allowanceData as bigint | undefined) ?? 0n;
-
-  useEffect(() => {
-    if (!isConfirmed) return;
-    refetchAllowance();
-  }, [isConfirmed, refetchAllowance]);
 
   // Create form
   const [payer, setPayer] = useState("");
@@ -167,6 +173,11 @@ export default function InvoicesTab() {
   // List state
   const [knownIds, setKnownIds] = useState<string[]>([]);
   const [items, setItems] = useState<InvoiceRow[]>([]);
+
+  // Lookup by id
+  const [lookupId, setLookupId] = useState("");
+  const [lookupRow, setLookupRow] = useState<InvoiceRow | null>(null);
+  const [lookupError, setLookupError] = useState("");
 
   const storageKey = useMemo(() => {
     const chainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
@@ -192,6 +203,21 @@ export default function InvoicesTab() {
       setKnownIds([]);
     }
   }, [storageKey]);
+
+  useEffect(() => {
+    if (!isConfirmed) return;
+    refetchAllowance();
+  }, [isConfirmed, refetchAllowance]);
+
+  function buildInvoiceId(vendor: Address, payerAddr: Address, amountUsdc: string, due: string, desc: string): `0x${string}` {
+    const salt = generateId();
+    const raw = `${vendor.toLowerCase()}|${payerAddr.toLowerCase()}|${amountUsdc}|${due}|${desc}|${salt}`;
+    return keccak256(stringToHex(raw)) as `0x${string}`;
+  }
+
+  function buildMetadataHash(desc: string): `0x${string}` {
+    return keccak256(stringToHex(desc || "")) as `0x${string}`;
+  }
 
   async function refreshFromChain() {
     if (!publicClient || !isConfigured) return;
@@ -284,16 +310,6 @@ export default function InvoicesTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicClient, isConfigured]);
 
-  function buildInvoiceId(vendor: Address, payerAddr: Address, amountUsdc: string, due: string, desc: string): `0x${string}` {
-    const salt = generateId();
-    const raw = `${vendor.toLowerCase()}|${payerAddr.toLowerCase()}|${amountUsdc}|${due}|${desc}|${salt}`;
-    return keccak256(stringToHex(raw)) as `0x${string}`;
-  }
-
-  function buildMetadataHash(desc: string): `0x${string}` {
-    return keccak256(stringToHex(desc || "")) as `0x${string}`;
-  }
-
   async function onCreateInvoice() {
     try {
       setLastError("");
@@ -367,7 +383,50 @@ export default function InvoicesTab() {
     }
   }
 
-  const myLower = (address || "").toLowerCase();
+  async function onLookup() {
+    setLookupError("");
+    setLookupRow(null);
+    if (!publicClient || !isConfigured) return;
+    const id = lookupId.trim();
+    if (!id.startsWith("0x") || id.length !== 66) {
+      setLookupError("invoiceId must be a 32-byte hex string (0x + 64 hex chars).");
+      return;
+    }
+    try {
+      const row = (await publicClient.readContract({
+        address: INVOICE_REGISTRY_ADDRESS,
+        abi: INVOICE_REGISTRY_ABI,
+        functionName: "invoices",
+        args: [id as `0x${string}`],
+      })) as unknown as readonly [
+        Address,
+        Address,
+        Address,
+        bigint,
+        bigint,
+        number,
+        bigint,
+        bigint,
+        `0x${string}`,
+      ];
+
+      setLookupRow({
+        invoiceId: id as `0x${string}`,
+        vendor: row[0],
+        payer: row[1],
+        token: row[2],
+        amount: row[3],
+        dueDate: row[4],
+        status: Number(row[5]),
+        createdAt: row[6],
+        paidAt: row[7],
+        metadataHash: row[8],
+      });
+    } catch (e: any) {
+      setLookupError(e?.message || "Lookup failed");
+    }
+  }
+
   const mine = items.filter((x) => x.vendor.toLowerCase() === myLower || x.payer.toLowerCase() === myLower);
   const payableByMe = items.filter((x) => x.payer.toLowerCase() === myLower && x.status === 1);
   const createdByMe = mine.filter((x) => x.vendor.toLowerCase() === myLower);
@@ -388,9 +447,8 @@ export default function InvoicesTab() {
         <div className="rounded-xl border-2 border-orange-300 bg-orange-50 p-4">
           <div className="text-sm text-orange-800 font-semibold">Missing configuration</div>
           <div className="mt-1 text-sm text-orange-700">
-            Set{" "}
-            <code className="px-1 py-0.5 bg-white rounded">NEXT_PUBLIC_ARC_INVOICE_REGISTRY</code> to the deployed contract
-            address.
+            Set <code className="px-1 py-0.5 bg-white rounded">NEXT_PUBLIC_ARC_INVOICE_REGISTRY</code> to the deployed
+            contract address.
           </div>
         </div>
       )}
@@ -474,13 +532,13 @@ export default function InvoicesTab() {
 
         {payableByMe.length === 0 ? (
           <div className="py-6 text-center text-sm text-gray-600">
-            No unpaid invoices where you are the payer yet. Click{" "}
-            <span className="font-semibold">Refresh</span> to fetch on-chain invoices.
+            No unpaid invoices where you are the payer yet. Click <span className="font-semibold">Refresh</span> to fetch
+            on-chain invoices.
           </div>
         ) : (
           <div className="space-y-3">
             {payableByMe.map((inv) => {
-              const canPay = address && inv.status === 1;
+              const canPay = isConnected && inv.payer.toLowerCase() === myLower && inv.status === 1;
               const needsApproval = allowance < inv.amount;
               return (
                 <div key={inv.invoiceId} className="rounded-xl border border-gray-200 bg-white p-4">
@@ -509,9 +567,7 @@ export default function InvoicesTab() {
                     </div>
                     <div>
                       <div className="text-xs text-gray-500">Due</div>
-                      <div className="font-semibold">
-                        {inv.dueDate > 0n ? new Date(Number(inv.dueDate) * 1000).toISOString().slice(0, 10) : "—"}
-                      </div>
+                      <div className="font-semibold">{formatDue(inv.dueDate)}</div>
                     </div>
                   </div>
 
@@ -550,49 +606,98 @@ export default function InvoicesTab() {
               );
             })}
           </div>
-
-      {/* Find by ID (for payer) */}
-      <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-bold text-gray-900">Find invoice by ID</h2>
-        </div>
-        <p className="text-sm text-gray-600">
-          If the invoice was created recently and you don't see it yet, paste the invoiceId here (from vendor) to load it
-          directly.
-        </p>
-        <FindById
-          isBusy={isBusy}
-          isConfigured={isConfigured}
-          invoiceRegistryAddress={INVOICE_REGISTRY_ADDRESS}
-          usdcAddress={USDC_ADDRESS}
-          allowance={allowance}
-          onApprove={onApprove}
-          onPayInvoice={onPayInvoice}
-          publicClient={publicClient}
-        />
-      </div>
         )}
       </div>
 
-      {/* Find by ID (for payer) */}
+      {/* Find by ID */}
       <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-bold text-gray-900">Find invoice by ID</h2>
-        </div>
+        <h2 className="text-lg font-bold text-gray-900">Find invoice by ID</h2>
         <p className="text-sm text-gray-600">
-          If the invoice was created recently and you don't see it yet, paste the invoiceId here (from vendor) to load it
-          directly.
+          Ask vendor to send you the invoiceId (bytes32). Paste it here to load and pay directly.
         </p>
-        <FindById
-          isBusy={isBusy}
-          isConfigured={isConfigured}
-          invoiceRegistryAddress={INVOICE_REGISTRY_ADDRESS}
-          usdcAddress={USDC_ADDRESS}
-          allowance={allowance}
-          onApprove={onApprove}
-          onPayInvoice={onPayInvoice}
-          publicClient={publicClient}
-        />
+
+        <div className="flex flex-col md:flex-row gap-3">
+          <input
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+            placeholder="0x... (bytes32 invoiceId)"
+            className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-mono"
+          />
+          <button
+            onClick={onLookup}
+            disabled={!isConfigured || isBusy || !publicClient}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-60"
+          >
+            Lookup
+          </button>
+        </div>
+
+        {lookupError && <div className="text-sm text-red-600">{lookupError}</div>}
+
+        {lookupRow && (
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs text-gray-500">Invoice ID</div>
+                <div className="font-mono text-xs break-all">{lookupRow.invoiceId}</div>
+              </div>
+              <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
+                {statusLabel(lookupRow.status)}
+              </div>
+            </div>
+
+            <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-gray-500">Vendor</div>
+                <div className="font-semibold">{formatAddress(lookupRow.vendor)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Payer</div>
+                <div className="font-semibold">{formatAddress(lookupRow.payer)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Amount</div>
+                <div className="font-semibold">{formatUSDC(lookupRow.amount)} USDC</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Due</div>
+                <div className="font-semibold">{formatDue(lookupRow.dueDate)}</div>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="text-[11px] text-gray-500">
+                Token: <span className="font-mono">{formatAddress(lookupRow.token)}</span>
+                {" • "}metaHash: <span className="font-mono">{lookupRow.metadataHash.slice(0, 10)}...</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const canPay = isConnected && lookupRow.payer.toLowerCase() === myLower && lookupRow.status === 1;
+                  const needsApproval = allowance < lookupRow.amount;
+                  return (
+                    <>
+                      <button
+                        onClick={() => onApprove(lookupRow.amount)}
+                        disabled={!canPay || !needsApproval || isBusy}
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
+                        title={needsApproval ? `Current allowance: ${formatUSDC(allowance)} USDC` : "Allowance sufficient"}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => onPayInvoice(lookupRow.invoiceId)}
+                        disabled={!canPay || needsApproval || isBusy}
+                        className="rounded-lg bg-[#725a7a] px-3 py-2 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
+                      >
+                        Pay
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Created */}
@@ -615,159 +720,6 @@ export default function InvoicesTab() {
                   </div>
                   <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
                     {statusLabel(inv.status)}
-
-function FindById(props: {
-  isBusy: boolean;
-  isConfigured: boolean;
-  invoiceRegistryAddress: Address;
-  usdcAddress: Address;
-  allowance: bigint;
-  onApprove: (required: bigint) => Promise<void>;
-  onPayInvoice: (invoiceId: `0x${string}`) => Promise<void>;
-  publicClient: ReturnType<typeof usePublicClient>;
-}) {
-  const { address } = useAccount();
-  const myLower = (address || "").toLowerCase();
-  const [invoiceId, setInvoiceId] = useState("");
-  const [row, setRow] = useState<InvoiceRow | null>(null);
-  const [error, setError] = useState("");
-
-  async function onLookup() {
-    setError("");
-    setRow(null);
-    if (!props.publicClient || !props.isConfigured) return;
-    const id = invoiceId.trim();
-    if (!id.startsWith("0x") || id.length !== 66) {
-      setError("invoiceId must be a 32-byte hex string (0x + 64 hex chars).");
-      return;
-    }
-    try {
-      const r = (await props.publicClient.readContract({
-        address: props.invoiceRegistryAddress,
-        abi: INVOICE_REGISTRY_ABI,
-        functionName: "invoices",
-        args: [id as `0x${string}`],
-      })) as unknown as readonly [
-        Address,
-        Address,
-        Address,
-        bigint,
-        bigint,
-        number,
-        bigint,
-        bigint,
-        `0x${string}`,
-      ];
-
-      setRow({
-        invoiceId: id as `0x${string}`,
-        vendor: r[0],
-        payer: r[1],
-        token: r[2],
-        amount: r[3],
-        dueDate: r[4],
-        status: Number(r[5]),
-        createdAt: r[6],
-        paidAt: r[7],
-        metadataHash: r[8],
-      });
-    } catch (e: any) {
-      setError(e?.message || "Lookup failed");
-    }
-  }
-
-  const canPay = row && address && row.payer.toLowerCase() === myLower && row.status === 1;
-  const needsApproval = row ? props.allowance < row.amount : true;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-col md:flex-row gap-3">
-        <input
-          value={invoiceId}
-          onChange={(e) => setInvoiceId(e.target.value)}
-          placeholder="0x... (bytes32 invoiceId)"
-          className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-mono"
-        />
-        <button
-          onClick={onLookup}
-          disabled={!props.isConfigured || props.isBusy || !props.publicClient}
-          className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-60"
-        >
-          Lookup
-        </button>
-      </div>
-
-      {error && <div className="text-sm text-red-600">{error}</div>}
-
-      {row && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs text-gray-500">Invoice ID</div>
-              <div className="font-mono text-xs break-all">{row.invoiceId}</div>
-            </div>
-            <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
-              {statusLabel(row.status)}
-            </div>
-          </div>
-
-          <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
-            <div>
-              <div className="text-xs text-gray-500">Vendor</div>
-              <div className="font-semibold">{formatAddress(row.vendor)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Payer</div>
-              <div className="font-semibold">{formatAddress(row.payer)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Amount</div>
-              <div className="font-semibold">{formatUSDC(row.amount)} USDC</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Due</div>
-              <div className="font-semibold">
-                {row.dueDate > 0n ? new Date(Number(row.dueDate) * 1000).toISOString().slice(0, 10) : "—"}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="text-[11px] text-gray-500">
-              Token: <span className="font-mono">{formatAddress(row.token)}</span>
-              {" • "}metaHash: <span className="font-mono">{row.metadataHash.slice(0, 10)}...</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => props.onApprove(row.amount)}
-                disabled={!canPay || !needsApproval || props.isBusy}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
-                title={needsApproval ? `Current allowance: ${formatUSDC(props.allowance)} USDC` : "Allowance sufficient"}
-              >
-                Approve
-              </button>
-              <button
-                onClick={() => props.onPayInvoice(row.invoiceId)}
-                disabled={!canPay || needsApproval || props.isBusy}
-                className="rounded-lg bg-[#725a7a] px-3 py-2 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
-                title={needsApproval ? "Approve required before paying" : "Pay invoice"}
-              >
-                Pay
-              </button>
-            </div>
-          </div>
-
-          {canPay && (
-            <div className="mt-2 text-[11px] text-gray-500">
-              Allowance: <span className="font-mono">{formatUSDC(props.allowance)} USDC</span>
-              {needsApproval ? " (needs approval)" : " (ok)"}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
                   </div>
                 </div>
 
@@ -786,162 +738,7 @@ function FindById(props: {
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Due</div>
-                    <div className="font-semibold">
-                      {inv.dueDate > 0n ? new Date(Number(inv.dueDate) * 1000).toISOString().slice(0, 10) : "—"}
-
-function FindById(props: {
-  isBusy: boolean;
-  isConfigured: boolean;
-  invoiceRegistryAddress: Address;
-  usdcAddress: Address;
-  allowance: bigint;
-  onApprove: (required: bigint) => Promise<void>;
-  onPayInvoice: (invoiceId: `0x${string}`) => Promise<void>;
-  publicClient: ReturnType<typeof usePublicClient>;
-}) {
-  const { address } = useAccount();
-  const myLower = (address || "").toLowerCase();
-  const [invoiceId, setInvoiceId] = useState("");
-  const [row, setRow] = useState<InvoiceRow | null>(null);
-  const [error, setError] = useState("");
-
-  async function onLookup() {
-    setError("");
-    setRow(null);
-    if (!props.publicClient || !props.isConfigured) return;
-    const id = invoiceId.trim();
-    if (!id.startsWith("0x") || id.length !== 66) {
-      setError("invoiceId must be a 32-byte hex string (0x + 64 hex chars).");
-      return;
-    }
-    try {
-      const r = (await props.publicClient.readContract({
-        address: props.invoiceRegistryAddress,
-        abi: INVOICE_REGISTRY_ABI,
-        functionName: "invoices",
-        args: [id as `0x${string}`],
-      })) as unknown as readonly [
-        Address,
-        Address,
-        Address,
-        bigint,
-        bigint,
-        number,
-        bigint,
-        bigint,
-        `0x${string}`,
-      ];
-
-      setRow({
-        invoiceId: id as `0x${string}`,
-        vendor: r[0],
-        payer: r[1],
-        token: r[2],
-        amount: r[3],
-        dueDate: r[4],
-        status: Number(r[5]),
-        createdAt: r[6],
-        paidAt: r[7],
-        metadataHash: r[8],
-      });
-    } catch (e: any) {
-      setError(e?.message || "Lookup failed");
-    }
-  }
-
-  const canPay = row && address && row.payer.toLowerCase() === myLower && row.status === 1;
-  const needsApproval = row ? props.allowance < row.amount : true;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-col md:flex-row gap-3">
-        <input
-          value={invoiceId}
-          onChange={(e) => setInvoiceId(e.target.value)}
-          placeholder="0x... (bytes32 invoiceId)"
-          className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-mono"
-        />
-        <button
-          onClick={onLookup}
-          disabled={!props.isConfigured || props.isBusy || !props.publicClient}
-          className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-60"
-        >
-          Lookup
-        </button>
-      </div>
-
-      {error && <div className="text-sm text-red-600">{error}</div>}
-
-      {row && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs text-gray-500">Invoice ID</div>
-              <div className="font-mono text-xs break-all">{row.invoiceId}</div>
-            </div>
-            <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
-              {statusLabel(row.status)}
-            </div>
-          </div>
-
-          <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
-            <div>
-              <div className="text-xs text-gray-500">Vendor</div>
-              <div className="font-semibold">{formatAddress(row.vendor)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Payer</div>
-              <div className="font-semibold">{formatAddress(row.payer)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Amount</div>
-              <div className="font-semibold">{formatUSDC(row.amount)} USDC</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Due</div>
-              <div className="font-semibold">
-                {row.dueDate > 0n ? new Date(Number(row.dueDate) * 1000).toISOString().slice(0, 10) : "—"}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="text-[11px] text-gray-500">
-              Token: <span className="font-mono">{formatAddress(row.token)}</span>
-              {" • "}metaHash: <span className="font-mono">{row.metadataHash.slice(0, 10)}...</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => props.onApprove(row.amount)}
-                disabled={!canPay || !needsApproval || props.isBusy}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
-                title={needsApproval ? `Current allowance: ${formatUSDC(props.allowance)} USDC` : "Allowance sufficient"}
-              >
-                Approve
-              </button>
-              <button
-                onClick={() => props.onPayInvoice(row.invoiceId)}
-                disabled={!canPay || needsApproval || props.isBusy}
-                className="rounded-lg bg-[#725a7a] px-3 py-2 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
-                title={needsApproval ? "Approve required before paying" : "Pay invoice"}
-              >
-                Pay
-              </button>
-            </div>
-          </div>
-
-          {canPay && (
-            <div className="mt-2 text-[11px] text-gray-500">
-              Allowance: <span className="font-mono">{formatUSDC(props.allowance)} USDC</span>
-              {needsApproval ? " (needs approval)" : " (ok)"}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-                    </div>
+                    <div className="font-semibold">{formatDue(inv.dueDate)}</div>
                   </div>
                 </div>
 

@@ -7,6 +7,7 @@ import BridgeTab from "@/components/tabs/BridgeTab";
 import IssuanceTab from "@/components/tabs/IssuanceTab";
 import PaymentsTab from "@/components/tabs/PaymentsTab";
 
+import InvoicesTab from "@/components/tabs/InvoicesTab";
 
 import InvoicesTab from "@/components/tabs/InvoicesTab";
 
@@ -162,19 +163,20 @@ export default function Home() {
                     {chain?.name}
                   </button>
 
-
-
                   <button
                     onClick={openAccountModal}
                     type="button"
                     className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50"
                   >
                     <span className="flex items-center gap-1">
-                      <span>{account?.displayBalance ?? "—"}</span>
+                      <span>
+                        {(account?.displayBalance || "")
+                          .replace(/\s*USDC\b/gi, "")
+                          .trim()}
+                      </span>
                       <UsdcIcon className="h-4 w-4" />
                     </span>
                     <span className="text-gray-400">|</span>
-
                     <span>{account?.displayName}</span>
                   </button>
                 </div>
@@ -212,13 +214,11 @@ export default function Home() {
               : "overflow-hidden rounded-2xl bg-white shadow-xl"
           }
         >
-            {/* Tabs */}
-          <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl p-2">
-            <div className="flex gap-2">
+          {/* Tabs */}
+          <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl p-2">            <div className="flex gap-2">
               {(["bridge", "issuance", "payment", "invoices"] as TabType[]).map((t) => {
                 const enabled = t === "bridge" || t === "issuance" || t === "payment" || t === "invoices";
-                const active = tab === t;
-
+                const active = tab === t;;
 
 
                 const base = "flex-1 px-6 py-4 text-lg font-semibold transition-all rounded-xl";
@@ -248,14 +248,14 @@ export default function Home() {
           <div className={tab === "issuance" || tab === "bridge" ? "pt-6" : "p-5"}>
             {isConnected ? (
               <>
-                  {tab === "bridge" && <BridgeTab />}
+                {tab === "bridge" && <BridgeTab />}
                 {tab === "issuance" && <IssuanceTab />}
                 {tab === "payment" && <PaymentsTab />}
                 {tab === "invoices" && <InvoicesTab />}
                 {tab !== "bridge" && tab !== "issuance" && tab !== "payment" && tab !== "invoices" && (
                   <div className="py-12 text-center">
-                    <div className="mb-4 text-4xl">🚧</div>
 
+                    <div className="mb-4 text-4xl">🚧</div>
                     <p className="text-gray-600">This feature is coming soon!</p>
                   </div>
                 )}

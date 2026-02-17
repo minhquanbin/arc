@@ -1,194 +1,316 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, usePublicClient } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
-import { DESTS } from "@/lib/chains";
-import { ERC20_ABI, ROUTER_ABI, addressToBytes32, validateAmount, validateMemo } from "@/lib/cctp";
+import { useAccount, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { keccak256, parseUnits, stringToHex, type Address } from "viem";
+import { formatAddress, formatUSDC, generateId } from "@/lib/payments";
 
-type Invoice = {
-  id: string;
-  ts: number;
-  title: string;
-  payer?: string;
-  arcRecipient: `0x${string}`;
-  amountUsdc: string;
-  status: "draft" | "issued";
+const INVOICE_REGISTRY_ABI = [
+  {
+    type: "function",
+    name: "createInvoice",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "invoiceId", type: "bytes32" },
+      { name: "payer", type: "address" },
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "dueDate", type: "uint64" },
+      { name: "metadataHash", type: "bytes32" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "payInvoice",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "invoiceId", type: "bytes32" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "invoices",
+    stateMutability: "view",
+    inputs: [{ name: "invoiceId", type: "bytes32" }],
+    outputs: [
+      { name: "vendor", type: "address" },
+      { name: "payer", type: "address" },
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "dueDate", type: "uint64" },
+      { name: "status", type: "uint8" },
+      { name: "createdAt", type: "uint64" },
+      { name: "paidAt", type: "uint64" },
+      { name: "metadataHash", type: "bytes32" },
+    ],
+  },
+  {
+    type: "event",
+    name: "InvoiceCreated",
+    inputs: [
+      { name: "invoiceId", type: "bytes32", indexed: true },
+      { name: "vendor", type: "address", indexed: true },
+      { name: "payer", type: "address", indexed: true },
+      { name: "token", type: "address", indexed: false },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "dueDate", type: "uint64", indexed: false },
+      { name: "metadataHash", type: "bytes32", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "InvoicePaid",
+    inputs: [
+      { name: "invoiceId", type: "bytes32", indexed: true },
+      { name: "payer", type: "address", indexed: true },
+      { name: "vendor", type: "address", indexed: true },
+      { name: "token", type: "address", indexed: false },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "metadataHash", type: "bytes32", indexed: false },
+    ],
+  },
+] as const;
+
+type InvoiceRow = {
+  invoiceId: `0x${string}`;
+  vendor: Address;
+  payer: Address;
+  token: Address;
+  amount: bigint;
+  dueDate: bigint;
+  status: number;
+  createdAt: bigint;
+  paidAt: bigint;
+  metadataHash: `0x${string}`;
 };
 
-function isAddress(v: string): v is `0x${string}` {
-  return /^0x[a-fA-F0-9]{40}$/.test(v);
+function statusLabel(status: number): string {
+  // matches contract enum: None(0) Created(1) Cancelled(2) Paid(3)
+  if (status === 1) return "CREATED";
+  if (status === 2) return "CANCELLED";
+  if (status === 3) return "PAID";
+  return "UNKNOWN";
 }
 
-function newInvoiceId() {
-  // Short, human-friendly, still unique enough for demo
-  const rand = Math.random().toString(16).slice(2, 10);
-  return `inv_${Date.now().toString(36)}_${rand}`;
+function parseLocalDateToUnixSeconds(dateStr: string): number {
+  // Expects YYYY-MM-DD in user's local timezone
+  if (!dateStr) return 0;
+  const [yyyy, mm, dd] = dateStr.split("-").map(Number);
+  if (!yyyy || !mm || !dd) return 0;
+  const d = new Date();
+  d.setFullYear(yyyy, mm - 1, dd);
+  d.setHours(0, 0, 0, 0);
+  return Math.floor(d.getTime() / 1000);
 }
 
 export default function InvoicesTab() {
-  const { address, isConnected, chain } = useAccount();
+  const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+  const isBusy = isPending || isConfirming;
 
-  const expectedChainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
-  const isWrongNetwork = isConnected && chain?.id !== expectedChainId;
+  const INVOICE_REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_ARC_INVOICE_REGISTRY ||
+    "0x0000000000000000000000000000000000000000") as Address;
 
-  const [title, setTitle] = useState("Invoice");
+  const USDC_ADDRESS = ((process.env.NEXT_PUBLIC_ARC_USDC || process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
+    "0x3600000000000000000000000000000000000000") as Address;
+
+  const isConfigured =
+    INVOICE_REGISTRY_ADDRESS !== ("0x0000000000000000000000000000000000000000" as Address);
+
+  // Create form
   const [payer, setPayer] = useState("");
-  const [amountUsdc, setAmountUsdc] = useState("");
-  const [sourceChainKey, setSourceChainKey] = useState(DESTS[0]?.key || "");
-  const [arcRecipient, setArcRecipient] = useState<string>("");
+  const [amount, setAmount] = useState("");
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  const [description, setDescription] = useState("Consulting services");
 
-  const [status, setStatus] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("");
+  const [lastError, setLastError] = useState("");
 
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [selectedId, setSelectedId] = useState<string>("");
+  // List state
+  const [knownIds, setKnownIds] = useState<string[]>([]);
+  const [items, setItems] = useState<InvoiceRow[]>([]);
 
-  const sourceChain = useMemo(
-    () => DESTS.find((d) => d.key === sourceChainKey) || DESTS[0],
-    [sourceChainKey]
-  );
+  const storageKey = useMemo(() => {
+    const chainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
+    return `arc:invoices:knownIds:${chainId}:${INVOICE_REGISTRY_ADDRESS.toLowerCase()}`;
+  }, [INVOICE_REGISTRY_ADDRESS]);
 
-  const arcRouter = (process.env.NEXT_PUBLIC_ARC_ROUTER ||
-    "0xEc02A909701A8eB9C84B93b55B6d4A7ca215CFca") as `0x${string}`;
-  const arcUsdc = ((process.env.NEXT_PUBLIC_ARC_USDC || process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
-    "0x3600000000000000000000000000000000000000") as `0x${string}`;
+  function saveKnownIds(ids: string[]) {
+    const uniq = Array.from(new Set(ids.map((x) => x.toLowerCase())));
+    setKnownIds(uniq);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(uniq));
+    } catch {
+      // ignore
+    }
+  }
 
-  // Load + persist invoices
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("arc:invoices");
-      const parsed = raw ? (JSON.parse(raw) as Invoice[]) : [];
-      if (Array.isArray(parsed)) {
-        setInvoices(parsed);
-        if (parsed[0]?.id) setSelectedId(parsed[0].id);
+      const raw = localStorage.getItem(storageKey);
+      const parsed = raw ? (JSON.parse(raw) as string[]) : [];
+      if (Array.isArray(parsed)) setKnownIds(Array.from(new Set(parsed.map((x) => String(x).toLowerCase()))));
+    } catch {
+      setKnownIds([]);
+    }
+  }, [storageKey]);
+
+  async function refreshFromChain() {
+    if (!publicClient || !isConfigured) return;
+    setStatus("Loading invoices...");
+    setLastError("");
+
+    try {
+      const code = await publicClient.getBytecode({ address: INVOICE_REGISTRY_ADDRESS });
+      if (!code) {
+        setLastError(`No contract code found at ${INVOICE_REGISTRY_ADDRESS}. Set NEXT_PUBLIC_ARC_INVOICE_REGISTRY.`);
+        setStatus("");
+        return;
       }
     } catch {
       // ignore
     }
-  }, []);
 
-  useEffect(() => {
     try {
-      localStorage.setItem("arc:invoices", JSON.stringify(invoices));
-    } catch {
-      // ignore
+      const logs = await publicClient.getLogs({
+        address: INVOICE_REGISTRY_ADDRESS,
+        event: INVOICE_REGISTRY_ABI.find((x) => (x as any).type === "event" && (x as any).name === "InvoiceCreated") as any,
+        fromBlock: 0n,
+        toBlock: "latest",
+      });
+
+      const ids: string[] = [];
+      for (const log of logs) {
+        const invoiceId = (log as any).args?.invoiceId as string | undefined;
+        if (invoiceId) ids.push(invoiceId);
+      }
+      // Merge with local ids
+      saveKnownIds([...knownIds, ...ids]);
+    } catch (e: any) {
+      setLastError(e?.message || "Failed to read logs");
+    } finally {
+      setStatus("");
     }
-  }, [invoices]);
+  }
 
-  // Default ARC recipient: your own wallet
+  async function loadDetails(ids: string[]) {
+    if (!publicClient || !isConfigured) return;
+    const next: InvoiceRow[] = [];
+    for (const id of ids) {
+      try {
+        const row = (await publicClient.readContract({
+          address: INVOICE_REGISTRY_ADDRESS,
+          abi: INVOICE_REGISTRY_ABI,
+          functionName: "invoices",
+          args: [id as `0x${string}`],
+        })) as any[];
+
+        next.push({
+          invoiceId: id as `0x${string}`,
+          vendor: row[0] as Address,
+          payer: row[1] as Address,
+          token: row[2] as Address,
+          amount: row[3] as bigint,
+          dueDate: row[4] as bigint,
+          status: Number(row[5]),
+          createdAt: row[6] as bigint,
+          paidAt: row[7] as bigint,
+          metadataHash: row[8] as `0x${string}`,
+        });
+      } catch {
+        // ignore invalid ids
+      }
+    }
+    setItems(next.sort((a, b) => Number(b.createdAt - a.createdAt)));
+  }
+
   useEffect(() => {
-    if (!arcRecipient && address) setArcRecipient(address);
-  }, [arcRecipient, address]);
+    loadDetails(knownIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [knownIds.join("|"), isConfigured, address, isConfirmed]);
 
-  const selectedInvoice = useMemo(
-    () => invoices.find((i) => i.id === selectedId) || null,
-    [invoices, selectedId]
-  );
+  useEffect(() => {
+    if (!publicClient || !isConfigured) return;
+    refreshFromChain();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicClient, isConfigured]);
 
-  const memo = useMemo(() => {
-    if (!selectedInvoice) return "";
-    // Keep it short (<=128 bytes); use invoiceId only for v1.
-    return `ARC:${selectedInvoice.id}`;
-  }, [selectedInvoice]);
+  function buildInvoiceId(vendor: Address, payerAddr: Address, amountUsdc: string, due: string, desc: string): `0x${string}` {
+    // Deterministic id (still user friendly): hash of core fields + random salt.
+    // We include a random salt so vendors can re-issue similar invoices without collision.
+    const salt = generateId();
+    const raw = `${vendor.toLowerCase()}|${payerAddr.toLowerCase()}|${amountUsdc}|${due}|${desc}|${salt}`;
+    return keccak256(stringToHex(raw)) as `0x${string}`;
+  }
 
-  async function refreshPaidStatus(inv: Invoice) {
-    if (!publicClient) throw new Error("Public client not ready");
-    // Simple heuristic for v1: check ARC USDC balance of the recipient and compare to amount.
-    // (Not perfect accounting, but OK for a demo; next step is an on-chain InvoiceVault + events.)
-    const bal = (await publicClient.readContract({
-      address: arcUsdc,
-      abi: ERC20_ABI,
-      functionName: "balanceOf",
-      args: [inv.arcRecipient],
-    })) as bigint;
-    const need = parseUnits(inv.amountUsdc || "0", 6);
-    return { bal, need, paid: bal >= need };
+  function buildMetadataHash(desc: string): `0x${string}` {
+    // Minimal: hash description string. In production: hash canonical JSON metadata.
+    return keccak256(stringToHex(desc || "")) as `0x${string}`;
   }
 
   async function onCreateInvoice() {
     try {
+      setLastError("");
       setStatus("");
-      setLoading(true);
+      if (!isConnected || !address) throw new Error("Connect wallet first");
+      if (!isConfigured) throw new Error("InvoiceRegistry not configured (NEXT_PUBLIC_ARC_INVOICE_REGISTRY).");
 
-      if (!isConnected || !address) throw new Error("Vui lòng connect ví trước");
-      if (isWrongNetwork) throw new Error(`Vui lòng switch sang ARC Testnet (Chain ID: ${expectedChainId})`);
+      if (!payer || !payer.startsWith("0x") || payer.length !== 42) throw new Error("Payer must be a valid 0x address.");
+      if (!amount || Number(amount) <= 0) throw new Error("Amount must be > 0");
 
-      validateAmount(amountUsdc);
-      if (payer && !isAddress(payer)) throw new Error("Payer address không hợp lệ");
-      if (!arcRecipient || !isAddress(arcRecipient)) throw new Error("ARC recipient address không hợp lệ");
+      const payerAddr = payer as Address;
+      const dueUnix = parseLocalDateToUnixSeconds(dueDate);
+      const amt = parseUnits(amount, 6);
 
-      const inv: Invoice = {
-        id: newInvoiceId(),
-        ts: Date.now(),
-        title: title.trim() || "Invoice",
-        payer: payer.trim() || undefined,
-        arcRecipient: arcRecipient as `0x${string}`,
-        amountUsdc: amountUsdc.trim(),
-        status: "issued",
-      };
+      const invoiceId = buildInvoiceId(address as Address, payerAddr, amount, dueDate, description);
+      const metadataHash = buildMetadataHash(description);
 
-      setInvoices((prev) => [inv, ...prev]);
-      setSelectedId(inv.id);
-      setStatus("✅ Đã tạo invoice. Gửi invoiceId cho người thanh toán và dùng memo bên dưới.");
+      setStatus("Creating invoice...");
+      await writeContract({
+        address: INVOICE_REGISTRY_ADDRESS,
+        abi: INVOICE_REGISTRY_ABI,
+        functionName: "createInvoice",
+        args: [invoiceId, payerAddr, USDC_ADDRESS, amt, BigInt(dueUnix), metadataHash],
+      });
+
+      // Optimistic save so it shows instantly.
+      saveKnownIds([...knownIds, invoiceId]);
+      setStatus("Submitted. Waiting confirmation...");
     } catch (e: any) {
-      setStatus(e?.shortMessage || e?.message || "Tạo invoice thất bại");
-    } finally {
-      setLoading(false);
+      setLastError(e?.message || "Create invoice failed");
+      setStatus("");
     }
   }
 
-  async function onCheckPayment() {
+  async function onPayInvoice(invoiceId: `0x${string}`) {
     try {
-      setStatus("");
-      setLoading(true);
-      if (!selectedInvoice) throw new Error("Chọn 1 invoice trước");
-      if (!publicClient) throw new Error("Public client not ready");
-
-      const { bal, need, paid } = await refreshPaidStatus(selectedInvoice);
-      setStatus(
-        paid
-          ? `✅ Có vẻ đã thanh toán (balance recipient đủ). Balance: ${Number(formatUnits(bal, 6)).toFixed(
-              6
-            )} USDC`
-          : `⏳ Chưa thấy đủ tiền. Balance: ${Number(formatUnits(bal, 6)).toFixed(6)} / Cần: ${Number(
-              formatUnits(need, 6)
-            ).toFixed(6)} USDC`
-      );
+      setLastError("");
+      if (!isConnected || !address) throw new Error("Connect wallet first");
+      if (!isConfigured) throw new Error("InvoiceRegistry not configured");
+      setStatus("Paying invoice...");
+      await writeContract({
+        address: INVOICE_REGISTRY_ADDRESS,
+        abi: INVOICE_REGISTRY_ABI,
+        functionName: "payInvoice",
+        args: [invoiceId],
+      });
     } catch (e: any) {
-      setStatus(e?.shortMessage || e?.message || "Check thất bại");
+      setLastError(e?.message || "Pay invoice failed");
     } finally {
-      setLoading(false);
+      setStatus("");
     }
   }
 
-  const paymentParams = useMemo(() => {
-    if (!selectedInvoice) return null;
-    const amt = parseUnits(selectedInvoice.amountUsdc || "0", 6);
-    // For Router ABI (ARC side), mintRecipient is bytes32.
-    const mintRecipient = addressToBytes32(selectedInvoice.arcRecipient);
-    const minFinality = Number(process.env.NEXT_PUBLIC_MIN_FINALITY_THRESHOLD || "1000");
-
-    // We don't compute a precise maxFee here (it depends on circle forwarding rules);
-    // for UI instructions we show env default.
-    const maxFeeBps = BigInt(process.env.NEXT_PUBLIC_MAX_FEE_BPS || "500");
-    const maxFee = (amt * maxFeeBps) / 10000n;
-
-    // v1 memo only (forwarding header is handled in Bridge tab when actually submitting tx)
-    // but still validate length for safety.
-    validateMemo(memo);
-
-    return {
-      amount: amt,
-      destinationDomain: sourceChain?.domain ?? 0,
-      mintRecipient,
-      maxFee,
-      minFinalityThreshold: minFinality,
-      memo,
-      router: arcRouter,
-    };
-  }, [selectedInvoice, memo, sourceChain, arcRouter]);
+  const myLower = (address || "").toLowerCase();
+  const mine = items.filter(
+    (x) => x.vendor.toLowerCase() === myLower || x.payer.toLowerCase() === myLower
+  );
 
   return (
     <div className="space-y-6">
@@ -198,223 +320,166 @@ export default function InvoicesTab() {
           <h1 className="text-3xl font-bold">Invoices</h1>
         </div>
         <p className="text-sm text-gray-600">
-          V1: tạo invoice trên ARC, người trả có thể trả từ chain khác bằng cách bridge USDC qua ARC và
-          đính kèm memo chứa invoiceId.
+          On-chain invoice registry + USDC payment (ERC20 transferFrom). Metadata is hashed for integrity.
         </p>
       </div>
 
-      {/* Create invoice */}
-      <div className="rounded-2xl bg-white/80 p-6 shadow-xl backdrop-blur space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Tạo invoice</h2>
-          <div className="text-xs text-gray-500">Settlement: ARC address</div>
+      {!isConfigured && (
+        <div className="rounded-xl border-2 border-orange-300 bg-orange-50 p-4">
+          <div className="text-sm text-orange-800 font-semibold">Missing configuration</div>
+          <div className="mt-1 text-sm text-orange-700">
+            Set <code className="px-1 py-0.5 bg-white rounded">NEXT_PUBLIC_ARC_INVOICE_REGISTRY</code> to the deployed contract
+            address.
+          </div>
+        </div>
+      )}
+
+      {/* Create */}
+      <div className="arc-card-light p-5 space-y-4 border-2 border-[#ff7582]/40 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-bold text-gray-900">Create invoice</h2>
+          <button
+            onClick={refreshFromChain}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-60"
+            disabled={!isConfigured || !publicClient}
+          >
+            Refresh
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">Tiêu đề</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="Invoice for services"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">Số tiền (USDC)</label>
-            <input
-              value={amountUsdc}
-              onChange={(e) => setAmountUsdc(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="10"
-              inputMode="decimal"
-            />
-            <div className="mt-1 text-xs text-gray-500">Khuyến nghị tối thiểu 5 USDC (giống Bridge tab).</div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">Payer (tuỳ chọn)</label>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-700">Payer (will pay)</label>
             <input
               value={payer}
               onChange={(e) => setPayer(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="0x... (để trống nếu ai trả cũng được)"
+              placeholder="0x..."
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-gray-700">Nhận trên ARC (recipient)</label>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-700">Amount (USDC)</label>
             <input
-              value={arcRecipient}
-              onChange={(e) => setArcRecipient(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-              placeholder="0x..."
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="100.00"
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-700">Due date</label>
+            <input
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              type="date"
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-700">Description (hashed)</label>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Feb 2026 retainer"
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
             />
           </div>
         </div>
 
         <button
           onClick={onCreateInvoice}
-          disabled={loading || !isConnected || isWrongNetwork}
-          className={[
-            "w-full rounded-xl px-6 py-3 font-semibold text-white shadow-lg transition-all",
-            loading || !isConnected || isWrongNetwork
-              ? "cursor-not-allowed bg-gray-300"
-              : "bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:from-[#ff5f70] hover:to-[#664f6e] active:scale-[0.98]",
-          ].join(" ")}
+          disabled={!isConfigured || isBusy}
+          className="rounded-xl bg-[#ff7582] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#ff5f70] disabled:opacity-60"
         >
-          {loading ? "Đang tạo..." : "Tạo invoice"}
+          {isBusy ? "Processing..." : "Create invoice"}
         </button>
+
+        {txHash && (
+          <div className="text-xs text-gray-600">
+            Tx: <code className="px-1 py-0.5 bg-white rounded">{txHash}</code>
+          </div>
+        )}
       </div>
 
-      {/* Invoice list + payment instructions */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl bg-white/80 p-6 shadow-xl backdrop-blur space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Danh sách invoices</h2>
-            <button
-              onClick={() => setInvoices([])}
-              className="text-xs font-semibold text-gray-500 hover:text-gray-700"
-              type="button"
-            >
-              Clear
-            </button>
-          </div>
+      {/* List */}
+      <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">My invoices</h2>
+          <div className="text-xs text-gray-500">{mine.length} items</div>
+        </div>
 
-          {invoices.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
-              Chưa có invoice nào.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {invoices.map((inv) => (
-                <button
-                  key={inv.id}
-                  onClick={() => setSelectedId(inv.id)}
-                  className={[
-                    "w-full rounded-xl border p-4 text-left transition-all",
-                    inv.id === selectedId
-                      ? "border-[#ff7582]/70 bg-gradient-to-br from-[#ff7582]/12 to-[#725a7a]/8"
-                      : "border-gray-200 bg-white hover:border-[#ff7582]/40",
-                  ].join(" ")}
-                >
+        {mine.length === 0 ? (
+          <div className="py-6 text-center text-sm text-gray-600">
+            No invoices found yet (created by you or payable by you).
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {mine.map((inv) => {
+              const canPay = address && inv.payer.toLowerCase() === myLower && inv.status === 1;
+              return (
+                <div key={inv.invoiceId} className="rounded-xl border border-gray-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="font-semibold text-gray-900">{inv.title}</div>
-                      <div className="mt-1 text-xs text-gray-500 font-mono">{inv.id}</div>
+                      <div className="text-xs text-gray-500">Invoice ID</div>
+                      <div className="font-mono text-xs break-all">{inv.invoiceId}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-gray-900">{inv.amountUsdc} USDC</div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        {new Date(inv.ts).toLocaleString()}
+                    <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
+                      {statusLabel(inv.status)}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-gray-500">Vendor</div>
+                      <div className="font-semibold">{formatAddress(inv.vendor)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">Payer</div>
+                      <div className="font-semibold">{formatAddress(inv.payer)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">Amount</div>
+                      <div className="font-semibold">{formatUSDC(inv.amount)} USDC</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">Due</div>
+                      <div className="font-semibold">
+                        {inv.dueDate > 0n ? new Date(Number(inv.dueDate) * 1000).toISOString().slice(0, 10) : "—"}
                       </div>
                     </div>
                   </div>
-                  <div className="mt-2 text-xs text-gray-600">
-                    ARC recipient: <span className="font-mono">{inv.arcRecipient}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
-        <div className="rounded-2xl bg-white/80 p-6 shadow-xl backdrop-blur space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Hướng dẫn thanh toán (cross-chain → ARC)</h2>
-
-          {!selectedInvoice ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
-              Chọn 1 invoice để xem hướng dẫn thanh toán.
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Chain người trả đang có USDC</label>
-                  <select
-                    value={sourceChainKey}
-                    onChange={(e) => setSourceChainKey(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-                  >
-                    {DESTS.map((d) => (
-                      <option key={d.key} value={d.key}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-1 text-xs text-gray-500">
-                    Chọn chain nguồn để hiển thị domain (cho CCTP/Circle).
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <div className="text-[11px] text-gray-500">
+                      Token: <span className="font-mono">{formatAddress(inv.token)}</span>
+                      {" • "}metaHash: <span className="font-mono">{inv.metadataHash.slice(0, 10)}...</span>
+                    </div>
+                    <button
+                      onClick={() => onPayInvoice(inv.invoiceId)}
+                      disabled={!canPay || isBusy}
+                      className="rounded-lg bg-[#725a7a] px-3 py-2 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
+                    >
+                      Pay
+                    </button>
                   </div>
                 </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Memo (dán vào Bridge)</label>
-                  <input
-                    value={memo}
-                    readOnly
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-mono"
-                  />
-                  <div className="mt-1 text-xs text-gray-500">
-                    Memo này sẽ encode invoiceId (&lt;=128 bytes).
-                  </div>
-                </div>
-
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700 space-y-2">
-                <div className="font-semibold">Thông số cần dùng khi bridge sang ARC:</div>
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  <div>
-                    <div className="text-xs text-gray-500">Mint recipient (ARC address)</div>
-                    <div className="font-mono break-all">{selectedInvoice.arcRecipient}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Destination domain</div>
-                    <div className="font-mono">{String(sourceChain?.domain ?? 0)}</div>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  Gợi ý: vào tab <span className="font-semibold">Bridge</span> → nhập Amount + Recipient (ARC) + Memo ở
-                  trên → submit.
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={onCheckPayment}
-                  disabled={loading}
-                  className={[
-                    "flex-1 rounded-xl px-6 py-3 font-semibold text-white shadow-lg transition-all",
-                    loading
-                      ? "cursor-not-allowed bg-gray-300"
-                      : "bg-gradient-to-r from-[#ff7582] to-[#725a7a] hover:from-[#ff5f70] hover:to-[#664f6e] active:scale-[0.98]",
-                  ].join(" ")}
-                >
-                  {loading ? "Đang kiểm tra..." : "Kiểm tra đã nhận tiền (ARC)"}
-                </button>
-              </div>
-
-              {paymentParams ? (
-                <div className="rounded-xl border border-gray-200 bg-white p-4 text-xs text-gray-600 space-y-1">
-                  <div className="font-semibold text-gray-800">Dev notes (v1):</div>
-                  <div className="font-mono break-all">router: {paymentParams.router}</div>
-                  <div className="font-mono break-all">amount: {paymentParams.amount.toString()}</div>
-                  <div className="font-mono break-all">mintRecipient(bytes32): {paymentParams.mintRecipient}</div>
-                  <div className="font-mono break-all">maxFee(rough): {paymentParams.maxFee.toString()}</div>
-                  <div className="font-mono break-all">minFinalityThreshold: {String(paymentParams.minFinalityThreshold)}</div>
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {status ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-800 whitespace-pre-wrap">
-          {status}
+      {(status || lastError) && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
+          {status && <div className="text-gray-700">{status}</div>}
+          {lastError && <div className="text-red-600">{lastError}</div>}
+          {isConfirmed && <div className="text-green-700">Confirmed.</div>}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
+

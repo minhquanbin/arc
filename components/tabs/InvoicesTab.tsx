@@ -110,9 +110,9 @@ function statusLabel(status: number): string {
 }
 
 function statusIcon(status: number): { src: string; alt: string } | null {
-  if (status === 1) return { src: "/chain-icons/invoice-created.svg", alt: "Created" };
+  if (status === 1) return { src: "/chain-icons/invoice_unpaid.svg", alt: "Created" };
   if (status === 2) return { src: "/chain-icons/invoice-cancelled.svg", alt: "Cancelled" };
-  if (status === 3) return { src: "/chain-icons/invoice-paid.svg", alt: "Paid" };
+  if (status === 3) return { src: "/chain-icons/invoice_paid.svg", alt: "Paid" };
   return null;
 }
 

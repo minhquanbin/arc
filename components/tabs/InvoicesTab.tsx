@@ -11,13 +11,6 @@ import {
 import { keccak256, parseUnits, stringToHex, type Address } from "viem";
 import { formatAddress, formatUSDC, generateId } from "@/lib/payments";
 
-function shortError(err: unknown): string {
-  if (!err) return "Unknown error";
-  if (typeof err === "string") return err;
-  const anyErr = err as any;
-  return String(anyErr?.shortMessage || anyErr?.details || anyErr?.message || "Unknown error");
-}
-
 const ERC20_ABI = [
   {
     type: "function",
@@ -114,6 +107,20 @@ function statusLabel(status: number): string {
   if (status === 2) return "CANCELLED";
   if (status === 3) return "PAID";
   return "UNKNOWN";
+}
+
+function statusIcon(status: number): { src: string; alt: string } | null {
+  // We only show icons for Created / Paid per request
+  if (status === 1) return { src: "/chain-icons/invoice_unpaid.svg", alt: "Unpaid" };
+  if (status === 3) return { src: "/chain-icons/invoice_paid.svg", alt: "Paid" };
+  return null;
+}
+
+function statusIcon(status: number): { src: string; alt: string } | null {
+  // We only show icons for Created / Paid per request
+  if (status === 1) return { src: "/chain-icons/invoice_unpaid.svg", alt: "Unpaid" };
+  if (status === 3) return { src: "/chain-icons/invoice_paid.svg", alt: "Paid" };
+  return null;
 }
 
 function parseLocalDateToUnixSeconds(dateStr: string): number {
@@ -452,7 +459,7 @@ export default function InvoicesTab() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <img src="/chain-icons/payment.svg" alt="Invoices" className="h-8 w-8" />
+          <img src="/chain-icons/invoice.svg" alt="Invoices" className="h-8 w-8" />
           <h1 className="text-3xl font-bold">Invoices</h1>
         </div>
         <p className="text-sm text-gray-600">
@@ -735,9 +742,16 @@ export default function InvoicesTab() {
                     <div className="text-xs text-gray-500">Invoice ID</div>
                     <div className="font-mono text-xs break-all">{inv.invoiceId}</div>
                   </div>
-                  <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
-                    {statusLabel(inv.status)}
-                  </div>
+                  {(() => {
+                    const icon = statusIcon(inv.status);
+                    return icon ? (
+                      <img src={icon.src} alt={icon.alt} className="h-7 w-7" title={statusLabel(inv.status)} />
+                    ) : (
+                      <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
+                        {statusLabel(inv.status)}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">

@@ -6,11 +6,7 @@ import { useAccount } from "wagmi";
 import BridgeTab from "@/components/tabs/BridgeTab";
 import IssuanceTab from "@/components/tabs/IssuanceTab";
 import PaymentsTab from "@/components/tabs/PaymentsTab";
-
 import InvoicesTab from "@/components/tabs/InvoicesTab";
-
-import InvoicesTab from "@/components/tabs/InvoicesTab";
-
 
 type TabType = "swap" | "bridge" | "invoices" | "payment" | "issuance";
 

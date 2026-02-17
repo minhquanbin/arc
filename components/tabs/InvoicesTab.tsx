@@ -11,6 +11,13 @@ import {
 import { keccak256, parseUnits, stringToHex, type Address } from "viem";
 import { formatAddress, formatUSDC, generateId } from "@/lib/payments";
 
+function shortError(err: unknown): string {
+  if (!err) return "Unknown error";
+  if (typeof err === "string") return err;
+  const anyErr = err as any;
+  return String(anyErr?.shortMessage || anyErr?.details || anyErr?.message || "Unknown error");
+}
+
 const ERC20_ABI = [
   {
     type: "function",
@@ -174,6 +181,9 @@ export default function InvoicesTab() {
   const [knownIds, setKnownIds] = useState<string[]>([]);
   const [items, setItems] = useState<InvoiceRow[]>([]);
 
+  // Avoid showing raw RPC errors in UI (still log to console for debugging)
+  const [hasRpcWarning, setHasRpcWarning] = useState(false);
+
   // Lookup by id
   const [lookupId, setLookupId] = useState("");
   const [lookupRow, setLookupRow] = useState<InvoiceRow | null>(null);
@@ -223,6 +233,7 @@ export default function InvoicesTab() {
     if (!publicClient || !isConfigured) return;
     setStatus("Loading invoices...");
     setLastError("");
+    setHasRpcWarning(false);
 
     try {
       const code = await publicClient.getBytecode({ address: INVOICE_REGISTRY_ADDRESS });
@@ -236,10 +247,14 @@ export default function InvoicesTab() {
     }
 
     try {
+      const latest = await publicClient.getBlockNumber();
+      const window = 200_000n; // scan recent blocks only to avoid eth_getLogs limits/timeouts
+      const fromBlock = latest > window ? latest - window : 0n;
+
       const logs = await publicClient.getLogs({
         address: INVOICE_REGISTRY_ADDRESS,
         event: INVOICE_REGISTRY_ABI.find((x) => (x as any).type === "event" && (x as any).name === "InvoiceCreated") as any,
-        fromBlock: 0n,
+        fromBlock,
         toBlock: "latest",
       });
 
@@ -250,7 +265,9 @@ export default function InvoicesTab() {
       }
       saveKnownIds([...knownIds, ...ids]);
     } catch (e: any) {
-      setLastError(e?.message || "Failed to read logs");
+      // Hide the red error panel on UI; just mark a warning + log for devs.
+      setHasRpcWarning(true);
+      console.warn("[InvoicesTab] refreshFromChain getLogs failed:", e);
     } finally {
       setStatus("");
     }
@@ -752,10 +769,9 @@ export default function InvoicesTab() {
         )}
       </div>
 
-      {(status || lastError) && (
+      {(status || isConfirmed) && (
         <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
           {status && <div className="text-gray-700">{status}</div>}
-          {lastError && <div className="text-red-600">{lastError}</div>}
           {isConfirmed && <div className="text-green-700">Confirmed.</div>}
         </div>
       )}

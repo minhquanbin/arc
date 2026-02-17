@@ -209,20 +209,31 @@ export default function InvoicesTab() {
           abi: INVOICE_REGISTRY_ABI,
           functionName: "invoices",
           args: [id as `0x${string}`],
-        })) as any[];
+        })) as unknown as readonly [
+          Address,
+          Address,
+          Address,
+          bigint,
+          bigint,
+          number,
+          bigint,
+          bigint,
+          `0x${string}`,
+        ];
 
-        next.push({
-          invoiceId: id as `0x${string}`,
-          vendor: row[0] as Address,
-          payer: row[1] as Address,
-          token: row[2] as Address,
-          amount: row[3] as bigint,
-          dueDate: row[4] as bigint,
+
+        next.push({          invoiceId: id as `0x${string}`,
+          vendor: row[0],
+          payer: row[1],
+          token: row[2],
+          amount: row[3],
+          dueDate: row[4],
           status: Number(row[5]),
-          createdAt: row[6] as bigint,
-          paidAt: row[7] as bigint,
-          metadataHash: row[8] as `0x${string}`,
+          createdAt: row[6],
+          paidAt: row[7],
+          metadataHash: row[8],
         });
+;
       } catch {
         // ignore invalid ids
       }

@@ -109,6 +109,20 @@ function statusLabel(status: number): string {
   return "UNKNOWN";
 }
 
+function statusIcon(status: number): { src: string; alt: string } | null {
+  // We only show icons for Created / Paid per request
+  if (status === 1) return { src: "/chain-icons/invoice_unpaid.svg", alt: "Unpaid" };
+  if (status === 3) return { src: "/chain-icons/invoice_paid.svg", alt: "Paid" };
+  return null;
+}
+
+function statusIcon(status: number): { src: string; alt: string } | null {
+  // We only show icons for Created / Paid per request
+  if (status === 1) return { src: "/chain-icons/invoice_unpaid.svg", alt: "Unpaid" };
+  if (status === 3) return { src: "/chain-icons/invoice_paid.svg", alt: "Paid" };
+  return null;
+}
+
 function parseLocalDateToUnixSeconds(dateStr: string): number {
   // Expects YYYY-MM-DD in user's local timezone
   if (!dateStr) return 0;

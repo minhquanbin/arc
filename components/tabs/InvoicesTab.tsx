@@ -658,9 +658,16 @@ export default function InvoicesTab() {
                 <div className="text-xs text-gray-500">Invoice ID</div>
                 <div className="font-mono text-xs break-all">{lookupRow.invoiceId}</div>
               </div>
-              <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
-                {statusLabel(lookupRow.status)}
-              </div>
+              {(() => {
+                const icon = statusIcon(lookupRow.status);
+                return icon ? (
+                  <img src={icon.src} alt={icon.alt} className="h-7 w-7" title={statusLabel(lookupRow.status)} />
+                ) : (
+                  <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
+                    {statusLabel(lookupRow.status)}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">

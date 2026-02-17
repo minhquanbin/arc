@@ -1,9 +1,38 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  usePublicClient,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 import { keccak256, parseUnits, stringToHex, type Address } from "viem";
 import { formatAddress, formatUSDC, generateId } from "@/lib/payments";
+
+const ERC20_ABI = [
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
 
 const INVOICE_REGISTRY_ABI = [
   {
@@ -57,18 +86,6 @@ const INVOICE_REGISTRY_ABI = [
       { name: "metadataHash", type: "bytes32", indexed: false },
     ],
   },
-  {
-    type: "event",
-    name: "InvoicePaid",
-    inputs: [
-      { name: "invoiceId", type: "bytes32", indexed: true },
-      { name: "payer", type: "address", indexed: true },
-      { name: "vendor", type: "address", indexed: true },
-      { name: "token", type: "address", indexed: false },
-      { name: "amount", type: "uint256", indexed: false },
-      { name: "metadataHash", type: "bytes32", indexed: false },
-    ],
-  },
 ] as const;
 
 type InvoiceRow = {
@@ -118,6 +135,21 @@ export default function InvoicesTab() {
 
   const isConfigured =
     INVOICE_REGISTRY_ADDRESS !== ("0x0000000000000000000000000000000000000000" as Address);
+
+  // allowance: USDC => InvoiceRegistry
+  const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address ? [address, INVOICE_REGISTRY_ADDRESS] : undefined,
+    query: { enabled: Boolean(address) && isConfigured },
+  });
+  const allowance = (allowanceData as bigint | undefined) ?? 0n;
+
+  useEffect(() => {
+    if (!isConfirmed) return;
+    refetchAllowance();
+  }, [isConfirmed, refetchAllowance]);
 
   // Create form
   const [payer, setPayer] = useState("");
@@ -190,7 +222,6 @@ export default function InvoicesTab() {
         const invoiceId = (log as any).args?.invoiceId as string | undefined;
         if (invoiceId) ids.push(invoiceId);
       }
-      // Merge with local ids
       saveKnownIds([...knownIds, ...ids]);
     } catch (e: any) {
       setLastError(e?.message || "Failed to read logs");
@@ -202,6 +233,7 @@ export default function InvoicesTab() {
   async function loadDetails(ids: string[]) {
     if (!publicClient || !isConfigured) return;
     const next: InvoiceRow[] = [];
+
     for (const id of ids) {
       try {
         const row = (await publicClient.readContract({
@@ -221,8 +253,8 @@ export default function InvoicesTab() {
           `0x${string}`,
         ];
 
-
-        next.push({          invoiceId: id as `0x${string}`,
+        next.push({
+          invoiceId: id as `0x${string}`,
           vendor: row[0],
           payer: row[1],
           token: row[2],
@@ -233,11 +265,11 @@ export default function InvoicesTab() {
           paidAt: row[7],
           metadataHash: row[8],
         });
-;
       } catch {
         // ignore invalid ids
       }
     }
+
     setItems(next.sort((a, b) => Number(b.createdAt - a.createdAt)));
   }
 
@@ -253,15 +285,12 @@ export default function InvoicesTab() {
   }, [publicClient, isConfigured]);
 
   function buildInvoiceId(vendor: Address, payerAddr: Address, amountUsdc: string, due: string, desc: string): `0x${string}` {
-    // Deterministic id (still user friendly): hash of core fields + random salt.
-    // We include a random salt so vendors can re-issue similar invoices without collision.
     const salt = generateId();
     const raw = `${vendor.toLowerCase()}|${payerAddr.toLowerCase()}|${amountUsdc}|${due}|${desc}|${salt}`;
     return keccak256(stringToHex(raw)) as `0x${string}`;
   }
 
   function buildMetadataHash(desc: string): `0x${string}` {
-    // Minimal: hash description string. In production: hash canonical JSON metadata.
     return keccak256(stringToHex(desc || "")) as `0x${string}`;
   }
 
@@ -290,11 +319,31 @@ export default function InvoicesTab() {
         args: [invoiceId, payerAddr, USDC_ADDRESS, amt, BigInt(dueUnix), metadataHash],
       });
 
-      // Optimistic save so it shows instantly.
       saveKnownIds([...knownIds, invoiceId]);
       setStatus("Submitted. Waiting confirmation...");
     } catch (e: any) {
       setLastError(e?.message || "Create invoice failed");
+      setStatus("");
+    }
+  }
+
+  async function onApprove(required: bigint) {
+    try {
+      setLastError("");
+      if (!isConnected || !address) throw new Error("Connect wallet first");
+      if (!isConfigured) throw new Error("InvoiceRegistry not configured");
+
+      const approveAmount = required;
+      setStatus(`Approving ${formatUSDC(approveAmount)} USDC allowance...`);
+
+      await writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [INVOICE_REGISTRY_ADDRESS, approveAmount],
+      });
+    } catch (e: any) {
+      setLastError(e?.message || "Approve failed");
       setStatus("");
     }
   }
@@ -319,9 +368,9 @@ export default function InvoicesTab() {
   }
 
   const myLower = (address || "").toLowerCase();
-  const mine = items.filter(
-    (x) => x.vendor.toLowerCase() === myLower || x.payer.toLowerCase() === myLower
-  );
+  const mine = items.filter((x) => x.vendor.toLowerCase() === myLower || x.payer.toLowerCase() === myLower);
+  const payableByMe = items.filter((x) => x.payer.toLowerCase() === myLower);
+  const createdByMe = mine.filter((x) => x.vendor.toLowerCase() === myLower);
 
   return (
     <div className="space-y-6">
@@ -339,7 +388,8 @@ export default function InvoicesTab() {
         <div className="rounded-xl border-2 border-orange-300 bg-orange-50 p-4">
           <div className="text-sm text-orange-800 font-semibold">Missing configuration</div>
           <div className="mt-1 text-sm text-orange-700">
-            Set <code className="px-1 py-0.5 bg-white rounded">NEXT_PUBLIC_ARC_INVOICE_REGISTRY</code> to the deployed contract
+            Set{" "}
+            <code className="px-1 py-0.5 bg-white rounded">NEXT_PUBLIC_ARC_INVOICE_REGISTRY</code> to the deployed contract
             address.
           </div>
         </div>
@@ -415,21 +465,23 @@ export default function InvoicesTab() {
         )}
       </div>
 
-      {/* List */}
+      {/* Payable */}
       <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">My invoices</h2>
-          <div className="text-xs text-gray-500">{mine.length} items</div>
+          <h2 className="text-lg font-bold text-gray-900">Payable by me</h2>
+          <div className="text-xs text-gray-500">{payableByMe.length} items</div>
         </div>
 
-        {mine.length === 0 ? (
+        {payableByMe.length === 0 ? (
           <div className="py-6 text-center text-sm text-gray-600">
-            No invoices found yet (created by you or payable by you).
+            No invoices where you are the payer yet. Click <span className="font-semibold">Refresh</span> to fetch on-chain
+            invoices.
           </div>
         ) : (
           <div className="space-y-3">
-            {mine.map((inv) => {
-              const canPay = address && inv.payer.toLowerCase() === myLower && inv.status === 1;
+            {payableByMe.map((inv) => {
+              const canPay = address && inv.status === 1;
+              const needsApproval = allowance < inv.amount;
               return (
                 <div key={inv.invoiceId} className="rounded-xl border border-gray-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -468,17 +520,89 @@ export default function InvoicesTab() {
                       Token: <span className="font-mono">{formatAddress(inv.token)}</span>
                       {" • "}metaHash: <span className="font-mono">{inv.metadataHash.slice(0, 10)}...</span>
                     </div>
-                    <button
-                      onClick={() => onPayInvoice(inv.invoiceId)}
-                      disabled={!canPay || isBusy}
-                      className="rounded-lg bg-[#725a7a] px-3 py-2 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
-                    >
-                      Pay
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => onApprove(inv.amount)}
+                        disabled={!canPay || !needsApproval || isBusy}
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
+                        title={needsApproval ? `Current allowance: ${formatUSDC(allowance)} USDC` : "Allowance sufficient"}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => onPayInvoice(inv.invoiceId)}
+                        disabled={!canPay || needsApproval || isBusy}
+                        className="rounded-lg bg-[#725a7a] px-3 py-2 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
+                        title={needsApproval ? "Approve required before paying" : "Pay invoice"}
+                      >
+                        Pay
+                      </button>
+                    </div>
                   </div>
+
+                  {canPay && (
+                    <div className="mt-2 text-[11px] text-gray-500">
+                      Allowance: <span className="font-mono">{formatUSDC(allowance)} USDC</span>
+                      {needsApproval ? " (needs approval)" : " (ok)"}
+                    </div>
+                  )}
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Created */}
+      <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">Created by me</h2>
+          <div className="text-xs text-gray-500">{createdByMe.length} items</div>
+        </div>
+
+        {createdByMe.length === 0 ? (
+          <div className="py-6 text-center text-sm text-gray-600">You have not created any invoices yet.</div>
+        ) : (
+          <div className="space-y-3">
+            {createdByMe.map((inv) => (
+              <div key={inv.invoiceId} className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-gray-500">Invoice ID</div>
+                    <div className="font-mono text-xs break-all">{inv.invoiceId}</div>
+                  </div>
+                  <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
+                    {statusLabel(inv.status)}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-500">Vendor</div>
+                    <div className="font-semibold">{formatAddress(inv.vendor)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Payer</div>
+                    <div className="font-semibold">{formatAddress(inv.payer)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Amount</div>
+                    <div className="font-semibold">{formatUSDC(inv.amount)} USDC</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Due</div>
+                    <div className="font-semibold">
+                      {inv.dueDate > 0n ? new Date(Number(inv.dueDate) * 1000).toISOString().slice(0, 10) : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-[11px] text-gray-500">
+                  Token: <span className="font-mono">{formatAddress(inv.token)}</span>
+                  {" • "}metaHash: <span className="font-mono">{inv.metadataHash.slice(0, 10)}...</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -493,4 +617,3 @@ export default function InvoicesTab() {
     </div>
   );
 }
-

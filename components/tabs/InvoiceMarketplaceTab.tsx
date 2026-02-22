@@ -346,7 +346,9 @@ export default function InvoiceMarketplaceTab() {
     [publicClient, isConfigured, INVOICE_MARKETPLACE_ADDRESS]
   );
 
-  // ── FIX #5: Race-condition-safe refresh ──────────────────────────────────
+  // ── FIX #10: Scan from block 0 so every user (A, B, C...) sees ALL listings,
+  //   not just ones listed within the last 200k blocks of their own browser.
+  //   getLogsChunked already handles chunking to avoid RPC limits.
   const refreshFromChain = useCallback(async () => {
     if (!publicClient || !isConfigured) return;
 
@@ -363,11 +365,11 @@ export default function InvoiceMarketplaceTab() {
 
     try {
       const latest = await publicClient.getBlockNumber();
-      const window = 200_000n;
-      const fromBlock = latest > window ? latest - window : 0n;
 
-      // FIX #4: chunked getLogs
-      const idsFromChain = await getLogsChunked(fromBlock, latest, signal);
+      // Scan the full chain history (chunked into 50k-block windows by getLogsChunked).
+      // This is the ONLY correct way to guarantee B sees listings that A created
+      // long ago — a sliding window like "latest - 200_000" would miss them.
+      const idsFromChain = await getLogsChunked(0n, latest, signal);
       if (signal.aborted) return;
 
       const allIds = mergeAndCacheIds(idsFromChain);
@@ -375,6 +377,7 @@ export default function InvoiceMarketplaceTab() {
     } catch (e: any) {
       if (signal.aborted) return;
       console.warn("[InvoiceMarketplaceTab] refreshFromChain failed:", e);
+      // Fallback: show whatever is cached locally (better than nothing)
       const cachedIds = getCachedIds();
       if (cachedIds.length > 0) {
         await loadDetails(cachedIds, signal);

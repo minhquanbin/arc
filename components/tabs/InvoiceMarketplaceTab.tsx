@@ -131,51 +131,55 @@ export default function InvoiceMarketplaceTab() {
   });
   const allowance = (allowanceData as bigint | undefined) ?? 0n;
 
-  const [status, setStatus] = useState("");
+  const [txStatus, setTxStatus] = useState("");
   const [lastError, setLastError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   // Listing creation
   const [listInvoiceId, setListInvoiceId] = useState("");
   const [listPrice, setListPrice] = useState("");
 
-  // Known invoiceIds to scan listings for (persisted locally)
-  const [knownIds, setKnownIds] = useState<string[]>([]);
+  // All listing rows fetched from chain
   const [items, setItems] = useState<ListingRow[]>([]);
 
+  // localStorage cache key — shared across all users on same chain+contract
   const storageKey = useMemo(() => {
     const chainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
     return `arc:invoice-marketplace:knownIds:${chainId}:${INVOICE_MARKETPLACE_ADDRESS.toLowerCase()}`;
   }, [INVOICE_MARKETPLACE_ADDRESS]);
 
-  function saveKnownIds(ids: string[]) {
-    const uniq = Array.from(new Set(ids.map((x) => x.toLowerCase())));
-    setKnownIds(uniq);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(uniq));
-    } catch {
-      // ignore
-    }
-  }
-
-  useEffect(() => {
+  // ─── Load cached IDs from localStorage on mount ──────────────────────────
+  function getCachedIds(): string[] {
     try {
       const raw = localStorage.getItem(storageKey);
       const parsed = raw ? (JSON.parse(raw) as string[]) : [];
-      if (Array.isArray(parsed)) setKnownIds(Array.from(new Set(parsed.map((x) => String(x).toLowerCase()))));
+      return Array.isArray(parsed) ? Array.from(new Set(parsed.map((x) => String(x).toLowerCase()))) : [];
     } catch {
-      setKnownIds([]);
+      return [];
     }
-  }, [storageKey]);
+  }
+
+  function mergeAndCacheIds(incoming: string[]) {
+    const merged = Array.from(new Set([...getCachedIds(), ...incoming.map((x) => x.toLowerCase())]));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(merged));
+    } catch {
+      // ignore
+    }
+    return merged;
+  }
 
   useEffect(() => {
     if (!isConfirmed) return;
     refetchAllowance();
   }, [isConfirmed, refetchAllowance]);
 
+  // ─── Fetch all InvoiceListed events from chain → load details ─────────────
+  // This is the primary data source. Everyone sees the same on-chain data.
   async function refreshFromChain() {
     if (!publicClient || !isConfigured) return;
+    setIsLoading(true);
     setLastError("");
-    setStatus("Loading listings...");
 
     try {
       const latest = await publicClient.getBlockNumber();
@@ -191,23 +195,31 @@ export default function InvoiceMarketplaceTab() {
         toBlock: "latest",
       });
 
-      const ids: string[] = [];
+      const idsFromChain: string[] = [];
       for (const log of logs) {
         const invoiceId = (log as any).args?.invoiceId as string | undefined;
-        if (invoiceId) ids.push(invoiceId);
+        if (invoiceId) idsFromChain.push(invoiceId.toLowerCase());
       }
 
-      saveKnownIds([...knownIds, ...ids]);
+      // Merge with localStorage cache (catches IDs from older blocks beyond scan window)
+      const allIds = mergeAndCacheIds(idsFromChain);
+      await loadDetails(allIds);
     } catch (e: any) {
-      console.warn("[InvoiceMarketplaceTab] refreshFromChain getLogs failed:", e);
-      setLastError(e?.message || "Failed to refresh listings");
+      console.warn("[InvoiceMarketplaceTab] getLogs failed:", e);
+      // Fallback: load from cache so user still sees something
+      const cachedIds = getCachedIds();
+      if (cachedIds.length > 0) {
+        await loadDetails(cachedIds);
+      }
+      setLastError("Could not fetch latest listings from chain. Showing cached data.");
     } finally {
-      setStatus("");
+      setIsLoading(false);
     }
   }
 
+  // ─── Load listing details for each known invoiceId ─────────────────────────
   async function loadDetails(ids: string[]) {
-    if (!publicClient || !isConfigured) return;
+    if (!publicClient || !isConfigured || ids.length === 0) return;
     const next: ListingRow[] = [];
 
     for (const id of ids) {
@@ -220,7 +232,7 @@ export default function InvoiceMarketplaceTab() {
         })) as unknown as readonly [string, Address, Address, bigint, number, bigint, bigint, Address];
 
         const statusNum = Number(row[4]);
-        if (statusNum === 0) continue;
+        if (statusNum === 0) continue; // skip uninitialized
 
         next.push({
           invoiceId: (row[0] as `0x${string}`) || (id as `0x${string}`),
@@ -233,28 +245,25 @@ export default function InvoiceMarketplaceTab() {
           buyer: row[7],
         });
       } catch {
-        // ignore
+        // ignore invalid ids
       }
     }
 
     setItems(next.sort((a, b) => Number(b.createdAt - a.createdAt)));
   }
 
-  useEffect(() => {
-    loadDetails(knownIds);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [knownIds.join("|"), isConfigured, address, isConfirmed]);
-
+  // Auto-refresh on mount and after tx confirmed
   useEffect(() => {
     if (!publicClient || !isConfigured) return;
     refreshFromChain();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicClient, isConfigured]);
+  }, [publicClient, isConfigured, isConfirmed]);
 
+  // ─── Actions ──────────────────────────────────────────────────────────────
   async function onListInvoice() {
     try {
       setLastError("");
-      setStatus("");
+      setTxStatus("");
       if (!isConnected || !address) throw new Error("Connect wallet first");
       if (!isConfigured) throw new Error("InvoiceMarketplace not configured (NEXT_PUBLIC_ARC_INVOICE_MARKETPLACE).");
 
@@ -263,7 +272,7 @@ export default function InvoiceMarketplaceTab() {
       if (!listPrice || Number(listPrice) <= 0) throw new Error("Price must be > 0");
 
       const price = parseUnits(listPrice, 6);
-      setStatus("Listing invoice...");
+      setTxStatus("Listing invoice...");
       await writeContract({
         address: INVOICE_MARKETPLACE_ADDRESS,
         abi: INVOICE_MARKETPLACE_ABI,
@@ -271,11 +280,12 @@ export default function InvoiceMarketplaceTab() {
         args: [id as `0x${string}`, price],
       });
 
-      saveKnownIds([...knownIds, id]);
-      setStatus("Submitted. Waiting confirmation...");
+      // Add to cache so it appears immediately after confirm
+      mergeAndCacheIds([id]);
+      setTxStatus("Submitted. Waiting confirmation...");
     } catch (e: any) {
       setLastError(e?.message || "List invoice failed");
-      setStatus("");
+      setTxStatus("");
     }
   }
 
@@ -285,7 +295,7 @@ export default function InvoiceMarketplaceTab() {
       if (!isConnected || !address) throw new Error("Connect wallet first");
       if (!isConfigured) throw new Error("InvoiceMarketplace not configured");
 
-      setStatus(`Approving ${formatUSDC(required)} USDC allowance...`);
+      setTxStatus(`Approving ${formatUSDC(required)} USDC allowance...`);
       await writeContract({
         address: USDC_ADDRESS,
         abi: ERC20_ABI,
@@ -294,7 +304,7 @@ export default function InvoiceMarketplaceTab() {
       });
     } catch (e: any) {
       setLastError(e?.message || "Approve failed");
-      setStatus("");
+      setTxStatus("");
     }
   }
 
@@ -304,7 +314,7 @@ export default function InvoiceMarketplaceTab() {
       if (!isConnected || !address) throw new Error("Connect wallet first");
       if (!isConfigured) throw new Error("InvoiceMarketplace not configured");
 
-      setStatus("Buying invoice...");
+      setTxStatus("Buying invoice...");
       await writeContract({
         address: INVOICE_MARKETPLACE_ADDRESS,
         abi: INVOICE_MARKETPLACE_ABI,
@@ -314,7 +324,7 @@ export default function InvoiceMarketplaceTab() {
     } catch (e: any) {
       setLastError(e?.message || "Buy invoice failed");
     } finally {
-      setStatus("");
+      setTxStatus("");
     }
   }
 
@@ -324,7 +334,7 @@ export default function InvoiceMarketplaceTab() {
       if (!isConnected || !address) throw new Error("Connect wallet first");
       if (!isConfigured) throw new Error("InvoiceMarketplace not configured");
 
-      setStatus("Cancelling listing...");
+      setTxStatus("Cancelling listing...");
       await writeContract({
         address: INVOICE_MARKETPLACE_ADDRESS,
         abi: INVOICE_MARKETPLACE_ABI,
@@ -334,12 +344,13 @@ export default function InvoiceMarketplaceTab() {
     } catch (e: any) {
       setLastError(e?.message || "Cancel listing failed");
     } finally {
-      setStatus("");
+      setTxStatus("");
     }
   }
 
   const myLower = (address || "").toLowerCase();
   const activeListings = items.filter((x) => x.status === 1);
+  const myListings = items.filter((x) => x.seller.toLowerCase() === myLower && x.status !== 0);
 
   return (
     <div className="space-y-6">
@@ -363,16 +374,16 @@ export default function InvoiceMarketplaceTab() {
         </div>
       )}
 
-      {/* List */}
+      {/* List an invoice */}
       <div className="arc-card-light p-5 space-y-4 border-2 border-[#ff7582]/40 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-gray-900">List an invoice</h2>
           <button
             onClick={refreshFromChain}
+            disabled={!isConfigured || !publicClient || isLoading}
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-60"
-            disabled={!isConfigured || !publicClient}
           >
-            Refresh
+            {isLoading ? "Loading..." : "Refresh"}
           </button>
         </div>
 
@@ -386,7 +397,6 @@ export default function InvoiceMarketplaceTab() {
               className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-mono"
             />
           </div>
-
           <div className="space-y-1">
             <label className="text-xs font-semibold text-gray-700">Price (USDC)</label>
             <input
@@ -413,15 +423,21 @@ export default function InvoiceMarketplaceTab() {
         )}
       </div>
 
-      {/* Listings */}
+      {/* All active listings — visible to everyone */}
       <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Active listings</h2>
-          <div className="text-xs text-gray-500">{activeListings.length} items</div>
+          <div className="text-xs text-gray-500">
+            {isLoading ? "Loading..." : `${activeListings.length} items`}
+          </div>
         </div>
 
-        {activeListings.length === 0 ? (
-          <div className="py-6 text-center text-sm text-gray-600">No active listings yet. Click Refresh to fetch.</div>
+        {isLoading ? (
+          <div className="py-6 text-center text-sm text-gray-500">Fetching listings from chain...</div>
+        ) : activeListings.length === 0 ? (
+          <div className="py-6 text-center text-sm text-gray-600">
+            No active listings yet. Click <span className="font-semibold">Refresh</span> to fetch from chain.
+          </div>
         ) : (
           <div className="space-y-3">
             {activeListings.map((l) => {
@@ -434,8 +450,15 @@ export default function InvoiceMarketplaceTab() {
                       <div className="text-xs text-gray-500">Invoice ID</div>
                       <div className="font-mono text-xs break-all">{l.invoiceId}</div>
                     </div>
-                    <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
-                      {listingStatusLabel(l.status)}
+                    <div className="flex items-center gap-2">
+                      {isSeller && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#ff7582]/10 text-[#ff7582] border border-[#ff7582]/30">
+                          Your listing
+                        </span>
+                      )}
+                      <div className="text-xs font-semibold px-2 py-1 rounded-full border border-gray-200 bg-gray-50">
+                        {listingStatusLabel(l.status)}
+                      </div>
                     </div>
                   </div>
 
@@ -445,18 +468,18 @@ export default function InvoiceMarketplaceTab() {
                       <div className="font-semibold">{formatAddress(l.seller)}</div>
                     </div>
                     <div>
+                      <div className="text-xs text-gray-500">Price</div>
+                      <div className="font-semibold text-[#725a7a]">{formatUSDC(l.price)} USDC</div>
+                    </div>
+                    <div>
                       <div className="text-xs text-gray-500">Token</div>
                       <div className="font-semibold">{formatAddress(l.token)}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500">Price</div>
-                      <div className="font-semibold">{formatUSDC(l.price)} USDC</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">Buyer</div>
+                      <div className="text-xs text-gray-500">Listed at</div>
                       <div className="font-semibold">
-                        {l.buyer && l.buyer !== ("0x0000000000000000000000000000000000000000" as Address)
-                          ? formatAddress(l.buyer)
+                        {l.createdAt > 0n
+                          ? new Date(Number(l.createdAt) * 1000).toISOString().slice(0, 10)
                           : "—"}
                       </div>
                     </div>
@@ -465,15 +488,24 @@ export default function InvoiceMarketplaceTab() {
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div className="text-[11px] text-gray-500">
                       Allowance: <span className="font-mono">{formatUSDC(allowance)} USDC</span>
-                      {needsApproval ? " (needs approval)" : " (ok)"}
+                      {!isSeller && (needsApproval ? " (needs approval)" : " ✓ ok")}
                     </div>
                     <div className="flex items-center gap-2">
-                      {!isSeller ? (
+                      {isSeller ? (
+                        <button
+                          onClick={() => onCancel(l.invoiceId)}
+                          disabled={isBusy}
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
+                        >
+                          Cancel listing
+                        </button>
+                      ) : (
                         <>
                           <button
                             onClick={() => onApprove(l.price)}
                             disabled={!isConnected || !needsApproval || isBusy}
                             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
+                            title={needsApproval ? `Approve ${formatUSDC(l.price)} USDC` : "Allowance sufficient"}
                           >
                             Approve
                           </button>
@@ -481,18 +513,11 @@ export default function InvoiceMarketplaceTab() {
                             onClick={() => onBuyInvoice(l.invoiceId)}
                             disabled={!isConnected || needsApproval || isBusy}
                             className="rounded-lg bg-[#725a7a] px-3 py-2 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
+                            title={needsApproval ? "Approve USDC first" : "Buy this invoice"}
                           >
                             Buy
                           </button>
                         </>
-                      ) : (
-                        <button
-                          onClick={() => onCancel(l.invoiceId)}
-                          disabled={!isConnected || isBusy}
-                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50 disabled:opacity-60"
-                        >
-                          Cancel
-                        </button>
                       )}
                     </div>
                   </div>
@@ -503,10 +528,59 @@ export default function InvoiceMarketplaceTab() {
         )}
       </div>
 
-      {(lastError || status || isConfirmed) && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
+      {/* My listings history */}
+      {myListings.length > 0 && (
+        <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">My listings</h2>
+            <div className="text-xs text-gray-500">{myListings.length} items</div>
+          </div>
+          <div className="space-y-3">
+            {myListings.map((l) => (
+              <div key={l.invoiceId} className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-gray-500">Invoice ID</div>
+                    <div className="font-mono text-xs break-all">{l.invoiceId}</div>
+                  </div>
+                  <div className={`text-xs font-semibold px-2 py-1 rounded-full border ${
+                    l.status === 1 ? "border-green-200 bg-green-50 text-green-700" :
+                    l.status === 3 ? "border-blue-200 bg-blue-50 text-blue-700" :
+                    "border-gray-200 bg-gray-50 text-gray-600"
+                  }`}>
+                    {listingStatusLabel(l.status)}
+                  </div>
+                </div>
+                <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-500">Price</div>
+                    <div className="font-semibold">{formatUSDC(l.price)} USDC</div>
+                  </div>
+                  {l.status === 3 && l.buyer && l.buyer !== "0x0000000000000000000000000000000000000000" && (
+                    <div>
+                      <div className="text-xs text-gray-500">Sold to</div>
+                      <div className="font-semibold">{formatAddress(l.buyer)}</div>
+                    </div>
+                  )}
+                  {l.soldAt > 0n && (
+                    <div>
+                      <div className="text-xs text-gray-500">Sold at</div>
+                      <div className="font-semibold">
+                        {new Date(Number(l.soldAt) * 1000).toISOString().slice(0, 10)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(lastError || txStatus || isConfirmed) && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm space-y-1">
           {lastError && <div className="text-red-600">{lastError}</div>}
-          {status && <div className="text-gray-700">{status}</div>}
+          {txStatus && <div className="text-gray-700">{txStatus}</div>}
           {isConfirmed && <div className="text-green-700">Confirmed.</div>}
         </div>
       )}

@@ -2,27 +2,25 @@
 pragma solidity ^0.8.24;
 
 /// @notice InvoiceMarketplace enables simple factoring:
-/// - Vendor creates invoice in InvoiceRegistry (vendor, payer, token, amount, status=Created).
+/// - Vendor creates invoice in InvoiceRegistry (vendor, beneficiary, payer, token, amount, status=Created).
 /// - Vendor lists invoice for sale at a discount price.
 /// - Buyer purchases listing, paying Vendor the list price.
-/// - When payer later pays the invoice, funds should go to the current beneficiary (buyer).
-///
-/// IMPORTANT: This marketplace expects InvoiceRegistry to support a transferable beneficiary,
-/// e.g. a function like `transferBeneficiary(invoiceId, newBeneficiary)` (or similar).
-/// With the current InvoiceRegistry implementation (payInvoice pays inv.vendor),
-/// buying an invoice here will NOT redirect the eventual payment to the buyer.
+/// - When payer later pays the invoice, funds go to the current beneficiary (buyer).
 
 interface IERC20 {
   function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
 interface IInvoiceRegistry {
-  // Mirror of InvoiceRegistry.Status (None=0, Created=1, Cancelled=2, Paid=3)
+  // Mirror of InvoiceRegistry.Invoice struct field order:
+  // vendor(0), beneficiary(1), payer(2), token(3), amount(4),
+  // dueDate(5), status(6), createdAt(7), paidAt(8), metadataHash(9)
   function invoices(bytes32 invoiceId)
     external
     view
     returns (
       address vendor,
+      address beneficiary, // ← added: was missing, caused all fields after to be offset by 1
       address payer,
       address token,
       uint256 amount,
@@ -33,7 +31,6 @@ interface IInvoiceRegistry {
       bytes32 metadataHash
     );
 
-  /// @dev Expected to be implemented in your InvoiceRegistry upgrade.
   function transferBeneficiary(bytes32 invoiceId, address newBeneficiary) external;
 }
 
@@ -47,9 +44,9 @@ contract InvoiceMarketplace {
 
   struct Listing {
     bytes32 invoiceId;
-    address seller; // typically the vendor (or current beneficiary if you allow resale)
-    address token; // must match invoice token
-    uint256 price; // in token's smallest units
+    address seller;   // vendor who listed (or current beneficiary if resale allowed)
+    address token;    // must match invoice token
+    uint256 price;    // in token's smallest units
     ListingStatus status;
     uint64 createdAt;
     uint64 soldAt;
@@ -78,13 +75,13 @@ contract InvoiceMarketplace {
   }
 
   /// @notice List an existing invoice for sale at `price` (discounted from face value).
-  /// @dev Requires invoice status == Created.
-  /// Seller must be the invoice vendor (current implementation).
+  /// @dev Requires invoice status == Created. Seller must be the invoice vendor.
   function listInvoice(bytes32 invoiceId, uint256 price) external {
     if (invoiceId == bytes32(0) || price == 0) revert InvalidParams();
     if (listings[invoiceId].status == ListingStatus.Active) revert AlreadyListed();
 
-    (address vendor, , address token, , , uint8 status, , , ) = registry.invoices(invoiceId);
+    // Destructure with beneficiary at index 1 (was missing before — caused the bug)
+    (address vendor, , , address token, , , uint8 status, , , ) = registry.invoices(invoiceId);
     if (status != 1) revert NotListable(status); // Created only
     if (vendor != msg.sender) revert NotSeller();
 
@@ -112,24 +109,22 @@ contract InvoiceMarketplace {
   }
 
   /// @notice Buy a listed invoice.
-  /// Buyer pays seller the list price, then marketplace requests registry to transfer beneficiary to buyer.
+  /// Buyer pays seller the list price, then marketplace transfers beneficiary to buyer.
   function buyInvoice(bytes32 invoiceId) external {
     Listing storage l = listings[invoiceId];
     if (l.status != ListingStatus.Active) revert NotActive();
 
-    // Re-check invoice is still listable & token matches.
-    (address vendor, , address invoiceToken, , , uint8 status, , , ) = registry.invoices(invoiceId);
+    // Re-check invoice is still Created & token matches
+    (address vendor, , , address invoiceToken, , , uint8 status, , , ) = registry.invoices(invoiceId);
     if (status != 1) revert NotListable(status);
     if (invoiceToken != l.token) revert TokenMismatch(invoiceToken, l.token);
-
-    // Ensure invoice vendor hasn't changed unexpectedly (defensive).
-    // If you later allow resale, adjust this logic to check current beneficiary instead.
     if (vendor != l.seller) revert NotSeller();
 
+    // Buyer pays seller the listing price
     bool ok = IERC20(l.token).transferFrom(msg.sender, l.seller, l.price);
     if (!ok) revert TransferFailed();
 
-    // Transfer the right-to-receive to buyer (requires registry upgrade).
+    // Transfer the right-to-receive payment to buyer
     registry.transferBeneficiary(invoiceId, msg.sender);
 
     l.status = ListingStatus.Sold;
@@ -139,4 +134,3 @@ contract InvoiceMarketplace {
     emit InvoiceSold(invoiceId, l.seller, msg.sender, l.token, l.price);
   }
 }
-

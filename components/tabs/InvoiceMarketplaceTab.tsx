@@ -138,7 +138,6 @@ export default function InvoiceMarketplaceTab() {
   const isConfigured =
     INVOICE_MARKETPLACE_ADDRESS !== ("0x0000000000000000000000000000000000000000" as Address);
 
-  // Allowance: USDC => InvoiceMarketplace (for buyInvoice)
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_ABI,
@@ -152,20 +151,16 @@ export default function InvoiceMarketplaceTab() {
   const [lastError, setLastError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Listing creation
   const [listInvoiceId, setListInvoiceId] = useState("");
   const [listPrice, setListPrice] = useState("");
 
-  // All listing rows fetched from chain
   const [items, setItems] = useState<ListingRow[]>([]);
 
-  // localStorage cache key — shared across all users on same chain+contract
   const storageKey = useMemo(() => {
     const chainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
     return `arc:invoice-marketplace:knownIds:${chainId}:${INVOICE_MARKETPLACE_ADDRESS.toLowerCase()}`;
   }, [INVOICE_MARKETPLACE_ADDRESS]);
 
-  // ─── localStorage helpers ─────────────────────────────────────────────────
   function getCachedIds(): string[] {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -191,16 +186,13 @@ export default function InvoiceMarketplaceTab() {
     refetchAllowance();
   }, [isConfirmed, refetchAllowance]);
 
-  // ─── Discover listing IDs from chain → load details ───────────────────────
-  // Primary: on-chain paginated IDs list (if contract supports it).
-  // Fallback: scan InvoiceListed events.
   async function refreshFromChain() {
     if (!publicClient || !isConfigured) return;
     setIsLoading(true);
     setLastError("");
 
     try {
-      // 1) Try on-chain index (best UX; no log scanning)
+      // 1) Try on-chain index first
       try {
         const total = (await publicClient.readContract({
           address: INVOICE_MARKETPLACE_ADDRESS,
@@ -225,7 +217,7 @@ export default function InvoiceMarketplaceTab() {
         await loadDetails(allIds);
         return;
       } catch {
-        // ignore and fallback to event scan
+        // fallback to event scan
       }
 
       // 2) Fallback: scan InvoiceListed events in chunks
@@ -257,18 +249,14 @@ export default function InvoiceMarketplaceTab() {
       await loadDetails(allIds);
     } catch (e: any) {
       console.warn("[InvoiceMarketplaceTab] getLogs failed:", e);
-      // Fallback: load from cache so user still sees something
       const cachedIds = getCachedIds();
-      if (cachedIds.length > 0) {
-        await loadDetails(cachedIds);
-      }
+      if (cachedIds.length > 0) await loadDetails(cachedIds);
       setLastError("Could not fetch latest listings from chain. Showing cached data.");
     } finally {
       setIsLoading(false);
     }
   }
 
-  // ─── Load listing details for each known invoiceId ─────────────────────────
   async function loadDetails(ids: string[]) {
     if (!publicClient || !isConfigured || ids.length === 0) return;
     const next: ListingRow[] = [];
@@ -283,7 +271,7 @@ export default function InvoiceMarketplaceTab() {
         })) as unknown as readonly [string, Address, Address, bigint, number, bigint, bigint, Address];
 
         const statusNum = Number(row[4]);
-        if (statusNum === 0) continue; // skip uninitialized
+        if (statusNum === 0) continue;
 
         next.push({
           invoiceId: (row[0] as `0x${string}`) || (id as `0x${string}`),
@@ -303,14 +291,12 @@ export default function InvoiceMarketplaceTab() {
     setItems(next.sort((a, b) => Number(b.createdAt - a.createdAt)));
   }
 
-  // Auto-refresh on mount and after tx confirmed
   useEffect(() => {
     if (!publicClient || !isConfigured) return;
     refreshFromChain();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicClient, isConfigured, isConfirmed]);
 
-  // ─── Actions ──────────────────────────────────────────────────────────────
   async function onListInvoice() {
     try {
       setLastError("");
@@ -401,6 +387,7 @@ export default function InvoiceMarketplaceTab() {
   const myLower = (address || "").toLowerCase();
   const activeListings = items.filter((x) => x.status === 1);
   const myListings = items.filter((x) => x.seller.toLowerCase() === myLower && x.status !== 0);
+  const myPurchases = items.filter((x) => x.buyer.toLowerCase() === myLower && x.status === 3);
 
   return (
     <div className="space-y-6">
@@ -473,7 +460,7 @@ export default function InvoiceMarketplaceTab() {
         )}
       </div>
 
-      {/* All active listings — visible to everyone */}
+      {/* All active listings */}
       <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Active listings</h2>
@@ -615,6 +602,49 @@ export default function InvoiceMarketplaceTab() {
                   {l.soldAt > 0n && (
                     <div>
                       <div className="text-xs text-gray-500">Sold at</div>
+                      <div className="font-semibold">
+                        {new Date(Number(l.soldAt) * 1000).toISOString().slice(0, 10)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* My purchases history */}
+      {myPurchases.length > 0 && (
+        <div className="arc-card-light p-5 space-y-4 border-2 border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">My purchases</h2>
+            <div className="text-xs text-gray-500">{myPurchases.length} items</div>
+          </div>
+          <div className="space-y-3">
+            {myPurchases.map((l) => (
+              <div key={l.invoiceId} className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-gray-500">Invoice ID</div>
+                    <div className="font-mono text-xs break-all">{l.invoiceId}</div>
+                  </div>
+                  <div className="text-xs font-semibold px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+                    PURCHASED
+                  </div>
+                </div>
+                <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-500">Paid (price)</div>
+                    <div className="font-semibold">{formatUSDC(l.price)} USDC</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Seller</div>
+                    <div className="font-semibold">{formatAddress(l.seller)}</div>
+                  </div>
+                  {l.soldAt > 0n && (
+                    <div>
+                      <div className="text-xs text-gray-500">Bought at</div>
                       <div className="font-semibold">
                         {new Date(Number(l.soldAt) * 1000).toISOString().slice(0, 10)}
                       </div>

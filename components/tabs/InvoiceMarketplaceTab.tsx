@@ -104,6 +104,27 @@ const INVOICE_MARKETPLACE_ABI = [
   },
 ] as const;
 
+const INVOICE_REGISTRY_ABI = [
+  {
+    type: "function",
+    name: "invoices",
+    stateMutability: "view",
+    inputs: [{ name: "invoiceId", type: "bytes32" }],
+    outputs: [
+      { name: "vendor", type: "address" },
+      { name: "beneficiary", type: "address" },
+      { name: "payer", type: "address" },
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "dueDate", type: "uint64" },
+      { name: "status", type: "uint8" },
+      { name: "createdAt", type: "uint64" },
+      { name: "paidAt", type: "uint64" },
+      { name: "metadataHash", type: "bytes32" },
+    ],
+  },
+] as const;
+
 type ListingRow = {
   invoiceId: `0x${string}`;
   seller: Address;
@@ -115,11 +136,22 @@ type ListingRow = {
   buyer: Address;
 };
 
+type InvoiceInfo = {
+  status: number; // 0 None, 1 Created, 2 Cancelled, 3 Paid
+  paidAt: bigint;
+};
+
 function listingStatusLabel(status: number): string {
   if (status === 1) return "ACTIVE";
   if (status === 2) return "CANCELLED";
   if (status === 3) return "SOLD";
   return "NONE";
+}
+
+function paymentStatusLabel(invoiceStatus: number): "UNPAID" | "PAID" | "UNKNOWN" {
+  if (invoiceStatus === 1) return "UNPAID";
+  if (invoiceStatus === 3) return "PAID";
+  return "UNKNOWN";
 }
 
 export default function InvoiceMarketplaceTab() {
@@ -130,6 +162,9 @@ export default function InvoiceMarketplaceTab() {
   const isBusy = isPending || isConfirming;
 
   const INVOICE_MARKETPLACE_ADDRESS = (process.env.NEXT_PUBLIC_ARC_INVOICE_MARKETPLACE ||
+    "0x0000000000000000000000000000000000000000") as Address;
+
+  const INVOICE_REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_ARC_INVOICE_REGISTRY ||
     "0x0000000000000000000000000000000000000000") as Address;
 
   const USDC_ADDRESS = ((process.env.NEXT_PUBLIC_ARC_USDC || process.env.NEXT_PUBLIC_ARC_USDC_ADDRESS) ||
@@ -155,6 +190,7 @@ export default function InvoiceMarketplaceTab() {
   const [listPrice, setListPrice] = useState("");
 
   const [items, setItems] = useState<ListingRow[]>([]);
+  const [invoiceInfoById, setInvoiceInfoById] = useState<Record<string, InvoiceInfo>>({});
 
   const storageKey = useMemo(() => {
     const chainId = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || 5042002);
@@ -289,6 +325,35 @@ export default function InvoiceMarketplaceTab() {
     }
 
     setItems(next.sort((a, b) => Number(b.createdAt - a.createdAt)));
+
+    // Load invoice payment status for SOLD items
+    if (
+      publicClient &&
+      INVOICE_REGISTRY_ADDRESS !== ("0x0000000000000000000000000000000000000000" as Address)
+    ) {
+      const sold = next.filter((x) => x.status === 3);
+      const updates: Record<string, InvoiceInfo> = {};
+      for (const l of sold) {
+        const key = l.invoiceId.toLowerCase();
+        try {
+          const inv = (await publicClient.readContract({
+            address: INVOICE_REGISTRY_ADDRESS,
+            abi: INVOICE_REGISTRY_ABI,
+            functionName: "invoices",
+            args: [l.invoiceId],
+          })) as unknown as readonly [
+            Address, Address, Address, Address,
+            bigint, bigint, number, bigint, bigint, `0x${string}`,
+          ];
+          updates[key] = { status: Number(inv[6]), paidAt: inv[8] };
+        } catch {
+          // ignore
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        setInvoiceInfoById((prev) => ({ ...prev, ...updates }));
+      }
+    }
   }
 
   useEffect(() => {
@@ -607,6 +672,16 @@ export default function InvoiceMarketplaceTab() {
                       </div>
                     </div>
                   )}
+                  {invoiceInfoById[l.invoiceId.toLowerCase()]?.paidAt > 0n && (
+                    <div>
+                      <div className="text-xs text-gray-500">Paid at</div>
+                      <div className="font-semibold">
+                        {new Date(Number(invoiceInfoById[l.invoiceId.toLowerCase()]!.paidAt) * 1000)
+                          .toISOString()
+                          .slice(0, 10)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -629,10 +704,23 @@ export default function InvoiceMarketplaceTab() {
                     <div className="text-xs text-gray-500">Invoice ID</div>
                     <div className="font-mono text-xs break-all">{l.invoiceId}</div>
                   </div>
-                  <div className="text-xs font-semibold px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
-                    PURCHASED
-                  </div>
+                  {(() => {
+                    const inv = invoiceInfoById[l.invoiceId.toLowerCase()];
+                    const label = inv ? paymentStatusLabel(inv.status) : "UNKNOWN";
+                    const klass =
+                      label === "PAID"
+                        ? "border-green-200 bg-green-50 text-green-700"
+                        : label === "UNPAID"
+                          ? "border-orange-200 bg-orange-50 text-orange-700"
+                          : "border-gray-200 bg-gray-50 text-gray-600";
+                    return (
+                      <div className={`text-xs font-semibold px-2 py-1 rounded-full border ${klass}`}>
+                        {label}
+                      </div>
+                    );
+                  })()}
                 </div>
+
                 <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
                   <div>
                     <div className="text-xs text-gray-500">Paid (price)</div>
@@ -647,6 +735,16 @@ export default function InvoiceMarketplaceTab() {
                       <div className="text-xs text-gray-500">Bought at</div>
                       <div className="font-semibold">
                         {new Date(Number(l.soldAt) * 1000).toISOString().slice(0, 10)}
+                      </div>
+                    </div>
+                  )}
+                  {invoiceInfoById[l.invoiceId.toLowerCase()]?.paidAt > 0n && (
+                    <div>
+                      <div className="text-xs text-gray-500">Paid at</div>
+                      <div className="font-semibold">
+                        {new Date(Number(invoiceInfoById[l.invoiceId.toLowerCase()]!.paidAt) * 1000)
+                          .toISOString()
+                          .slice(0, 10)}
                       </div>
                     </div>
                   )}

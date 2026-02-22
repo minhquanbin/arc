@@ -20,7 +20,7 @@ interface IInvoiceRegistry {
     view
     returns (
       address vendor,
-      address beneficiary, // ← added: was missing, caused all fields after to be offset by 1
+      address beneficiary,
       address payer,
       address token,
       uint256 amount,
@@ -44,9 +44,9 @@ contract InvoiceMarketplace {
 
   struct Listing {
     bytes32 invoiceId;
-    address seller;   // vendor who listed (or current beneficiary if resale allowed)
-    address token;    // must match invoice token
-    uint256 price;    // in token's smallest units
+    address seller;  // vendor who listed (or current beneficiary if resale allowed)
+    address token;   // must match invoice token
+    uint256 price;   // in token's smallest units
     ListingStatus status;
     uint64 createdAt;
     uint64 soldAt;
@@ -56,6 +56,8 @@ contract InvoiceMarketplace {
   IInvoiceRegistry public immutable registry;
 
   mapping(bytes32 => Listing) public listings; // invoiceId => listing
+
+  bytes32[] private _listingIds; // append-only list of all invoiceIds ever listed
 
   event InvoiceListed(bytes32 indexed invoiceId, address indexed seller, address token, uint256 price);
   event ListingCancelled(bytes32 indexed invoiceId, address indexed seller);
@@ -74,13 +76,31 @@ contract InvoiceMarketplace {
     registry = IInvoiceRegistry(invoiceRegistry);
   }
 
+  /// @notice Total number of invoiceIds ever listed.
+  function totalListingIds() external view returns (uint256) {
+    return _listingIds.length;
+  }
+
+  /// @notice Returns invoiceIds in the range [offset, offset+limit).
+  function getListingIds(uint256 offset, uint256 limit) external view returns (bytes32[] memory) {
+    uint256 n = _listingIds.length;
+    if (offset >= n || limit == 0) return new bytes32[](0);
+    uint256 end = offset + limit;
+    if (end > n) end = n;
+    uint256 size = end - offset;
+    bytes32[] memory out = new bytes32[](size);
+    for (uint256 i = 0; i < size; i++) {
+      out[i] = _listingIds[offset + i];
+    }
+    return out;
+  }
+
   /// @notice List an existing invoice for sale at `price` (discounted from face value).
   /// @dev Requires invoice status == Created. Seller must be the invoice vendor.
   function listInvoice(bytes32 invoiceId, uint256 price) external {
     if (invoiceId == bytes32(0) || price == 0) revert InvalidParams();
     if (listings[invoiceId].status == ListingStatus.Active) revert AlreadyListed();
 
-    // Destructure with beneficiary at index 1 (was missing before — caused the bug)
     (address vendor, , , address token, , , uint8 status, , , ) = registry.invoices(invoiceId);
     if (status != 1) revert NotListable(status); // Created only
     if (vendor != msg.sender) revert NotSeller();
@@ -95,6 +115,7 @@ contract InvoiceMarketplace {
       soldAt: 0,
       buyer: address(0)
     });
+    _listingIds.push(invoiceId);
 
     emit InvoiceListed(invoiceId, msg.sender, token, price);
   }
@@ -114,17 +135,14 @@ contract InvoiceMarketplace {
     Listing storage l = listings[invoiceId];
     if (l.status != ListingStatus.Active) revert NotActive();
 
-    // Re-check invoice is still Created & token matches
     (address vendor, , , address invoiceToken, , , uint8 status, , , ) = registry.invoices(invoiceId);
     if (status != 1) revert NotListable(status);
     if (invoiceToken != l.token) revert TokenMismatch(invoiceToken, l.token);
     if (vendor != l.seller) revert NotSeller();
 
-    // Buyer pays seller the listing price
     bool ok = IERC20(l.token).transferFrom(msg.sender, l.seller, l.price);
     if (!ok) revert TransferFailed();
 
-    // Transfer the right-to-receive payment to buyer
     registry.transferBeneficiary(invoiceId, msg.sender);
 
     l.status = ListingStatus.Sold;

@@ -76,6 +76,23 @@ const INVOICE_MARKETPLACE_ABI = [
     ],
   },
   {
+    type: "function",
+    name: "totalListingIds",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "getListingIds",
+    stateMutability: "view",
+    inputs: [
+      { name: "offset", type: "uint256" },
+      { name: "limit", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bytes32[]" }],
+  },
+  {
     type: "event",
     name: "InvoiceListed",
     inputs: [
@@ -148,7 +165,7 @@ export default function InvoiceMarketplaceTab() {
     return `arc:invoice-marketplace:knownIds:${chainId}:${INVOICE_MARKETPLACE_ADDRESS.toLowerCase()}`;
   }, [INVOICE_MARKETPLACE_ADDRESS]);
 
-  // ─── Load cached IDs from localStorage on mount ──────────────────────────
+  // ─── localStorage helpers ─────────────────────────────────────────────────
   function getCachedIds(): string[] {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -174,34 +191,68 @@ export default function InvoiceMarketplaceTab() {
     refetchAllowance();
   }, [isConfirmed, refetchAllowance]);
 
-  // ─── Fetch all InvoiceListed events from chain → load details ─────────────
-  // This is the primary data source. Everyone sees the same on-chain data.
+  // ─── Discover listing IDs from chain → load details ───────────────────────
+  // Primary: on-chain paginated IDs list (if contract supports it).
+  // Fallback: scan InvoiceListed events.
   async function refreshFromChain() {
     if (!publicClient || !isConfigured) return;
     setIsLoading(true);
     setLastError("");
 
     try {
-      const latest = await publicClient.getBlockNumber();
-      const window = 200_000n;
-      const fromBlock = latest > window ? latest - window : 0n;
+      // 1) Try on-chain index (best UX; no log scanning)
+      try {
+        const total = (await publicClient.readContract({
+          address: INVOICE_MARKETPLACE_ADDRESS,
+          abi: INVOICE_MARKETPLACE_ABI,
+          functionName: "totalListingIds",
+          args: [],
+        })) as unknown as bigint;
 
-      const logs = await publicClient.getLogs({
-        address: INVOICE_MARKETPLACE_ADDRESS,
-        event: INVOICE_MARKETPLACE_ABI.find(
-          (x) => (x as any).type === "event" && (x as any).name === "InvoiceListed"
-        ) as any,
-        fromBlock,
-        toBlock: "latest",
-      });
+        const pageSize = 200n;
+        const idsFromIndex: string[] = [];
+        for (let offset = 0n; offset < total; offset += pageSize) {
+          const page = (await publicClient.readContract({
+            address: INVOICE_MARKETPLACE_ADDRESS,
+            abi: INVOICE_MARKETPLACE_ABI,
+            functionName: "getListingIds",
+            args: [offset, pageSize],
+          })) as unknown as readonly string[];
+          for (const id of page) idsFromIndex.push(String(id).toLowerCase());
+        }
 
-      const idsFromChain: string[] = [];
-      for (const log of logs) {
-        const invoiceId = (log as any).args?.invoiceId as string | undefined;
-        if (invoiceId) idsFromChain.push(invoiceId.toLowerCase());
+        const allIds = mergeAndCacheIds(idsFromIndex);
+        await loadDetails(allIds);
+        return;
+      } catch {
+        // ignore and fallback to event scan
       }
 
-      // Merge with localStorage cache (catches IDs from older blocks beyond scan window)
+      // 2) Fallback: scan InvoiceListed events in chunks
+      const latest = await publicClient.getBlockNumber();
+      const chunkSize = 50_000n;
+      const maxScan = 1_000_000n;
+      const start = latest > maxScan ? latest - maxScan : 0n;
+
+      const eventDef = INVOICE_MARKETPLACE_ABI.find(
+        (x) => (x as any).type === "event" && (x as any).name === "InvoiceListed"
+      ) as any;
+
+      const idsFromChain: string[] = [];
+      for (let from = start; from <= latest; from += chunkSize) {
+        const to = from + chunkSize - 1n > latest ? latest : from + chunkSize - 1n;
+        const logs = await publicClient.getLogs({
+          address: INVOICE_MARKETPLACE_ADDRESS,
+          event: eventDef,
+          fromBlock: from,
+          toBlock: to,
+        });
+        for (const log of logs) {
+          const invoiceId = (log as any).args?.invoiceId as string | undefined;
+          if (invoiceId) idsFromChain.push(invoiceId.toLowerCase());
+        }
+      }
+
       const allIds = mergeAndCacheIds(idsFromChain);
       await loadDetails(allIds);
     } catch (e: any) {
@@ -280,7 +331,6 @@ export default function InvoiceMarketplaceTab() {
         args: [id as `0x${string}`, price],
       });
 
-      // Add to cache so it appears immediately after confirm
       mergeAndCacheIds([id]);
       setTxStatus("Submitted. Waiting confirmation...");
     } catch (e: any) {

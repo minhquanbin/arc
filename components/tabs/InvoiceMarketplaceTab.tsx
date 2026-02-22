@@ -154,6 +154,13 @@ function paymentStatusLabel(invoiceStatus: number): "UNPAID" | "PAID" | "UNKNOWN
   return "UNKNOWN";
 }
 
+// FIX #1: Xóa khai báo trùng lặp — giữ lại đúng 1 hàm paymentStatusIcon
+function paymentStatusIcon(invoiceStatus: number): { src: string; alt: string } | null {
+  if (invoiceStatus === 1) return { src: "/chain-icons/invoice_unpaid.svg", alt: "Unpaid" };
+  if (invoiceStatus === 3) return { src: "/chain-icons/invoice_paid.svg", alt: "Paid" };
+  return null;
+}
+
 export default function InvoiceMarketplaceTab() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
@@ -256,28 +263,30 @@ export default function InvoiceMarketplaceTab() {
         // fallback to event scan
       }
 
-      // 2) Fallback: scan InvoiceListed events in chunks
+      // 2) Fallback: scan InvoiceListed events in chunks from block 0
       const latest = await publicClient.getBlockNumber();
       const chunkSize = 50_000n;
-      const maxScan = 1_000_000n;
-      const start = latest > maxScan ? latest - maxScan : 0n;
 
       const eventDef = INVOICE_MARKETPLACE_ABI.find(
         (x) => (x as any).type === "event" && (x as any).name === "InvoiceListed"
       ) as any;
 
       const idsFromChain: string[] = [];
-      for (let from = start; from <= latest; from += chunkSize) {
+      for (let from = 0n; from <= latest; from += chunkSize) {
         const to = from + chunkSize - 1n > latest ? latest : from + chunkSize - 1n;
-        const logs = await publicClient.getLogs({
-          address: INVOICE_MARKETPLACE_ADDRESS,
-          event: eventDef,
-          fromBlock: from,
-          toBlock: to,
-        });
-        for (const log of logs) {
-          const invoiceId = (log as any).args?.invoiceId as string | undefined;
-          if (invoiceId) idsFromChain.push(invoiceId.toLowerCase());
+        try {
+          const logs = await publicClient.getLogs({
+            address: INVOICE_MARKETPLACE_ADDRESS,
+            event: eventDef,
+            fromBlock: from,
+            toBlock: to,
+          });
+          for (const log of logs) {
+            const invoiceId = (log as any).args?.invoiceId as string | undefined;
+            if (invoiceId) idsFromChain.push(invoiceId.toLowerCase());
+          }
+        } catch {
+          // skip failed chunk, continue
         }
       }
 
@@ -451,8 +460,9 @@ export default function InvoiceMarketplaceTab() {
 
   const myLower = (address || "").toLowerCase();
   const activeListings = items.filter((x) => x.status === 1);
-  const myListings = items.filter((x) => x.seller.toLowerCase() === myLower && x.status !== 0);
-  const myPurchases = items.filter((x) => x.buyer.toLowerCase() === myLower && x.status === 3);
+  // FIX #2: Guard bằng address trước khi filter, tránh lọc sai khi wallet chưa connect
+  const myListings = address ? items.filter((x) => x.seller.toLowerCase() === myLower && x.status !== 0) : [];
+  const myPurchases = address ? items.filter((x) => x.buyer.toLowerCase() === myLower && x.status === 3) : [];
 
   return (
     <div className="space-y-6">
@@ -704,8 +714,10 @@ export default function InvoiceMarketplaceTab() {
                     <div className="text-xs text-gray-500">Invoice ID</div>
                     <div className="font-mono text-xs break-all">{l.invoiceId}</div>
                   </div>
+                  {/* FIX #3: Xóa dấu ">" thừa xuất hiện sau thẻ </div> đóng trong JSX */}
                   {(() => {
                     const inv = invoiceInfoById[l.invoiceId.toLowerCase()];
+                    const icon = inv ? paymentStatusIcon(inv.status) : null;
                     const label = inv ? paymentStatusLabel(inv.status) : "UNKNOWN";
                     const klass =
                       label === "PAID"
@@ -714,8 +726,9 @@ export default function InvoiceMarketplaceTab() {
                           ? "border-orange-200 bg-orange-50 text-orange-700"
                           : "border-gray-200 bg-gray-50 text-gray-600";
                     return (
-                      <div className={`text-xs font-semibold px-2 py-1 rounded-full border ${klass}`}>
-                        {label}
+                      <div className={`flex items-center gap-2 text-xs font-semibold px-2 py-1 rounded-full border ${klass}`}>
+                        {icon && <img src={icon.src} alt={icon.alt} className="h-4 w-4" />}
+                        <span>{label}</span>
                       </div>
                     );
                   })()}

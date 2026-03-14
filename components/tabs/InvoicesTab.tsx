@@ -10,6 +10,7 @@ import {
 } from "wagmi";
 import { keccak256, parseUnits, stringToHex, type Address } from "viem";
 import { formatAddress, formatUSDC, generateId } from "@/lib/payments";
+import { useShelbyUpload, type InvoiceMetadata } from "@/hooks/useShelbyUpload";
 
 const ERC20_ABI = [
   {
@@ -63,7 +64,7 @@ const INVOICE_REGISTRY_ABI = [
     inputs: [{ name: "invoiceId", type: "bytes32" }],
     outputs: [
       { name: "vendor", type: "address" },
-      { name: "beneficiary", type: "address" }, // ← added: contract returns this at index 1
+      { name: "beneficiary", type: "address" },
       { name: "payer", type: "address" },
       { name: "token", type: "address" },
       { name: "amount", type: "uint256" },
@@ -104,7 +105,6 @@ type InvoiceRow = {
 };
 
 function statusLabel(status: number): string {
-  // matches contract enum: None(0) Created(1) Cancelled(2) Paid(3)
   if (status === 1) return "CREATED";
   if (status === 2) return "CANCELLED";
   if (status === 3) return "PAID";
@@ -144,6 +144,8 @@ export default function InvoicesTab() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
   const isBusy = isPending || isConfirming;
 
+  const { uploadMetadata, isUploading } = useShelbyUpload();
+
   const INVOICE_REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_ARC_INVOICE_REGISTRY ||
     "0x0000000000000000000000000000000000000000") as Address;
 
@@ -155,7 +157,6 @@ export default function InvoicesTab() {
 
   const myLower = (address || "").toLowerCase();
 
-  // allowance: USDC => InvoiceRegistry
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_ABI,
@@ -165,7 +166,6 @@ export default function InvoicesTab() {
   });
   const allowance = (allowanceData as bigint | undefined) ?? 0n;
 
-  // Create form
   const [payer, setPayer] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState(() => {
@@ -178,13 +178,11 @@ export default function InvoicesTab() {
   const [status, setStatus] = useState("");
   const [lastError, setLastError] = useState("");
 
-  // List state
   const [knownIds, setKnownIds] = useState<string[]>([]);
   const [items, setItems] = useState<InvoiceRow[]>([]);
 
   const [hasRpcWarning, setHasRpcWarning] = useState(false);
 
-  // Lookup by id
   const [lookupId, setLookupId] = useState("");
   const [lookupRow, setLookupRow] = useState<InvoiceRow | null>(null);
   const [lookupError, setLookupError] = useState("");
@@ -223,10 +221,6 @@ export default function InvoicesTab() {
     const salt = generateId();
     const raw = `${vendor.toLowerCase()}|${payerAddr.toLowerCase()}|${amountUsdc}|${due}|${desc}|${salt}`;
     return keccak256(stringToHex(raw)) as `0x${string}`;
-  }
-
-  function buildMetadataHash(desc: string): `0x${string}` {
-    return keccak256(stringToHex(desc || "")) as `0x${string}`;
   }
 
   async function refreshFromChain() {
@@ -272,7 +266,6 @@ export default function InvoicesTab() {
     }
   }
 
-  // ─── Helper: parse contract tuple into InvoiceRow ───────────────────────────
   // Contract struct order: vendor(0), beneficiary(1), payer(2), token(3),
   //   amount(4), dueDate(5), status(6), createdAt(7), paidAt(8), metadataHash(9)
   function parseRow(id: string, row: readonly [Address, Address, Address, Address, bigint, bigint, number, bigint, bigint, `0x${string}`]): InvoiceRow {
@@ -337,9 +330,22 @@ export default function InvoicesTab() {
       const dueUnix = parseLocalDateToUnixSeconds(dueDate);
       const amt = parseUnits(amount, 6);
       const invoiceId = buildInvoiceId(address as Address, payerAddr, amount, dueDate, description);
-      const metadataHash = buildMetadataHash(description);
 
-      setStatus("Creating invoice...");
+      // Step 1: Upload metadata to Shelby
+      setStatus("Uploading metadata to Shelby...");
+      const metadata: InvoiceMetadata = {
+        description,
+        payer: payerAddr,
+        vendor: address as string,
+        amount,
+        dueDate,
+        createdAt: Math.floor(Date.now() / 1000),
+      };
+      const { shelbyUrl, metadataHash } = await uploadMetadata(metadata);
+      console.log("[Shelby] Metadata uploaded:", shelbyUrl);
+
+      // Step 2: Create invoice on-chain with the real metadataHash from Shelby
+      setStatus("Creating invoice on-chain...");
       await writeContract({
         address: INVOICE_REGISTRY_ADDRESS,
         abi: INVOICE_REGISTRY_ABI,
@@ -425,7 +431,6 @@ export default function InvoicesTab() {
   const payableByMe = items.filter((x) => x.payer.toLowerCase() === myLower && x.status === 1);
   const createdByMe = mine.filter((x) => x.vendor.toLowerCase() === myLower);
 
-  // ─── Shared invoice card fields ───────────────────────────────────────────
   function InvoiceFields({ inv }: { inv: InvoiceRow }) {
     return (
       <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
@@ -472,7 +477,7 @@ export default function InvoicesTab() {
           <h1 className="text-3xl font-bold">Invoices</h1>
         </div>
         <p className="text-sm text-gray-600">
-          On-chain invoice registry + USDC payment (ERC20 transferFrom). Metadata is hashed for integrity.
+          On-chain invoice registry + USDC payment (ERC20 transferFrom). Metadata is stored on Shelby and hashed for integrity.
         </p>
       </div>
 
@@ -528,7 +533,7 @@ export default function InvoicesTab() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700">Description (hashed)</label>
+            <label className="text-xs font-semibold text-gray-700">Description</label>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -540,10 +545,10 @@ export default function InvoicesTab() {
 
         <button
           onClick={onCreateInvoice}
-          disabled={!isConfigured || isBusy}
+          disabled={!isConfigured || isBusy || isUploading}
           className="rounded-xl bg-[#ff7582] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#ff5f70] disabled:opacity-60"
         >
-          {isBusy ? "Processing..." : "Create invoice"}
+          {isUploading ? "Uploading to Shelby..." : isBusy ? "Processing..." : "Create invoice"}
         </button>
 
         {txHash && (

@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",
+    "@shelby-protocol/ethereum-kit": "^0.1.7",
+    "@shelby-protocol/react": "^1.0.3",
+    "@shelby-protocol/sdk": "^0.2.3",
     "@tanstack/react-query": "^5.90.20",
     "next": "16.1.6",
     "react": "19.2.3",

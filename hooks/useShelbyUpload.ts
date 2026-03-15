@@ -81,7 +81,8 @@ export function useShelbyUpload() {
   // Separating sign (user) from submit (gas station) so gas fees are covered.
   async function sponsoredSignAndSubmit(params: Parameters<typeof signTransaction>[0]) {
     const { authenticator, rawTransaction } = await signTransaction(params);
-    return submitTransaction({ authenticator, rawTransaction });
+    // @ts-ignore — SubmitTransactionInput shape differs between package versions
+    return submitTransaction({ authenticator, rawTransaction } as any);
   }
 
   /**

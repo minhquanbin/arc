@@ -57,9 +57,6 @@ export function useShelbyUpload() {
       new ShelbyClient({
         network: "testnet" as any,
         apiKey: SHELBY_API_KEY,
-        indexer: {
-          baseUrl: "https://api.testnet.shelby.xyz/v1/graphql",
-        },
         rpc: {
           baseUrl: "https://api.testnet.shelby.xyz/shelby",
         },

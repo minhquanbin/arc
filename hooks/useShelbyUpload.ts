@@ -58,7 +58,7 @@ export function useShelbyUpload() {
         network: "testnet" as any,
         apiKey: SHELBY_API_KEY,
         indexer: {
-          baseUrl: "https://api.testnet.aptoslabs.com/v1/graphql",
+          baseUrl: "https://api.testnet.shelby.xyz/v1/graphql",
         },
         rpc: {
           baseUrl: "https://api.testnet.shelby.xyz/shelby",

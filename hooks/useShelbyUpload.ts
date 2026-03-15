@@ -12,8 +12,8 @@
  *  4. Returns shelbyUrl + metadataHash (bytes32) for use in createInvoice()
  *
  * Required env vars in .env.local:
- *   NEXT_PUBLIC_SHELBY_API_KEY=AG-***         (from docs.shelby.xyz)
- *   NEXT_PUBLIC_SHELBY_GAS_STATION_KEY=GS-*** (from geomi.dev)
+ *   NEXT_PUBLIC_SHELBY_API_KEY=AG-***         (from geomi.dev API Resource)
+ *   NEXT_PUBLIC_SHELBY_GAS_STATION_KEY=GS-*** (from geomi.dev Gas Station)
  */
 
 import { useMemo } from "react";
@@ -62,7 +62,7 @@ export function useShelbyUpload() {
   );
 
   // Derive Shelby storage account from the connected EVM wallet (no Aptos wallet needed)
-  const { storageAccountAddress, signAndSubmitTransaction } = useStorageAccount({
+  const { storageAccountAddress, signTransaction, submitTransaction } = useStorageAccount({
     client: shelbyClient,
     wallet: wallet ?? null,
   });
@@ -70,6 +70,13 @@ export function useShelbyUpload() {
   const { mutateAsync: uploadBlobs, isPending: isUploading } = useUploadBlobs({
     client: shelbyClient,
   });
+
+  // Sponsored flow: user signs, geomi.dev gas station submits.
+  // Separating sign (user) from submit (gas station) so gas fees are covered.
+  async function sponsoredSignAndSubmit(params: Parameters<typeof signTransaction>[0]) {
+    const { authenticator, rawTransaction } = await signTransaction(params);
+    return submitTransaction({ authenticator, rawTransaction });
+  }
 
   /**
    * Uploads invoice metadata JSON to Shelby.
@@ -89,7 +96,7 @@ export function useShelbyUpload() {
     await uploadBlobs({
       signer: {
         account: storageAccountAddress,
-        signAndSubmitTransaction,
+        signAndSubmitTransaction: sponsoredSignAndSubmit,
       },
       blobs: [{ blobName, blobData }],
       expirationMicros: EXPIRATION_MICROS(),

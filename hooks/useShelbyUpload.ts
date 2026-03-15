@@ -55,10 +55,13 @@ export function useShelbyUpload() {
   const shelbyClient = useMemo(
     () =>
       new ShelbyClient({
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore — Network from ethereum-kit/react is correct per docs
+        // @ts-ignore — duplicate sdk package causes type mismatch, runtime is correct
         network: Network.TESTNET,
         apiKey: SHELBY_API_KEY,
+        indexer: {
+          endpoint: "https://api.testnet.aptoslabs.com/v1/graphql",
+        },
+        nodeUrl: "https://api.testnet.aptoslabs.com/v1",
       }),
     []
   );

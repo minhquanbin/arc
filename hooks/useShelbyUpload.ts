@@ -65,7 +65,7 @@ export function useShelbyUpload() {
   );
 
   // Derive Shelby storage account from the connected EVM wallet (no Aptos wallet needed)
-  const { storageAccountAddress, signTransaction, submitTransaction } = useStorageAccount({
+  const { storageAccountAddress, signAndSubmitTransaction } = useStorageAccount({
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore — duplicate sdk package causes type mismatch, runtime is correct
     client: shelbyClient as any,
@@ -77,14 +77,6 @@ export function useShelbyUpload() {
     // @ts-ignore — duplicate sdk package causes type mismatch, runtime is correct
     client: shelbyClient as any,
   });
-
-  // Sponsored flow: user signs, geomi.dev gas station submits.
-  // Separating sign (user) from submit (gas station) so gas fees are covered.
-  async function sponsoredSignAndSubmit(params: Parameters<typeof signTransaction>[0]) {
-    const { authenticator, rawTransaction } = await signTransaction(params);
-    // @ts-ignore — SubmitTransactionInput shape differs between package versions
-    return submitTransaction({ authenticator, rawTransaction } as any);
-  }
 
   /**
    * Uploads invoice metadata JSON to Shelby.
@@ -104,7 +96,7 @@ export function useShelbyUpload() {
     await uploadBlobs({
       signer: {
         account: storageAccountAddress,
-        signAndSubmitTransaction: sponsoredSignAndSubmit,
+        signAndSubmitTransaction,
       },
       blobs: [{ blobName, blobData }],
       expirationMicros: EXPIRATION_MICROS(),

@@ -19,7 +19,7 @@
 import { useMemo } from "react";
 import { useWalletClient } from "wagmi";
 import { keccak256, stringToHex } from "viem";
-import { useStorageAccount, Network } from "@shelby-protocol/ethereum-kit/react";
+import { useStorageAccount } from "@shelby-protocol/ethereum-kit/react";
 import { useUploadBlobs } from "@shelby-protocol/react";
 import { ShelbyClient } from "@shelby-protocol/sdk/browser";
 
@@ -55,13 +55,14 @@ export function useShelbyUpload() {
   const shelbyClient = useMemo(
     () =>
       new ShelbyClient({
-        // @ts-ignore — duplicate sdk package causes type mismatch, runtime is correct
-        network: Network.TESTNET,
+        network: "testnet" as any,
         apiKey: SHELBY_API_KEY,
         indexer: {
-          endpoint: "https://api.testnet.aptoslabs.com/v1/graphql",
+          baseUrl: "https://api.testnet.aptoslabs.com/v1/graphql",
         },
-        nodeUrl: "https://api.testnet.aptoslabs.com/v1",
+        rpc: {
+          baseUrl: "https://api.testnet.shelby.xyz/shelby",
+        },
       }),
     []
   );

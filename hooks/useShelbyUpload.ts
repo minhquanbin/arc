@@ -55,7 +55,9 @@ export function useShelbyUpload() {
   const shelbyClient = useMemo(
     () =>
       new ShelbyClient({
-        network: Network.TESTNET as any,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore — Network from ethereum-kit/react is correct per docs
+        network: Network.TESTNET,
         apiKey: SHELBY_API_KEY,
       }),
     []

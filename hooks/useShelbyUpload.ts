@@ -55,7 +55,7 @@ export function useShelbyUpload() {
   const shelbyClient = useMemo(
     () =>
       new ShelbyClient({
-        network: Network.TESTNET,
+        network: Network.SHELBYNET,
         apiKey: SHELBY_API_KEY,
       }),
     []

@@ -65,12 +65,16 @@ export function useShelbyUpload() {
 
   // Derive Shelby storage account from the connected EVM wallet (no Aptos wallet needed)
   const { storageAccountAddress, signTransaction, submitTransaction } = useStorageAccount({
-    client: shelbyClient,
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore — duplicate sdk package causes type mismatch, runtime is correct
+    client: shelbyClient as any,
     wallet: wallet ?? null,
   });
 
   const { mutateAsync: uploadBlobs, isPending: isUploading } = useUploadBlobs({
-    client: shelbyClient,
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore — duplicate sdk package causes type mismatch, runtime is correct
+    client: shelbyClient as any,
   });
 
   // Sponsored flow: user signs, geomi.dev gas station submits.

@@ -113,7 +113,7 @@ export function useShelbyUpload() {
       expirationMicros: EXPIRATION_MICROS(),
     });
 
-    const shelbyUrl = `https://api.testnet.shelby.xyz/shelby/v1/blobs/${storageAccountAddress.toString()}/${blobName}`;
+    const shelbyUrl = `https://api.testnet.shelby.xyz/shelby/v1/blobs/${storageAccountAddress.toStringLong()}/${blobName}`;
 
     // Hash the JSON content → bytes32 stored on-chain in InvoiceRegistry.
     // Anyone can verify: fetch shelbyUrl → keccak256 → must match the on-chain metadataHash.

@@ -61,7 +61,8 @@ export function useShelbyUpload() {
   );
 
   const { storageAccountAddress, signAndSubmitTransaction } = useStorageAccount({
-    client: shelbyClient,
+    // @ts-ignore — duplicate sdk package causes type mismatch, runtime is correct
+    client: shelbyClient as any,
     wallet: wallet ?? null,
   });
 

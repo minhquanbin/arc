@@ -26,6 +26,7 @@ import { ShelbyClient } from "@shelby-protocol/sdk/browser";
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const SHELBY_API_KEY = process.env.NEXT_PUBLIC_SHELBY_API_KEY ?? "";
+const SHELBY_GAS_STATION_KEY = process.env.NEXT_PUBLIC_SHELBY_GAS_STATION_KEY ?? "";
 
 // 1 year expiration from upload time (in microseconds)
 const EXPIRATION_MICROS = () => Date.now() * 1000 + 1_000 * 60 * 60 * 24 * 365 * 1_000;
@@ -64,6 +65,8 @@ export function useShelbyUpload() {
     // @ts-ignore — duplicate sdk package causes type mismatch, runtime is correct
     client: shelbyClient as any,
     wallet: wallet ?? null,
+    // @ts-ignore — gasStationApiKey not visible due to version mismatch, runtime recognizes it
+    gasStationApiKey: SHELBY_GAS_STATION_KEY,
   });
 
   const { mutateAsync: uploadBlobs, isPending: isUploading } = useUploadBlobs({

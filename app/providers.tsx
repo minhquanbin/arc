@@ -15,14 +15,22 @@ const config = getDefaultConfig({
     [arcTestnet.id]: http("https://rpc.testnet.arc.network", {
       batch: false,
       timeout: 30000,
+      fetchOptions: {
+        headers: { "Content-Type": "application/json" },
+      },
     }),
   },
+  multiInjectedProviderDiscovery: false,
   ssr: true,
 })
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, staleTime: 10000 },
+    queries: {
+      retry: 1,
+      staleTime: 15000,
+      refetchOnWindowFocus: false,
+    },
   },
 })
 

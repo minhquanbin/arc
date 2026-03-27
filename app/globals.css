@@ -424,11 +424,17 @@ input, textarea, select { font-family: var(--sans); }
   position: relative;
 }
 .listing-superhot::after {
-  position: absolute; top: -1px; right: 14px;
+  content: 'FEATURED';
+  position: absolute;
+  top: -1px;
+  right: 14px;
   background: linear-gradient(90deg, var(--coral), var(--platinum));
   color: var(--bg);
-  font-size: 8px; font-family: var(--mono); font-weight: 700;
-  letter-spacing: 1.5px; padding: 2px 8px;
+  font-size: 8px;
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 2px 8px;
   border-radius: 0 0 6px 6px;
 }
 

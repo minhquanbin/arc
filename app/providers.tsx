@@ -14,7 +14,7 @@ const config = getDefaultConfig({
   transports: {
     [arcTestnet.id]: http("https://rpc.testnet.arc.network", {
       batch: false,
-      timeout: 30_000,
+      timeout: 30000,
     }),
   },
   ssr: true,
@@ -22,7 +22,7 @@ const config = getDefaultConfig({
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, staleTime: 10_000 },
+    queries: { retry: 1, staleTime: 10000 },
   },
 })
 

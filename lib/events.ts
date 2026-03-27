@@ -15,7 +15,7 @@ const publicClient = createPublicClient({
   transport: http(),
 })
 
-// ── Fetch all known arbitrator addresses ─────────────────────────────────────
+// -- Fetch all known arbitrator addresses -------------------------------------
 export async function fetchArbitratorAddresses(): Promise<Address[]> {
   try {
     const logs = await publicClient.getLogs({
@@ -30,7 +30,7 @@ export async function fetchArbitratorAddresses(): Promise<Address[]> {
   }
 }
 
-// ── Fetch all InvoiceCreated events for an address ───────────────────────────
+// -- Fetch all InvoiceCreated events for an address ---------------------------
 export async function fetchInvoicesForAddress(address: Address): Promise<bigint[]> {
   try {
     const [asClient, asVendor] = await Promise.all([
@@ -55,7 +55,7 @@ export async function fetchInvoicesForAddress(address: Address): Promise<bigint[
   }
 }
 
-// ── Fetch all listing IDs for an owner ───────────────────────────────────────
+// -- Fetch all listing IDs for an owner ---------------------------------------
 export async function fetchListingsForOwner(owner: Address): Promise<bigint[]> {
   try {
     const logs = await publicClient.getLogs({

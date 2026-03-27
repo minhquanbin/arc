@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi'
 import type { Address } from 'viem'
 import { fetchArbitratorAddresses, fetchInvoicesForAddress } from '@/lib/events'
 
-// ── Load known arbitrators from GoldMinted events ─────────────────────────────
+// -- Load known arbitrators from GoldMinted events -----------------------------
 export function useArbitratorAddresses() {
   const [addresses, setAddresses] = useState<Address[]>([])
   const [loading, setLoading] = useState(true)
@@ -19,7 +19,7 @@ export function useArbitratorAddresses() {
   return { addresses, loading }
 }
 
-// ── Load invoice IDs for connected wallet (client or vendor) ──────────────────
+// -- Load invoice IDs for connected wallet (client or vendor) ------------------
 export function useMyInvoiceIds() {
   const { address } = useAccount()
   const [ids, setIds] = useState<bigint[]>([])

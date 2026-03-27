@@ -6,7 +6,7 @@ import { CONTRACTS, MARKETPLACE_ABI } from '@/lib/contracts'
 import { parseUSDC } from '@/lib/utils'
 import type { Address } from 'viem'
 
-// ── Read profile ──────────────────────────────────────────────────────────────
+// -- Read profile --------------------------------------------------------------
 export function useProfile(addr: Address | undefined) {
   return useReadContract({
     address: CONTRACTS.MARKETPLACE,
@@ -17,13 +17,13 @@ export function useProfile(addr: Address | undefined) {
   })
 }
 
-// ── My profile ────────────────────────────────────────────────────────────────
+// -- My profile ----------------------------------------------------------------
 export function useMyProfile() {
   const { address } = useAccount()
   return useProfile(address)
 }
 
-// ── Read listing ──────────────────────────────────────────────────────────────
+// -- Read listing --------------------------------------------------------------
 export function useListing(id: bigint | undefined) {
   return useReadContract({
     address: CONTRACTS.MARKETPLACE,
@@ -34,7 +34,7 @@ export function useListing(id: bigint | undefined) {
   })
 }
 
-// ── Get paginated listings ────────────────────────────────────────────────────
+// -- Get paginated listings ----------------------------------------------------
 export function useSuperHotListings(offset = 0n, limit = 20n) {
   return useReadContract({
     address: CONTRACTS.MARKETPLACE,
@@ -65,7 +65,7 @@ export function useNormalListings(offset = 0n, limit = 20n) {
   })
 }
 
-// ── Fees ──────────────────────────────────────────────────────────────────────
+// -- Fees ----------------------------------------------------------------------
 export function useMarketplaceFees() {
   const hotFee = useReadContract({
     address: CONTRACTS.MARKETPLACE,
@@ -80,7 +80,7 @@ export function useMarketplaceFees() {
   return { hotFee: hotFee.data, superHotFee: superHotFee.data }
 }
 
-// ── Register ──────────────────────────────────────────────────────────────────
+// -- Register ------------------------------------------------------------------
 export function useRegister() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -102,7 +102,7 @@ export function useRegister() {
   return { register, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Update profile ────────────────────────────────────────────────────────────
+// -- Update profile ------------------------------------------------------------
 export function useUpdateProfile() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -118,7 +118,7 @@ export function useUpdateProfile() {
   return { update, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Post listing ──────────────────────────────────────────────────────────────
+// -- Post listing --------------------------------------------------------------
 export function usePostListing() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -148,7 +148,7 @@ export function usePostListing() {
   return { post, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Apply to listing ──────────────────────────────────────────────────────────
+// -- Apply to listing ----------------------------------------------------------
 export function useApplyToListing() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })

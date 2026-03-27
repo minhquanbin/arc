@@ -6,7 +6,7 @@ import { CONTRACTS, INVOICE_ESCROW_ABI } from '@/lib/contracts'
 import { parseUSDC, computeDisputeDeposit } from '@/lib/utils'
 import type { Address } from 'viem'
 
-// ── Read a single invoice ──────────────────────────────────────────────────────
+// -- Read a single invoice ------------------------------------------------------
 export function useInvoice(invoiceId: bigint | undefined) {
   return useReadContract({
     address: CONTRACTS.INVOICE_ESCROW,
@@ -17,7 +17,7 @@ export function useInvoice(invoiceId: bigint | undefined) {
   })
 }
 
-// ── Read a single milestone ────────────────────────────────────────────────────
+// -- Read a single milestone ----------------------------------------------------
 export function useMilestone(invoiceId: bigint | undefined, index: bigint) {
   return useReadContract({
     address: CONTRACTS.INVOICE_ESCROW,
@@ -28,7 +28,7 @@ export function useMilestone(invoiceId: bigint | undefined, index: bigint) {
   })
 }
 
-// ── Create invoice ─────────────────────────────────────────────────────────────
+// -- Create invoice -------------------------------------------------------------
 export function useCreateInvoice() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -55,7 +55,7 @@ export function useCreateInvoice() {
   return { createInvoice, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Accept invoice ─────────────────────────────────────────────────────────────
+// -- Accept invoice -------------------------------------------------------------
 export function useAcceptInvoice() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -71,7 +71,7 @@ export function useAcceptInvoice() {
   return { accept, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Submit milestone ───────────────────────────────────────────────────────────
+// -- Submit milestone -----------------------------------------------------------
 export function useSubmitMilestone() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -87,7 +87,7 @@ export function useSubmitMilestone() {
   return { submit, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Approve milestone ──────────────────────────────────────────────────────────
+// -- Approve milestone ----------------------------------------------------------
 export function useApproveMilestone() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -103,7 +103,7 @@ export function useApproveMilestone() {
   return { approve, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Claim auto-release ─────────────────────────────────────────────────────────
+// -- Claim auto-release ---------------------------------------------------------
 export function useClaimAutoRelease() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -119,7 +119,7 @@ export function useClaimAutoRelease() {
   return { claim, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Open dispute ───────────────────────────────────────────────────────────────
+// -- Open dispute ---------------------------------------------------------------
 export function useOpenDispute() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -135,7 +135,7 @@ export function useOpenDispute() {
   return { openDispute, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Vote dispute ───────────────────────────────────────────────────────────────
+// -- Vote dispute ---------------------------------------------------------------
 export function useVoteDispute() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -151,7 +151,7 @@ export function useVoteDispute() {
   return { vote, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Cancel invoice ─────────────────────────────────────────────────────────────
+// -- Cancel invoice -------------------------------------------------------------
 export function useCancelInvoice() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })

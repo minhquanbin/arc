@@ -3,7 +3,7 @@ import { Providers } from "./providers"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Arc Invoice — Escrow & Arbitration on Arc",
+  title: "Arc Invoice -- Escrow & Arbitration on Arc",
   description: "Decentralized invoice platform with USDC escrow, milestone payments, NFT arbitrators, and on-chain job board.",
   icons: { icon: "/favicon.svg" },
 }

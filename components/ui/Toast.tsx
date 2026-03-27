@@ -13,8 +13,8 @@ export function ToastContainer({ toasts }: { toasts: Toast[] }) {
           key={t.id}
           className={`toast ${t.type === 'success' ? 'toast-success' : t.type === 'error' ? 'toast-error' : ''}`}
         >
-          {t.type === 'success' && '✓ '}
-          {t.type === 'error'   && '✗ '}
+          {t.type === 'success' && '[OK] '}
+          {t.type === 'error'   && '[X] '}
           {t.message}
         </div>
       ))}

@@ -57,7 +57,7 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
           <div style={{ fontSize: 13, fontWeight: 600 }}>{data.description}</div>
           <div className="row gap-8 mt-4">
             <span className="mono text-xs muted2">
-              {fmtDate(Number(data.startDate))} â†’ {fmtDate(Number(data.dueDate))}
+              {fmtDate(Number(data.startDate))} ' {fmtDate(Number(data.dueDate))}
             </span>
             {overdue && status === 0 && (
               <span className="badge badge-disputed" style={{ fontSize: 9 }}>OVERDUE</span>
@@ -93,7 +93,7 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
             variant="primary"
             size="sm"
             loading={submitting}
-            loadingText="Submittingâ€¦"
+            loadingText="Submitting"
             onClick={() => { submit(invoiceId, idx); setTimeout(onRefresh, 3000) }}
           >
             Submit milestone
@@ -107,16 +107,16 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
               variant="primary"
               size="sm"
               loading={approving}
-              loadingText="Approvingâ€¦"
+              loadingText="Approving"
               onClick={() => { approve(invoiceId, idx); setTimeout(onRefresh, 3000) }}
             >
-              âœ“ Approve &amp; Release
+              " Approve &amp; Release
             </TxButton>
             <TxButton
               variant="danger"
               size="sm"
               loading={disputing}
-              loadingText="Openingâ€¦"
+              loadingText="Opening"
               onClick={() => { openDispute(invoiceId, idx); setTimeout(onRefresh, 3000) }}
             >
               Open Dispute
@@ -130,7 +130,7 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
             variant="gold"
             size="sm"
             loading={claiming}
-            loadingText="Claimingâ€¦"
+            loadingText="Claiming"
             onClick={() => { claim(invoiceId, idx); setTimeout(onRefresh, 3000) }}
           >
             Claim (Auto-release)
@@ -143,7 +143,7 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
             variant="danger"
             size="sm"
             loading={disputing}
-            loadingText="Openingâ€¦"
+            loadingText="Opening"
             onClick={() => { openDispute(invoiceId, idx); setTimeout(onRefresh, 3000) }}
           >
             Open Dispute

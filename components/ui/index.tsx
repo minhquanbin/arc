@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { getTierIcon, getTierLabel, getTierColor } from '@/lib/utils'
 import { INVOICE_STATUS, MILESTONE_STATUS, type InvoiceStatus, type MilestoneStatus } from '@/lib/utils'
 
-// â”€â”€ TierBadge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" TierBadge """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function TierBadge({ tier }: { tier: number }) {
   const cls = tier === 2 ? 'badge-platinum' : tier === 1 ? 'badge-diamond' : 'badge-gold'
   return (
@@ -14,7 +14,7 @@ export function TierBadge({ tier }: { tier: number }) {
   )
 }
 
-// â”€â”€ InvoiceStatusBadge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" InvoiceStatusBadge """"""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   const map: Record<number, string> = {
     0: 'badge-created',
@@ -31,7 +31,7 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   )
 }
 
-// â”€â”€ MilestoneStatusBadge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" MilestoneStatusBadge """"""""""""""""""""""""""""""""""""""""""""""""""""""
 export function MilestoneStatusBadge({ status }: { status: MilestoneStatus }) {
   const map: Record<number, string> = {
     0: 'badge-pending',
@@ -48,7 +48,7 @@ export function MilestoneStatusBadge({ status }: { status: MilestoneStatus }) {
   )
 }
 
-// â”€â”€ Spinner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" Spinner """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function Spinner({ size = 24 }: { size?: number }) {
   return (
     <div
@@ -58,7 +58,7 @@ export function Spinner({ size = 24 }: { size?: number }) {
   )
 }
 
-// â”€â”€ TxButton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" TxButton """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 interface TxButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
   loadingText?: string
@@ -68,7 +68,7 @@ interface TxButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function TxButton({
   loading,
-  loadingText = 'Confirmingâ€¦',
+  loadingText = 'Confirming',
   variant = 'primary',
   size = 'md',
   children,
@@ -98,7 +98,7 @@ export function TxButton({
   )
 }
 
-// â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" Modal """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 interface ModalProps {
   open: boolean
   onClose: () => void
@@ -115,7 +115,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
         <div className="modal-title">
           <span>{title}</span>
           <button className="btn btn-ghost btn-icon" onClick={onClose}
-            style={{ fontSize: 16, color: 'var(--text3)' }}>âœ•</button>
+            style={{ fontSize: 16, color: 'var(--text3)' }}>-</button>
         </div>
         {children}
       </div>
@@ -123,7 +123,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
   )
 }
 
-// â”€â”€ Field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" Field """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 interface FieldProps {
   label: string
   hint?: string
@@ -143,7 +143,7 @@ export function Field({ label, hint, children, required }: FieldProps) {
   )
 }
 
-// â”€â”€ FeeBox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" FeeBox """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 interface FeeRow { label: string; value: string; color?: string; total?: boolean }
 
 export function FeeBox({ rows, title }: { rows: FeeRow[]; title?: string }) {
@@ -160,7 +160,7 @@ export function FeeBox({ rows, title }: { rows: FeeRow[]; title?: string }) {
   )
 }
 
-// â”€â”€ EmptyState â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" EmptyState """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function EmptyState({ icon, title, desc, action }: {
   icon?: string; title: string; desc?: string; action?: React.ReactNode
 }) {
@@ -174,7 +174,7 @@ export function EmptyState({ icon, title, desc, action }: {
   )
 }
 
-// â”€â”€ StatCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" StatCard """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function StatCard({ label, value, sub, color }: {
   label: string; value: string | number; sub?: string; color?: string
 }) {
@@ -187,7 +187,7 @@ export function StatCard({ label, value, sub, color }: {
   )
 }
 
-// â”€â”€ Tag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// "" Tag """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function Tag({ children }: { children: React.ReactNode }) {
   return (
     <span style={{

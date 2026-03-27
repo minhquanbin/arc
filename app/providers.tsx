@@ -1,25 +1,36 @@
-'use client'
+"use client"
 
-import { RainbowKitProvider, getDefaultConfig, darkTheme } from '@rainbow-me/rainbowkit'
-import '@rainbow-me/rainbowkit/styles.css'
-import { WagmiProvider } from 'wagmi'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { arcTestnet } from '@/lib/chains'
+import { RainbowKitProvider, getDefaultConfig, darkTheme } from "@rainbow-me/rainbowkit"
+import "@rainbow-me/rainbowkit/styles.css"
+import { WagmiProvider } from "wagmi"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { http } from "viem"
+import { arcTestnet } from "@/lib/chains"
 
 const config = getDefaultConfig({
-  appName: 'Arc Invoice',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'demo',
+  appName: "Arc Invoice",
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "demo",
   chains: [arcTestnet],
+  transports: {
+    [arcTestnet.id]: http("https://rpc.testnet.arc.network", {
+      batch: false,
+      timeout: 30_000,
+    }),
+  },
   ssr: true,
 })
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, staleTime: 10_000 },
+  },
+})
 
 const rkTheme = darkTheme({
-  accentColor: '#2de2b6',
-  accentColorForeground: '#080c14',
-  borderRadius: 'medium',
-  fontStack: 'system',
+  accentColor: "#2de2b6",
+  accentColorForeground: "#080c14",
+  borderRadius: "medium",
+  fontStack: "system",
 })
 
 export function Providers({ children }: { children: React.ReactNode }) {

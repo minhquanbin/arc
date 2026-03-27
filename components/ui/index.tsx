@@ -1,104 +1,61 @@
-'use client'
+"use client"
 
-import clsx from 'clsx'
-import { getTierIcon, getTierLabel, getTierColor } from '@/lib/utils'
-import { INVOICE_STATUS, MILESTONE_STATUS, type InvoiceStatus, type MilestoneStatus } from '@/lib/utils'
+import clsx from "clsx"
 
-// "" TierBadge """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function TierBadge({ tier }: { tier: number }) {
-  const cls = tier === 2 ? 'badge-platinum' : tier === 1 ? 'badge-diamond' : 'badge-gold'
-  return (
-    <span className={`badge ${cls}`}>
-      {getTierIcon(tier)} {getTierLabel(tier)}
-    </span>
-  )
+  const cls = tier === 2 ? "badge-platinum" : tier === 1 ? "badge-diamond" : "badge-gold"
+  const labels = ["Gold", "Diamond", "Platinum"]
+  return <span className={"badge " + cls}>{labels[tier] ?? "Unknown"}</span>
 }
 
-// "" InvoiceStatusBadge """"""""""""""""""""""""""""""""""""""""""""""""""""""""
-export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
-  const map: Record<number, string> = {
-    0: 'badge-created',
-    1: 'badge-active',
-    2: 'badge-done',
-    3: 'badge-cancelled',
-    4: 'badge-disputed',
+export function InvoiceStatusBadge({ status }: { status: number }) {
+  const map: Record<number, [string, string]> = {
+    0: ["badge-created", "CREATED"],
+    1: ["badge-active", "ACTIVE"],
+    2: ["badge-done", "COMPLETED"],
+    3: ["badge-cancelled", "CANCELLED"],
+    4: ["badge-disputed", "DISPUTED"],
   }
-  return (
-    <span className={`badge ${map[status] ?? 'badge-done'}`}>
-      <span className="badge-dot" />
-      {INVOICE_STATUS[status] ?? 'Unknown'}
-    </span>
-  )
+  const [cls, label] = map[status] ?? ["badge-done", "UNKNOWN"]
+  return <span className={"badge " + cls}><span className="badge-dot" />{label}</span>
 }
 
-// "" MilestoneStatusBadge """"""""""""""""""""""""""""""""""""""""""""""""""""""
-export function MilestoneStatusBadge({ status }: { status: MilestoneStatus }) {
-  const map: Record<number, string> = {
-    0: 'badge-pending',
-    1: 'badge-submitted',
-    2: 'badge-active',
-    3: 'badge-resolved',
-    4: 'badge-disputed',
-    5: 'badge-done',
+export function MilestoneStatusBadge({ status }: { status: number }) {
+  const map: Record<number, [string, string]> = {
+    0: ["badge-pending", "PENDING"],
+    1: ["badge-submitted", "SUBMITTED"],
+    2: ["badge-active", "APPROVED"],
+    3: ["badge-resolved", "AUTO-RELEASED"],
+    4: ["badge-disputed", "DISPUTED"],
+    5: ["badge-done", "RESOLVED"],
   }
-  return (
-    <span className={`badge ${map[status] ?? 'badge-done'}`}>
-      {MILESTONE_STATUS[status] ?? 'Unknown'}
-    </span>
-  )
+  const [cls, label] = map[status] ?? ["badge-done", "UNKNOWN"]
+  return <span className={"badge " + cls}>{label}</span>
 }
 
-// "" Spinner """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function Spinner({ size = 24 }: { size?: number }) {
-  return (
-    <div
-      className="spinner"
-      style={{ width: size, height: size }}
-    />
-  )
+  return <div className="spinner" style={{ width: size, height: size }} />
 }
 
-// "" TxButton """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 interface TxButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
   loadingText?: string
-  variant?: 'primary' | 'gold' | 'diamond' | 'platinum' | 'ghost' | 'danger'
-  size?: 'sm' | 'md' | 'lg'
+  variant?: "primary" | "gold" | "diamond" | "platinum" | "ghost" | "danger"
+  size?: "sm" | "md" | "lg"
 }
 
-export function TxButton({
-  loading,
-  loadingText = 'Confirming',
-  variant = 'primary',
-  size = 'md',
-  children,
-  className,
-  disabled,
-  ...props
-}: TxButtonProps) {
+export function TxButton({ loading, loadingText = "Confirming...", variant = "primary", size = "md", children, className, disabled, ...props }: TxButtonProps) {
   return (
     <button
-      className={clsx(
-        'btn',
-        `btn-${variant}`,
-        size === 'sm' && 'btn-sm',
-        size === 'lg' && 'btn-lg',
-        className,
-      )}
+      className={clsx("btn", "btn-" + variant, size === "sm" && "btn-sm", size === "lg" && "btn-lg", className)}
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? (
-        <>
-          <Spinner size={14} />
-          {loadingText}
-        </>
-      ) : children}
+      {loading ? <><Spinner size={14} />{loadingText}</> : children}
     </button>
   )
 }
 
-// "" Modal """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 interface ModalProps {
   open: boolean
   onClose: () => void
@@ -114,8 +71,16 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
       <div className="modal" style={{ maxWidth }} onClick={e => e.stopPropagation()}>
         <div className="modal-title">
           <span>{title}</span>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}
-            style={{ fontSize: 16, color: 'var(--text3)' }}>-</button>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "var(--text3)", fontSize: 16, padding: "2px 6px",
+              lineHeight: 1, fontFamily: "var(--mono)",
+            }}
+          >
+            [X]
+          </button>
         </div>
         {children}
       </div>
@@ -123,19 +88,15 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
   )
 }
 
-// "" Field """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 interface FieldProps {
-  label: string
-  hint?: string
-  children: React.ReactNode
-  required?: boolean
+  label: string; hint?: string; children: React.ReactNode; required?: boolean
 }
 
 export function Field({ label, hint, children, required }: FieldProps) {
   return (
     <div className="field">
       <label className="field-label">
-        {label}{required && <span style={{ color: 'var(--coral)' }}> *</span>}
+        {label}{required && <span style={{ color: "var(--coral)" }}> *</span>}
       </label>
       {children}
       {hint && <p className="field-hint">{hint}</p>}
@@ -143,7 +104,6 @@ export function Field({ label, hint, children, required }: FieldProps) {
   )
 }
 
-// "" FeeBox """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 interface FeeRow { label: string; value: string; color?: string; total?: boolean }
 
 export function FeeBox({ rows, title }: { rows: FeeRow[]; title?: string }) {
@@ -151,16 +111,15 @@ export function FeeBox({ rows, title }: { rows: FeeRow[]; title?: string }) {
     <div className="fee-box">
       {title && <div className="section-label mb-8">{title}</div>}
       {rows.map((r, i) => (
-        <div key={i} className={clsx('fee-row', r.total && 'fee-row-total')}>
+        <div key={i} className={clsx("fee-row", r.total && "fee-row-total")}>
           <span className="fee-muted">{r.label}</span>
-          <span className="mono" style={{ color: r.color ?? 'var(--text)' }}>{r.value}</span>
+          <span className="mono" style={{ color: r.color ?? "var(--text)" }}>{r.value}</span>
         </div>
       ))}
     </div>
   )
 }
 
-// "" EmptyState """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function EmptyState({ icon, title, desc, action }: {
   icon?: string; title: string; desc?: string; action?: React.ReactNode
 }) {
@@ -174,26 +133,26 @@ export function EmptyState({ icon, title, desc, action }: {
   )
 }
 
-// "" StatCard """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function StatCard({ label, value, sub, color }: {
   label: string; value: string | number; sub?: string; color?: string
 }) {
   return (
     <div className="stat-card">
       <div className="stat-label">{label}</div>
-      <div className="stat-value" style={{ color: color ?? 'var(--text)' }}>{value}</div>
+      <div className="stat-value" style={{ color: color ?? "var(--text)" }}>{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   )
 }
 
-// "" Tag """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 export function Tag({ children }: { children: React.ReactNode }) {
   return (
     <span style={{
-      fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)',
-      background: 'var(--bg3)', border: '1px solid var(--border)',
-      padding: '2px 7px', borderRadius: 4,
-    }}>{children}</span>
+      fontSize: 10, fontFamily: "var(--mono)", color: "var(--text3)",
+      background: "var(--bg3)", border: "1px solid var(--border)",
+      padding: "2px 7px", borderRadius: 4,
+    }}>
+      {children}
+    </span>
   )
 }

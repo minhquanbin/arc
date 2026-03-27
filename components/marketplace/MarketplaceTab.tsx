@@ -308,7 +308,7 @@ export function MarketplaceTab() {
       <div className="row mb-8">
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>Rao váº·t</h2>
-          <p className="muted mt-4 text-sm">On-chain job board Â· Link X &amp; Gmail Â· 3 listing tiers</p>
+          <p className="muted mt-4 text-sm">On-chain job board | Link X and Gmail | 3 listing tiers</p>
         </div>
         <div className="row gap-8 ml-auto">
           {!hasProfile ? (

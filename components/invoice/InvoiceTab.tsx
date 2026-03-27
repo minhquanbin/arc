@@ -278,7 +278,7 @@ export function InvoiceTab() {
       <div className="row mb-8">
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>Invoices</h2>
-          <p className="muted mt-4 text-sm">USDC escrow Â· Milestone payments Â· Auto-release in 7 days</p>
+          <p className="muted mt-4 text-sm">USDC escrow - Milestone payments - Auto-release after 7 days</p>
         </div>
         <TxButton variant="primary" className="ml-auto" onClick={() => setView('create')}>
           + New Invoice
@@ -287,9 +287,9 @@ export function InvoiceTab() {
 
       {/* Stats */}
       <div className="stats-grid">
-        <StatCard label="Total USDC locked" value="â€”" sub="Connect wallet" />
-        <StatCard label="Active invoices" value="â€”" sub="As client or vendor" />
-        <StatCard label="Completed" value="â€”" sub="All time" />
+        <StatCard label="Total USDC locked" value="--" sub="Connect wallet" />
+        <StatCard label="Active invoices" value="--" sub="As client or vendor" />
+        <StatCard label="Completed" value="--" sub="All time" />
       </div>
 
       {/* Invoice list */}

@@ -159,7 +159,7 @@ export function ArbitratorTab() {
       <div className="row mb-8">
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>TrÃƒÂ¡Ã‚Â»Ã‚Âng tÃƒÆ’Ã‚Â i</h2>
-          <p className="muted mt-4 text-sm">Max 10 NFTs Ãƒâ€šÃ‚Â· Unanimous voting Ãƒâ€šÃ‚Â· Non-transferable during disputes</p>
+          <p className="muted mt-4 text-sm">Max 10 NFTs globally | Unanimous voting | Non-transferable during disputes</p>
         </div>
         <div className="chain-pill ml-auto">
           <span className="chain-dot" />

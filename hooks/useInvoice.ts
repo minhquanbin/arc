@@ -47,7 +47,7 @@ export function useCreateInvoice() {
     writeContract({
       address: CONTRACTS.INVOICE_ESCROW,
       abi: INVOICE_ESCROW_ABI,
-      functionName: 'createInvoice',
+      functionName: 'createInvoice', gas: 800000n,
       args: [params.vendor, params.arbitrators, params.content, descs, amounts, starts, dues],
     })
   }
@@ -64,7 +64,7 @@ export function useAcceptInvoice() {
     writeContract({
       address: CONTRACTS.INVOICE_ESCROW,
       abi: INVOICE_ESCROW_ABI,
-      functionName: 'acceptInvoice',
+      functionName: 'acceptInvoice', gas: 300000n,
       args: [invoiceId],
     })
   }
@@ -80,7 +80,7 @@ export function useSubmitMilestone() {
     writeContract({
       address: CONTRACTS.INVOICE_ESCROW,
       abi: INVOICE_ESCROW_ABI,
-      functionName: 'submitMilestone',
+      functionName: 'submitMilestone', gas: 200000n,
       args: [invoiceId, milestoneIndex],
     })
   }
@@ -96,7 +96,7 @@ export function useApproveMilestone() {
     writeContract({
       address: CONTRACTS.INVOICE_ESCROW,
       abi: INVOICE_ESCROW_ABI,
-      functionName: 'approveMilestone',
+      functionName: 'approveMilestone', gas: 300000n,
       args: [invoiceId, milestoneIndex],
     })
   }
@@ -112,7 +112,7 @@ export function useClaimAutoRelease() {
     writeContract({
       address: CONTRACTS.INVOICE_ESCROW,
       abi: INVOICE_ESCROW_ABI,
-      functionName: 'claimMilestoneAutoRelease',
+      functionName: 'claimMilestoneAutoRelease', gas: 300000n,
       args: [invoiceId, milestoneIndex],
     })
   }
@@ -128,7 +128,7 @@ export function useOpenDispute() {
     writeContract({
       address: CONTRACTS.INVOICE_ESCROW,
       abi: INVOICE_ESCROW_ABI,
-      functionName: 'openDispute',
+      functionName: 'openDispute', gas: 200000n,
       args: [invoiceId, milestoneIndex],
     })
   }
@@ -144,7 +144,7 @@ export function useVoteDispute() {
     writeContract({
       address: CONTRACTS.INVOICE_ESCROW,
       abi: INVOICE_ESCROW_ABI,
-      functionName: 'voteDispute',
+      functionName: 'voteDispute', gas: 400000n,
       args: [invoiceId, milestoneIndex, favorClient],
     })
   }
@@ -160,7 +160,7 @@ export function useCancelInvoice() {
     writeContract({
       address: CONTRACTS.INVOICE_ESCROW,
       abi: INVOICE_ESCROW_ABI,
-      functionName: 'cancelInvoice',
+      functionName: 'cancelInvoice', gas: 200000n,
       args: [invoiceId],
     })
   }

@@ -95,7 +95,7 @@ export function useRegister() {
     writeContract({
       address: CONTRACTS.MARKETPLACE,
       abi: MARKETPLACE_ABI,
-      functionName: 'register',
+      functionName: 'register', gas: 300000n,
       args: [params.userType, params.name, params.xHandle, params.gmail, params.bio],
     })
   }
@@ -111,7 +111,7 @@ export function useUpdateProfile() {
     writeContract({
       address: CONTRACTS.MARKETPLACE,
       abi: MARKETPLACE_ABI,
-      functionName: 'updateProfile',
+      functionName: 'updateProfile', gas: 200000n,
       args: [name, xHandle, gmail, bio],
     })
   }
@@ -134,7 +134,7 @@ export function usePostListing() {
     writeContract({
       address: CONTRACTS.MARKETPLACE,
       abi: MARKETPLACE_ABI,
-      functionName: 'postListing',
+      functionName: 'postListing', gas: 400000n,
       args: [
         params.tier,
         params.title,
@@ -157,7 +157,7 @@ export function useApplyToListing() {
     writeContract({
       address: CONTRACTS.MARKETPLACE,
       abi: MARKETPLACE_ABI,
-      functionName: 'applyToListing',
+      functionName: 'applyToListing', gas: 200000n,
       args: [listingId, message],
     })
   }

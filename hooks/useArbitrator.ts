@@ -1,55 +1,56 @@
-'use client'
+"use client"
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { useAccount } from 'wagmi'
-import { CONTRACTS, ARBITRATOR_NFT_ABI } from '@/lib/contracts'
-import type { Address } from 'viem'
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount } from "wagmi"
+import { CONTRACTS, ARBITRATOR_NFT_ABI } from "@/lib/contracts"
+import type { Address } from "viem"
 
-// ── Read current user's arbitrator status ────────────────────────────────────
+const GAS_LIMIT = 500000n
+
 export function useMyArbitratorStats() {
   const { address } = useAccount()
   return useReadContract({
     address: CONTRACTS.ARBITRATOR_NFT,
     abi: ARBITRATOR_NFT_ABI,
-    functionName: 'getStats',
+    functionName: "getStats",
     args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 15_000 },
+    query: {
+      enabled: !!address,
+      staleTime: 30000,
+      retry: 1,
+    },
   })
 }
 
-// ── Check if any address is an arbitrator ────────────────────────────────────
 export function useIsArbitrator(addr: Address | undefined) {
   return useReadContract({
     address: CONTRACTS.ARBITRATOR_NFT,
     abi: ARBITRATOR_NFT_ABI,
-    functionName: 'isArbitrator',
+    functionName: "isArbitrator",
     args: addr ? [addr] : undefined,
-    query: { enabled: !!addr },
+    query: { enabled: !!addr, staleTime: 30000 },
   })
 }
 
-// ── Get tier of any address ───────────────────────────────────────────────────
 export function useArbitratorTier(addr: Address | undefined) {
   return useReadContract({
     address: CONTRACTS.ARBITRATOR_NFT,
     abi: ARBITRATOR_NFT_ABI,
-    functionName: 'getTier',
+    functionName: "getTier",
     args: addr ? [addr] : undefined,
-    query: { enabled: !!addr },
+    query: { enabled: !!addr, staleTime: 30000 },
   })
 }
 
-// ── Total minted ──────────────────────────────────────────────────────────────
 export function useTotalMinted() {
   return useReadContract({
     address: CONTRACTS.ARBITRATOR_NFT,
     abi: ARBITRATOR_NFT_ABI,
-    functionName: 'totalMinted',
-    query: { refetchInterval: 30_000 },
+    functionName: "totalMinted",
+    query: { staleTime: 60000, retry: 1 },
   })
 }
 
-// ── Mint Gold NFT ─────────────────────────────────────────────────────────────
 export function useMintGold() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -58,13 +59,13 @@ export function useMintGold() {
     writeContract({
       address: CONTRACTS.ARBITRATOR_NFT,
       abi: ARBITRATOR_NFT_ABI,
-      functionName: 'mintGold',
+      functionName: "mintGold",
+      gas: GAS_LIMIT,
     })
   }
   return { mintGold, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Upgrade to Diamond ────────────────────────────────────────────────────────
 export function useUpgradeToDiamond() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -73,13 +74,13 @@ export function useUpgradeToDiamond() {
     writeContract({
       address: CONTRACTS.ARBITRATOR_NFT,
       abi: ARBITRATOR_NFT_ABI,
-      functionName: 'upgradeToDiamond',
+      functionName: "upgradeToDiamond",
+      gas: GAS_LIMIT,
     })
   }
   return { upgrade, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// ── Upgrade to Platinum ───────────────────────────────────────────────────────
 export function useUpgradeToPlatinum() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -88,7 +89,8 @@ export function useUpgradeToPlatinum() {
     writeContract({
       address: CONTRACTS.ARBITRATOR_NFT,
       abi: ARBITRATOR_NFT_ABI,
-      functionName: 'upgradeToPlatinum',
+      functionName: "upgradeToPlatinum",
+      gas: GAS_LIMIT,
     })
   }
   return { upgrade, hash, isPending: isPending || isConfirming, isSuccess, error }

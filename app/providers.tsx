@@ -1,27 +1,36 @@
 "use client"
 
-import { RainbowKitProvider, getDefaultConfig, darkTheme } from "@rainbow-me/rainbowkit"
+import { RainbowKitProvider, darkTheme, connectorsForWallets } from "@rainbow-me/rainbowkit"
+import { metaMaskWallet, walletConnectWallet, coinbaseWallet } from "@rainbow-me/rainbowkit/wallets"
 import "@rainbow-me/rainbowkit/styles.css"
-import { WagmiProvider } from "wagmi"
+import { WagmiProvider, createConfig } from "wagmi"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { http } from "viem"
 import { arcTestnet } from "@/lib/chains"
 
-const ARC_RPC = "https://rpc.testnet.arc.network"
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: "Recommended",
+      wallets: [metaMaskWallet, coinbaseWallet, walletConnectWallet],
+    },
+  ],
+  {
+    appName: "Arc Invoice",
+    projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "demo",
+  }
+)
 
-const config = getDefaultConfig({
-  appName: "Arc Invoice",
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "demo",
+const config = createConfig({
   chains: [arcTestnet],
+  connectors,
   transports: {
-    [arcTestnet.id]: http(ARC_RPC, {
+    [arcTestnet.id]: http("https://rpc.testnet.arc.network", {
       batch: false,
       timeout: 20000,
     }),
   },
-  batch: {
-    multicall: false,
-  },
+  batch: { multicall: false },
   pollingInterval: 0,
   ssr: true,
 })
@@ -30,10 +39,12 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 0,
-      staleTime: 20000,
+      staleTime: 60000,
+      gcTime: 60000,
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       refetchOnReconnect: false,
+      networkMode: "always",
     },
   },
 })

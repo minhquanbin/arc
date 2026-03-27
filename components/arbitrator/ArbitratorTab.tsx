@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAccount } from "wagmi"
-import { fmtUSDC, parseUSDC } from "@/lib/utils"
+import { parseUSDC } from "@/lib/utils"
 import { TierBadge, TxButton, StatCard, FeeBox, Modal } from "@/components/ui"
 import { useMyArbitratorStats, useTotalMinted, useMintGold, useUpgradeToDiamond, useUpgradeToPlatinum } from "@/hooks/useArbitrator"
 import { useApproveUSDC } from "@/hooks/useApproveUSDC"
@@ -10,7 +10,7 @@ import { CONTRACTS } from "@/lib/contracts"
 
 const TIERS = [
   {
-    id: 0, key: "gold", icon: "GOLD", title: "Gold Arbitrator",
+    id: 0, key: "gold", title: "Gold Arbitrator",
     color: "var(--gold)", cls: "nft-gold",
     mintPrice: "200 USDC", upgradePriceWei: parseUSDC("200"),
     feePct: "0.5%",
@@ -18,7 +18,7 @@ const TIERS = [
     reqs: [] as string[],
   },
   {
-    id: 1, key: "diamond", icon: "DIAMOND", title: "Diamond Arbitrator",
+    id: 1, key: "diamond", title: "Diamond Arbitrator",
     color: "var(--diamond)", cls: "nft-diamond",
     mintPrice: "1,000 USDC upgrade", upgradePriceWei: parseUSDC("1000"),
     feePct: "0.7%",
@@ -26,7 +26,7 @@ const TIERS = [
     reqs: ["Hold Gold NFT", "10+ invoice completions"],
   },
   {
-    id: 2, key: "platinum", icon: "PLATINUM", title: "Platinum Arbitrator",
+    id: 2, key: "platinum", title: "Platinum Arbitrator",
     color: "var(--platinum)", cls: "nft-platinum",
     mintPrice: "5,000 USDC upgrade", upgradePriceWei: parseUSDC("5000"),
     feePct: "1.0%",
@@ -35,37 +35,101 @@ const TIERS = [
   },
 ]
 
+type Step = "idle" | "approving" | "approved" | "minting" | "done" | "error"
+
 function MintModal({ open, onClose, targetTier, currentTier, stats }: {
-  open: boolean; onClose: () => void;
-  targetTier: typeof TIERS[0];
-  currentTier: number | undefined;
-  stats: any;
+  open: boolean
+  onClose: () => void
+  targetTier: typeof TIERS[0]
+  currentTier: number | undefined
+  stats: any
 }) {
+  const [step, setStep] = useState<Step>("idle")
+  const [errorMsg, setErrorMsg] = useState("")
+
   const priceWei = targetTier.upgradePriceWei
-  const { needsApproval, approve, isApproving, isApproved } = useApproveUSDC(CONTRACTS.ARBITRATOR_NFT, priceWei)
-  const { mintGold, isPending: mintPending, isSuccess: mintDone } = useMintGold()
+
+  const {
+    needsApproval,
+    approve,
+    isApproving,
+    isApproved,
+    refetchAllowance,
+  } = useApproveUSDC(CONTRACTS.ARBITRATOR_NFT, priceWei)
+
+  const { mintGold, isPending: mintPending, isSuccess: mintDone, error: mintErr } = useMintGold()
   const { upgrade: upgradeDiamond, isPending: upDPending, isSuccess: upDDone } = useUpgradeToDiamond()
   const { upgrade: upgradePlatinum, isPending: upPPending, isSuccess: upPDone } = useUpgradeToPlatinum()
 
-  const isPending = mintPending || upDPending || upPPending
+  const isMinting = mintPending || upDPending || upPPending
   const isSuccess = mintDone || upDDone || upPDone
 
+  // Step 2: after approve confirmed, trigger mint
   useEffect(() => {
-    if (isApproved) {
-      if (targetTier.id === 0) mintGold()
-      else if (targetTier.id === 1) upgradeDiamond()
-      else upgradePlatinum()
+    if (isApproved && step === "approving") {
+      setStep("approved")
+      refetchAllowance().then(() => {
+        setStep("minting")
+        doMint()
+      })
     }
   }, [isApproved])
 
-  const handleAction = () => {
-    if (needsApproval) { approve(); return }
-    if (targetTier.id === 0) mintGold()
-    else if (targetTier.id === 1) upgradeDiamond()
-    else upgradePlatinum()
+  // Step 3: done
+  useEffect(() => {
+    if (isSuccess) {
+      setStep("done")
+      setTimeout(onClose, 1500)
+    }
+  }, [isSuccess])
+
+  useEffect(() => {
+    if (mintErr) {
+      setErrorMsg((mintErr as Error)?.message?.slice(0, 150) ?? "Transaction failed")
+      setStep("error")
+    }
+  }, [mintErr])
+
+  const doMint = useCallback(() => {
+    try {
+      if (targetTier.id === 0) mintGold()
+      else if (targetTier.id === 1) upgradeDiamond()
+      else upgradePlatinum()
+    } catch (e) {
+      setErrorMsg((e as Error)?.message?.slice(0, 150) ?? "Transaction failed")
+      setStep("error")
+    }
+  }, [targetTier.id])
+
+  const handleClick = async () => {
+    setErrorMsg("")
+    try {
+      if (needsApproval) {
+        setStep("approving")
+        await approve()
+        // isApproved effect will trigger mint
+      } else {
+        setStep("minting")
+        doMint()
+      }
+    } catch (e) {
+      setErrorMsg((e as Error)?.message?.slice(0, 150) ?? "Transaction failed")
+      setStep("idle")
+    }
   }
 
-  if (isSuccess) { onClose() }
+  const btnLabel = () => {
+    if (step === "approving" || isApproving) return "Step 1/2: Approving USDC..."
+    if (step === "approved") return "Approved! Starting mint..."
+    if (step === "minting" || isMinting) return "Step 2/2: Minting NFT..."
+    if (step === "done") return "Success!"
+    if (needsApproval) return "Step 1/2: Approve " + targetTier.mintPrice
+    return targetTier.id === 0
+      ? "Mint Gold -- " + targetTier.mintPrice
+      : "Upgrade -- " + targetTier.mintPrice
+  }
+
+  const isLoading = step === "approving" || step === "approved" || step === "minting" || isApproving || isMinting
 
   return (
     <Modal open={open} onClose={onClose} title={targetTier.id === 0 ? "Become an Arbitrator" : "Upgrade Tier"}>
@@ -76,26 +140,29 @@ function MintModal({ open, onClose, targetTier, currentTier, stats }: {
         <div className="muted text-sm mb-16">{targetTier.req}</div>
       </div>
 
+      {needsApproval && step === "idle" && (
+        <div className="fee-box mb-12" style={{ borderColor: "var(--gold-bd)", background: "var(--gold-bg)" }}>
+          <div className="text-sm" style={{ color: "var(--gold)" }}>
+            2-step process: First approve USDC, then mint NFT.
+            MetaMask will show 2 popups.
+          </div>
+        </div>
+      )}
+
       {targetTier.reqs.length > 0 && (
         <div className="fee-box mb-16">
           <div className="section-label mb-8">Requirements</div>
           {targetTier.reqs.map((r, i) => {
-            const met = i === 0 ? true :
-              i === 1 ? (stats?.[0] ?? 0n) >= (targetTier.id === 1 ? 10n : 20n) :
-              (stats?.[1] ?? 0n) >= 5n
+            const met = i === 0 ? true
+              : i === 1 ? (stats?.[0] ?? 0n) >= (targetTier.id === 1 ? 10n : 20n)
+              : (stats?.[1] ?? 0n) >= 5n
             return (
               <div key={i} className="fee-row">
                 <span className={met ? "text-teal" : "muted"}>
-                  {met ? "[x]" : "[ ]"} {r}
+                  {met ? "[OK]" : "[ ]"} {r}
                 </span>
-                {i === 1 && stats && (
-                  <span className="mono text-xs muted2">
-                    {String(stats[0])}/{targetTier.id === 1 ? "10" : "20"}
-                  </span>
-                )}
-                {i === 2 && stats && (
-                  <span className="mono text-xs muted2">{String(stats[1])}/5</span>
-                )}
+                {i === 1 && stats && <span className="mono text-xs muted2">{String(stats[0])}/{targetTier.id === 1 ? "10" : "20"}</span>}
+                {i === 2 && stats && <span className="mono text-xs muted2">{String(stats[1])}/5</span>}
               </div>
             )
           })}
@@ -104,23 +171,33 @@ function MintModal({ open, onClose, targetTier, currentTier, stats }: {
 
       <FeeBox rows={[
         { label: targetTier.id === 0 ? "Mint price" : "Upgrade fee", value: targetTier.mintPrice, color: targetTier.color, total: true },
-        { label: "Fee earned per invoice", value: targetTier.feePct + " of each milestone", color: "var(--teal)" },
-        { label: "Dispute fee", value: "5% of milestone (paid by loser)", color: "var(--text2)" },
+        { label: "Fee per invoice milestone", value: targetTier.feePct, color: "var(--teal)" },
+        { label: "Dispute fee (paid by loser)", value: "5% of milestone (min 50 USDC)" },
       ]} />
 
+      {errorMsg && (
+        <div className="mt-12" style={{ padding: "8px 12px", background: "var(--coral-bg)", borderRadius: 8, border: "1px solid var(--coral-bd)", fontSize: 12, color: "var(--coral)" }}>
+          Error: {errorMsg}
+        </div>
+      )}
+
+      {step === "done" && (
+        <div className="mt-12" style={{ padding: "8px 12px", background: "var(--teal-bg)", borderRadius: 8, border: "1px solid var(--teal-bd)", fontSize: 12, color: "var(--teal)" }}>
+          NFT minted successfully!
+        </div>
+      )}
+
       <div className="row gap-8 mt-16">
-        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={isLoading}>Cancel</button>
         <TxButton
           variant={targetTier.id === 0 ? "gold" : targetTier.id === 1 ? "diamond" : "platinum"}
           className="ml-auto"
-          loading={isApproving || isPending}
-          loadingText={isApproving ? "Approving USDC..." : "Confirming..."}
-          onClick={handleAction}
+          loading={isLoading}
+          loadingText={btnLabel()}
+          disabled={step === "done"}
+          onClick={handleClick}
         >
-          {needsApproval
-            ? "Approve " + targetTier.mintPrice
-            : targetTier.id === 0 ? "Mint Gold -- " + targetTier.mintPrice
-            : "Upgrade -- " + targetTier.mintPrice}
+          {btnLabel()}
         </TxButton>
       </div>
     </Modal>
@@ -129,7 +206,7 @@ function MintModal({ open, onClose, targetTier, currentTier, stats }: {
 
 export function ArbitratorTab() {
   const { address } = useAccount()
-  const { data: statsData } = useMyArbitratorStats()
+  const { data: statsData, refetch: refetchStats } = useMyArbitratorStats()
   const { data: totalMinted } = useTotalMinted()
   const [mintModal, setMintModal] = useState<typeof TIERS[0] | null>(null)
 
@@ -137,7 +214,10 @@ export function ArbitratorTab() {
   const isArbitrator = myTier !== undefined && myTier !== 0xff && myTier < 3
   const myStats = statsData
 
-  const upgradeTarget = !isArbitrator ? TIERS[0] : myTier === 0 ? TIERS[1] : myTier === 1 ? TIERS[2] : null
+  const upgradeTarget = !isArbitrator ? TIERS[0]
+    : myTier === 0 ? TIERS[1]
+    : myTier === 1 ? TIERS[2]
+    : null
 
   return (
     <div className="col gap-16 animate-in">
@@ -153,7 +233,9 @@ export function ArbitratorTab() {
       </div>
 
       {address && isArbitrator && myStats && (
-        <div className="card" style={{ border: "1px solid " + (myTier === 2 ? "var(--platinum-bd)" : myTier === 1 ? "var(--diamond-bd)" : "var(--gold-bd)") }}>
+        <div className="card" style={{
+          border: "1px solid " + (myTier === 2 ? "var(--platinum-bd)" : myTier === 1 ? "var(--diamond-bd)" : "var(--gold-bd)")
+        }}>
           <div className="row gap-12 mb-12">
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 700 }}>{TIERS[myTier]?.title}</div>
@@ -164,11 +246,16 @@ export function ArbitratorTab() {
           <div className="stats-grid">
             <StatCard label="Invoices" value={String(myStats[0])} sub="Completed" />
             <StatCard label="Disputes resolved" value={String(myStats[1])} />
-            <StatCard label="Active disputes" value={String(myStats[2])} color={Number(myStats[2]) > 0 ? "var(--coral)" : undefined} />
+            <StatCard label="Active disputes" value={String(myStats[2])}
+              color={Number(myStats[2]) > 0 ? "var(--coral)" : undefined} />
           </div>
           {upgradeTarget && (
             <div className="mt-12">
-              <TxButton variant={myTier === 0 ? "diamond" : "platinum"} size="sm" onClick={() => setMintModal(upgradeTarget)}>
+              <TxButton
+                variant={myTier === 0 ? "diamond" : "platinum"}
+                size="sm"
+                onClick={() => setMintModal(upgradeTarget)}
+              >
                 Upgrade to {upgradeTarget.title}
               </TxButton>
             </div>
@@ -179,7 +266,9 @@ export function ArbitratorTab() {
       <div className="grid-3">
         {TIERS.map(t => (
           <div key={t.id} className={"nft-card " + t.cls}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: t.color, letterSpacing: 2, marginBottom: 8 }}>{t.icon}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: t.color, letterSpacing: 2, marginBottom: 8, fontFamily: "var(--mono)" }}>
+              {t.key.toUpperCase()}
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: t.color, marginBottom: 4 }}>{t.title}</div>
             <div className="mono text-xs muted2 mb-12">{t.mintPrice}</div>
             <div style={{ fontSize: 11, color: "var(--text2)", lineHeight: 1.6, marginBottom: 12 }}>{t.req}</div>
@@ -196,11 +285,15 @@ export function ArbitratorTab() {
       </div>
 
       {!isArbitrator && (
-        <div className="card" style={{ border: "1px solid var(--gold-bd)", background: "var(--gold-bg)", textAlign: "center", padding: 32 }}>
+        <div className="card" style={{
+          border: "1px solid var(--gold-bd)",
+          background: "var(--gold-bg)",
+          textAlign: "center",
+          padding: 32,
+        }}>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Become an Arbitrator</div>
           <p className="muted text-sm mb-16">
             Join as a Gold arbitrator for 200 USDC. Earn fees on every invoice you are named on.
-            Work toward Diamond and Platinum for higher earnings.
           </p>
           <TxButton variant="gold" onClick={() => setMintModal(TIERS[0])}>
             Mint Gold NFT -- 200 USDC
@@ -212,12 +305,18 @@ export function ArbitratorTab() {
         { label: "Gold (0.5%) per milestone, always earned when named on invoice", value: "Always active", color: "var(--gold)" },
         { label: "Diamond (0.7%) per milestone", value: "Always active", color: "var(--diamond)" },
         { label: "Platinum (1.0%) per milestone", value: "Always active", color: "var(--platinum)" },
-        { label: "Dispute fee -- 5% of milestone (min 50 USDC), paid by loser", value: "On dispute", color: "var(--coral)" },
+        { label: "Dispute fee: 5% of milestone (min 50 USDC), paid by loser", value: "On dispute", color: "var(--coral)" },
         { label: "Unanimous vote required -- all arbitrators must agree", value: "No majority voting" },
       ]} />
 
       {mintModal && (
-        <MintModal open={!!mintModal} onClose={() => setMintModal(null)} targetTier={mintModal} currentTier={myTier} stats={myStats} />
+        <MintModal
+          open={!!mintModal}
+          onClose={() => { setMintModal(null); refetchStats() }}
+          targetTier={mintModal}
+          currentTier={myTier}
+          stats={myStats}
+        />
       )}
     </div>
   )

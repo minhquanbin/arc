@@ -1,7 +1,7 @@
 import { formatUnits, parseUnits } from 'viem'
 
 // Arc USDC uses 18 decimals
-export const USDC_DECIMALS = 18
+export const USDC_DECIMALS = 6
 
 export function fmtUSDC(wei: bigint): string {
   const n = parseFloat(formatUnits(wei, USDC_DECIMALS))
@@ -39,7 +39,7 @@ export function computeDisputeDeposit(totalWei: bigint): bigint {
 
 // Tier helpers
 export const TIER_LABEL = ['Gold', 'Diamond', 'Platinum'] as const
-export const TIER_ICON  = ['🥇', '💎', '💠'] as const
+export const TIER_ICON  = ['Ã°Å¸Â¥â€¡', 'Ã°Å¸â€™Å½', 'Ã°Å¸â€™Â '] as const
 export const TIER_COLOR = ['var(--gold)', 'var(--diamond)', 'var(--platinum)'] as const
 export const TIER_FEE_BPS = [50, 70, 100] as const // 0.5%, 0.7%, 1%
 

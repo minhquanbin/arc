@@ -25,9 +25,9 @@ contract ArbitratorNFT is ERC1155, Ownable, ReentrancyGuard {
     uint256 public constant DIAMOND  = 1;
     uint256 public constant PLATINUM = 2;
     uint256 public constant MAX_TOTAL_NFTS    = 10;
-    uint256 public constant GOLD_PRICE        = 200e18;
-    uint256 public constant DIAMOND_PRICE     = 1_000e18;
-    uint256 public constant PLATINUM_PRICE    = 5_000e18;
+    uint256 public constant GOLD_PRICE     = 200e6;
+    uint256 public constant DIAMOND_PRICE  = 1_000e6;
+    uint256 public constant PLATINUM_PRICE = 5_000e6;
     uint256 public constant DIAMOND_INV_REQ   = 10;
     uint256 public constant PLATINUM_INV_REQ  = 20;
     uint256 public constant PLATINUM_DISP_REQ = 5;
@@ -58,7 +58,7 @@ contract ArbitratorNFT is ERC1155, Ownable, ReentrancyGuard {
 
     modifier onlyEscrow() { require(msg.sender == invoiceEscrow, "Only escrow"); _; }
 
-    // ── Mint / Upgrade ────────────────────────────────────────────────────────
+    // â”€â”€ Mint / Upgrade â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function mintGold() external nonReentrant {
         require(!stats[msg.sender].exists, "Already exists");
@@ -91,7 +91,7 @@ contract ArbitratorNFT is ERC1155, Ownable, ReentrancyGuard {
         emit UpgradedToPlatinum(msg.sender);
     }
 
-    // ── Escrow callbacks ──────────────────────────────────────────────────────
+    // â”€â”€ Escrow callbacks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function recordInvoiceCompleted(address a) external onlyEscrow { if (stats[a].exists) stats[a].invoiceCount++; }
     function recordDisputeStart(address a)     external onlyEscrow { if (stats[a].exists) stats[a].activeDisputes++; }
@@ -102,7 +102,7 @@ contract ArbitratorNFT is ERC1155, Ownable, ReentrancyGuard {
         }
     }
 
-    // ── Views ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Views â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function isArbitrator(address addr) external view returns (bool) {
         if (stats[addr].suspended) return false;
@@ -138,7 +138,7 @@ contract ArbitratorNFT is ERC1155, Ownable, ReentrancyGuard {
         return (s.invoiceCount, s.disputeCount, s.activeDisputes, s.suspended, t);
     }
 
-    // ── Admin ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function setInvoiceEscrow(address e) external onlyOwner { invoiceEscrow = e; }
     function setTreasury(address t)      external onlyOwner { treasury = t; }
@@ -147,7 +147,7 @@ contract ArbitratorNFT is ERC1155, Ownable, ReentrancyGuard {
     function suspendArbitrator(address a)  external onlyOwner { stats[a].suspended = true;  emit ArbitratorSuspended(a); }
     function reinstateArbitrator(address a) external onlyOwner { stats[a].suspended = false; emit ArbitratorReinstated(a); }
 
-    // ── Transfer lock during active dispute ───────────────────────────────────
+    // â”€â”€ Transfer lock during active dispute â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override {
         if (from != address(0) && to != address(0))

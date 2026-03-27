@@ -14,16 +14,16 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * Social links (X + Gmail) stored on-chain for trust/verification.
  *
  * Tiers:
- *   NORMAL    — free (gas only), newest first
- *   HOT       — 1 USDC, 1.5× larger in UI
- *   SUPER_HOT — configurable USDC, 2.25× larger, pinned & featured
+ *   NORMAL    â€” free (gas only), newest first
+ *   HOT       â€” 1 USDC, 1.5Ã— larger in UI
+ *   SUPER_HOT â€” configurable USDC, 2.25Ã— larger, pinned & featured
  */
 contract Marketplace is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address public constant USDC = 0x3600000000000000000000000000000000000000;
-    uint256 public constant HOT_FEE = 1e18;
-    uint256 public superHotFee = 5e18;
+    uint256 public constant HOT_FEE = 1e6;
+    uint256 public superHotFee = 5e6;
     address public feeCollector;
 
     enum UserType    { BUSINESS, MEMBER }
@@ -85,7 +85,7 @@ contract Marketplace is Ownable, ReentrancyGuard {
 
     constructor(address _feeCollector) Ownable(msg.sender) { feeCollector = _feeCollector; }
 
-    // ── Profile ───────────────────────────────────────────────────────────────
+    // â”€â”€ Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function register(UserType userType, string calldata name, string calldata xHandle, string calldata gmail, string calldata bio) external {
         require(!profiles[msg.sender].exists, "Already registered");
@@ -101,7 +101,7 @@ contract Marketplace is Ownable, ReentrancyGuard {
         emit ProfileUpdated(msg.sender);
     }
 
-    // ── Listings ──────────────────────────────────────────────────────────────
+    // â”€â”€ Listings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function postListing(ListingTier tier, string calldata title, string calldata description, string calldata tags, uint256 budget, uint256 durationDays) external nonReentrant returns (uint256 listingId) {
         require(profiles[msg.sender].exists, "Register first");
@@ -130,7 +130,7 @@ contract Marketplace is Ownable, ReentrancyGuard {
         emit ListingDeactivated(id);
     }
 
-    // ── Applications ──────────────────────────────────────────────────────────
+    // â”€â”€ Applications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function applyToListing(uint256 listingId, string calldata message) external nonReentrant {
         require(profiles[msg.sender].exists, "Register first");
@@ -154,7 +154,7 @@ contract Marketplace is Ownable, ReentrancyGuard {
         emit ApplicationAccepted(app.listingId, applicationId);
     }
 
-    // ── Views ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Views â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function getSuperHotListings(uint256 offset, uint256 limit) external view returns (uint256[] memory ids, uint256 total) { return _paginate(superHotListings, offset, limit); }
     function getHotListings(uint256 offset, uint256 limit)      external view returns (uint256[] memory ids, uint256 total) { return _paginate(hotListings, offset, limit); }
@@ -171,7 +171,7 @@ contract Marketplace is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < count; i++) ids[i] = arr[start + (count - 1 - i)];
     }
 
-    // ── Admin ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function setSuperHotFee(uint256 fee) external onlyOwner { superHotFee = fee; }
     function setFeeCollector(address fc) external onlyOwner { feeCollector = fc; }

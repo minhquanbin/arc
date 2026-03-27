@@ -19,28 +19,28 @@ interface IArbitratorNFT {
  * @notice Escrow-based invoice system with milestone payments and dispute resolution.
  *
  * Flow:
- *  1. Client createInvoice() — locks totalAmount + clientDisputeDeposit (5%, min 50 USDC)
- *  2. Vendor acceptInvoice() — locks vendorDisputeDeposit (same amount)
+ *  1. Client createInvoice() â€” locks totalAmount + clientDisputeDeposit (5%, min 50 USDC)
+ *  2. Vendor acceptInvoice() â€” locks vendorDisputeDeposit (same amount)
  *  3. Vendor submitMilestone() when work phase is done
- *  4. Client approveMilestone() → USDC released to vendor (minus arb fee + platform fee)
- *     OR client silent 7 days → Vendor claimMilestoneAutoRelease()
+ *  4. Client approveMilestone() â†’ USDC released to vendor (minus arb fee + platform fee)
+ *     OR client silent 7 days â†’ Vendor claimMilestoneAutoRelease()
  *  5. Either party openDispute() on any SUBMITTED milestone
- *  6. All arbitrators voteDispute() → unanimous verdict executes payout
+ *  6. All arbitrators voteDispute() â†’ unanimous verdict executes payout
  */
 contract InvoiceEscrow is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
-    // ── Constants ──────────────────────────────────────────────────────────────
+    // â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     address public constant USDC = 0x3600000000000000000000000000000000000000;
     uint256 public constant AUTO_RELEASE_PERIOD = 7 days;
-    uint256 public constant MIN_DISPUTE_FEE = 50e18;   // 50 USDC (18 dec)
+    uint256 public constant MIN_DISPUTE_FEE = 50e6;   // 50 USDC (18 dec)
     uint256 public constant DISPUTE_FEE_BPS = 500;     // 5%
     uint256 public constant BPS_BASE = 10_000;
     uint256 public constant MIN_ARBITRATORS = 3;
     uint256 public constant MAX_ARBITRATORS = 5;
 
-    // ── Types ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     enum InvoiceStatus  { CREATED, ACTIVE, COMPLETED, CANCELLED, DISPUTED }
     enum MilestoneStatus{ PENDING, SUBMITTED, APPROVED, AUTO_RELEASED, DISPUTED, RESOLVED }
@@ -76,7 +76,7 @@ contract InvoiceEscrow is ReentrancyGuard, Ownable {
         Milestone[]  milestones;
     }
 
-    // ── Storage ───────────────────────────────────────────────────────────────
+    // â”€â”€ Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     IArbitratorNFT public arbitratorNFT;
     address public feeCollector;
@@ -86,7 +86,7 @@ contract InvoiceEscrow is ReentrancyGuard, Ownable {
     mapping(uint256 => Invoice) private _invoices;
     mapping(uint256 => mapping(uint256 => DisputeVote)) private _votes;
 
-    // ── Events ────────────────────────────────────────────────────────────────
+    // â”€â”€ Events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     event InvoiceCreated(uint256 indexed id, address indexed client, address indexed vendor, uint256 totalAmount, uint256 milestoneCount);
     event InvoiceAccepted(uint256 indexed id);
@@ -99,21 +99,21 @@ contract InvoiceEscrow is ReentrancyGuard, Ownable {
     event InvoiceCancelled(uint256 indexed id);
     event InvoiceCompleted(uint256 indexed id);
 
-    // ── Constructor ───────────────────────────────────────────────────────────
+    // â”€â”€ Constructor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     constructor(address _arbitratorNFT, address _feeCollector) Ownable(msg.sender) {
         arbitratorNFT = IArbitratorNFT(_arbitratorNFT);
         feeCollector  = _feeCollector;
     }
 
-    // ── Modifiers ─────────────────────────────────────────────────────────────
+    // â”€â”€ Modifiers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     modifier onlyClient(uint256 id)     { require(_invoices[id].client == msg.sender,  "Not client"); _; }
     modifier onlyVendor(uint256 id)     { require(_invoices[id].vendor == msg.sender,  "Not vendor"); _; }
     modifier exists(uint256 id)         { require(_invoices[id].id != 0, "Not found"); _; }
     modifier onlyArbitrator(uint256 id) { require(_isArbitrator(id, msg.sender), "Not arbitrator"); _; }
 
-    // ── Core ──────────────────────────────────────────────────────────────────
+    // â”€â”€ Core â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * @notice Client creates invoice, locking total + dispute deposit.
@@ -202,7 +202,7 @@ contract InvoiceEscrow is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @notice Client approves milestone → releases payment to vendor.
+     * @notice Client approves milestone â†’ releases payment to vendor.
      */
     function approveMilestone(uint256 invoiceId, uint256 idx) external nonReentrant exists(invoiceId) onlyClient(invoiceId) {
         Milestone storage ms = _invoices[invoiceId].milestones[idx];
@@ -295,7 +295,7 @@ contract InvoiceEscrow is ReentrancyGuard, Ownable {
         emit InvoiceCancelled(invoiceId);
     }
 
-    // ── Internal ──────────────────────────────────────────────────────────────
+    // â”€â”€ Internal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function _releaseMilestone(uint256 invoiceId, uint256 idx) internal {
         Invoice storage inv = _invoices[invoiceId];
@@ -378,7 +378,7 @@ contract InvoiceEscrow is ReentrancyGuard, Ownable {
         return false;
     }
 
-    // ── Views ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Views â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function getInvoice(uint256 invoiceId) external view exists(invoiceId) returns (
         address client, address vendor, address[] memory arbitrators,
@@ -398,7 +398,7 @@ contract InvoiceEscrow is ReentrancyGuard, Ownable {
         return (ms.description, ms.amount, ms.startDate, ms.dueDate, ms.submittedAt, ms.status);
     }
 
-    // ── Admin ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     function setFeeCollector(address fc) external onlyOwner { feeCollector = fc; }
     function setPlatformFeeBps(uint256 bps) external onlyOwner { require(bps <= 300, "Max 3%"); platformFeeBps = bps; }

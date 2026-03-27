@@ -1,19 +1,23 @@
 "use client"
 
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { useAccount, useReadContract } from "wagmi"
-import { CONTRACTS, ERC20_ABI } from "@/lib/contracts"
+import { useAccount, useBalance } from "wagmi"
+import { CONTRACTS } from "@/lib/contracts"
 import { fmtUSDC } from "@/lib/utils"
+import { arcTestnet } from "@/lib/chains"
 
 export function Header() {
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
 
-  const { data: usdcBalance } = useReadContract({
-    address: CONTRACTS.USDC,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 20000 },
+  const { data: balance } = useBalance({
+    address: address,
+    token: CONTRACTS.USDC,
+    chainId: arcTestnet.id,
+    query: {
+      enabled: !!address && isConnected,
+      refetchInterval: 30000,
+      retry: 1,
+    },
   })
 
   return (
@@ -25,7 +29,7 @@ export function Header() {
           borderRadius: 8,
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0,
-          fontSize: 13, fontWeight: 800, color: "var(--bg)",
+          fontSize: 11, fontWeight: 800, color: "var(--bg)",
           fontFamily: "var(--mono)",
         }}>
           AI
@@ -42,10 +46,10 @@ export function Header() {
           <span>Live</span>
         </div>
 
-        {address && usdcBalance !== undefined && (
-          <div className="chain-pill" style={{ color: "var(--teal)" }}>
-            <span style={{ fontSize: 11, fontFamily: "var(--mono)" }}>
-              {fmtUSDC(usdcBalance)}
+        {isConnected && balance && (
+          <div className="chain-pill" style={{ color: "var(--teal)", borderColor: "var(--teal-bd)" }}>
+            <span className="mono" style={{ fontSize: 11 }}>
+              {parseFloat(balance.formatted).toLocaleString("en-US", { maximumFractionDigits: 2 })} USDC
             </span>
           </div>
         )}

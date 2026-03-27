@@ -7,29 +7,33 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { http } from "viem"
 import { arcTestnet } from "@/lib/chains"
 
+const ARC_RPC = "https://rpc.testnet.arc.network"
+
 const config = getDefaultConfig({
   appName: "Arc Invoice",
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "demo",
   chains: [arcTestnet],
   transports: {
-    [arcTestnet.id]: http("https://rpc.testnet.arc.network", {
+    [arcTestnet.id]: http(ARC_RPC, {
       batch: false,
-      timeout: 30000,
-      fetchOptions: {
-        headers: { "Content-Type": "application/json" },
-      },
+      timeout: 20000,
     }),
   },
-  multiInjectedProviderDiscovery: false,
+  batch: {
+    multicall: false,
+  },
+  pollingInterval: 0,
   ssr: true,
 })
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      staleTime: 15000,
+      retry: 0,
+      staleTime: 20000,
       refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
     },
   },
 })

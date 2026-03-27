@@ -15,7 +15,7 @@ import { useApproveUSDC } from '@/hooks/useApproveUSDC'
 import { useReadContract } from 'wagmi'
 import { MARKETPLACE_ABI } from '@/lib/contracts'
 
-// ── Register Modal ────────────────────────────────────────────────────────────
+// â”€â”€ Register Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function RegisterModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [form, setForm] = useState({ name: '', xHandle: '', gmail: '', bio: '', userType: 0 as 0 | 1 })
   const { register, isPending, isSuccess, error } = useRegister()
@@ -24,7 +24,7 @@ function RegisterModal({ open, onClose }: { open: boolean; onClose: () => void }
   return (
     <Modal open={open} onClose={onClose} title="Create Profile">
       <div className="row gap-8 mb-16">
-        {[{ v: 0, label: '🏢 Business', sub: 'Post jobs' }, { v: 1, label: '👤 Member', sub: 'Post skills & apply' }].map(({ v, label, sub }) => (
+        {[{ v: 0, label: 'ðŸ¢ Business', sub: 'Post job listings' }, { v: 1, label: 'ðŸ‘¤ Member', sub: 'Post skills & apply to jobs' }].map(({ v, label, sub }) => (
           <div
             key={v}
             onClick={() => setForm(p => ({ ...p, userType: v as 0 | 1 }))}
@@ -53,13 +53,13 @@ function RegisterModal({ open, onClose }: { open: boolean; onClose: () => void }
           </Field>
         </div>
         <Field label="Bio">
-          <textarea className="textarea" placeholder="Short description…" value={form.bio} onChange={e => setForm(p => ({ ...p, bio: e.target.value }))} style={{ minHeight: 72 }} />
+          <textarea className="textarea" placeholder="Short descriptionâ€¦" value={form.bio} onChange={e => setForm(p => ({ ...p, bio: e.target.value }))} style={{ minHeight: 72 }} />
         </Field>
       </div>
       {error && <div className="text-sm mt-8" style={{ color: 'var(--coral)' }}>{(error as Error)?.message?.slice(0, 120)}</div>}
       <div className="row gap-8 mt-16">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <TxButton variant="primary" className="ml-auto" disabled={!form.name} loading={isPending} loadingText="Registering…"
+        <TxButton variant="primary" className="ml-auto" disabled={!form.name} loading={isPending} loadingText="Registeringâ€¦"
           onClick={() => register(form)}>
           Create Profile (gas only)
         </TxButton>
@@ -68,7 +68,7 @@ function RegisterModal({ open, onClose }: { open: boolean; onClose: () => void }
   )
 }
 
-// ── Post Listing Modal ────────────────────────────────────────────────────────
+// â”€â”€ Post Listing Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PostModal({ open, onClose, userType }: { open: boolean; onClose: () => void; userType: 0 | 1 }) {
   const [tier, setTier] = useState<0 | 1 | 2>(0)
   const [form, setForm] = useState({ title: '', description: '', tags: '', budget: '', durationDays: '0' })
@@ -79,9 +79,9 @@ function PostModal({ open, onClose, userType }: { open: boolean; onClose: () => 
   useEffect(() => { if (isSuccess) onClose() }, [isSuccess])
 
   const tierOptions = [
-    { id: 0, icon: '📝', label: 'Normal', sub: 'Free — gas only', detail: 'New posts appear first in list' },
-    { id: 1, icon: '🔥', label: 'Hot', sub: `${hotFee ? fmtUSDC(hotFee) : '1 USDC'}`, detail: '1.5× larger card, highlighted section' },
-    { id: 2, icon: '⚡', label: 'Super Hot', sub: `${superHotFee ? fmtUSDC(superHotFee) : '5 USDC'}`, detail: 'Pinned top · Featured badge · 2.25× larger' },
+    { id: 0, icon: 'ðŸ“', label: 'Normal', sub: 'Free â€” gas only', detail: 'New posts appear first in list' },
+    { id: 1, icon: 'ðŸ”¥', label: 'Hot', sub: `${hotFee ? fmtUSDC(hotFee) : '1 USDC'}`, detail: '1.5Ã— larger card, highlighted section' },
+    { id: 2, icon: 'âš¡', label: 'Super Hot', sub: `${superHotFee ? fmtUSDC(superHotFee) : '5 USDC'}`, detail: 'Pinned top Â· Featured badge Â· 2.25Ã— larger' },
   ]
 
   return (
@@ -109,7 +109,7 @@ function PostModal({ open, onClose, userType }: { open: boolean; onClose: () => 
 
       {tier === 2 && (
         <div style={{ padding: '8px 12px', background: 'var(--coral-bg)', border: '1px solid var(--coral-bd)', borderRadius: 8, marginBottom: 14, fontSize: 12, color: 'var(--coral)' }}>
-          ⚡ Super Hot: pinned to top, featured badge, 2.25× card size, premium visibility
+          âš¡ Super Hot: pinned to top, featured badge, 2.25Ã— card size, premium visibility
         </div>
       )}
 
@@ -117,14 +117,14 @@ function PostModal({ open, onClose, userType }: { open: boolean; onClose: () => 
         <div>
           <div className="section-label mb-4">Listing type</div>
           <div className="chain-pill" style={{ width: 'fit-content' }}>
-            {userType === 0 ? '🏢 Job posting' : '👤 Skill listing'}
+            {userType === 0 ? 'ðŸ¢ Job posting' : 'ðŸ‘¤ Skill listing'}
           </div>
         </div>
         <Field label="Title *">
-          <input className="input" placeholder={userType === 0 ? "Looking for a Solidity developer…" : "Full-stack Web3 Engineer available…"} value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+          <input className="input" placeholder={userType === 0 ? "Looking for a Solidity developerâ€¦" : "Full-stack Web3 Engineer availableâ€¦"} value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
         </Field>
         <Field label="Description *">
-          <textarea className="textarea" placeholder="Detailed description, requirements, expectations…" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} style={{ minHeight: 100 }} />
+          <textarea className="textarea" placeholder="Detailed description, requirements, expectationsâ€¦" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} style={{ minHeight: 100 }} />
         </Field>
         <div className="grid-2">
           <Field label="Tags (comma-separated)" hint="e.g. solidity, react, defi">
@@ -156,20 +156,20 @@ function PostModal({ open, onClose, userType }: { open: boolean; onClose: () => 
           className="ml-auto"
           disabled={!form.title || !form.description}
           loading={isApproving || isPending}
-          loadingText={isApproving ? 'Approving USDC…' : 'Posting…'}
+          loadingText={isApproving ? 'Approving USDCâ€¦' : 'Postingâ€¦'}
           onClick={() => {
             if (tier > 0 && needsApproval) { approve(); return }
             post({ tier, title: form.title, description: form.description, tags: form.tags, budget: form.budget, durationDays: parseInt(form.durationDays) || 0 })
           }}
         >
-          {tier > 0 && needsApproval ? `Approve ${fmtUSDC(fee)}` : `Post${tier > 0 ? ` — ${fmtUSDC(fee)}` : ' (Free)'}`}
+          {tier > 0 && needsApproval ? `Approve ${fmtUSDC(fee)}` : `Post${tier > 0 ? ` â€” ${fmtUSDC(fee)}` : ' (Free)'}`}
         </TxButton>
       </div>
     </Modal>
   )
 }
 
-// ── Apply Modal ───────────────────────────────────────────────────────────────
+// â”€â”€ Apply Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ApplyModal({ open, onClose, listingId, listingTitle }: {
   open: boolean; onClose: () => void; listingId: bigint; listingTitle: string
 }) {
@@ -184,12 +184,12 @@ function ApplyModal({ open, onClose, listingId, listingTitle }: {
         <div style={{ fontSize: 13, fontWeight: 600 }}>{listingTitle}</div>
       </div>
       <Field label="Cover message *">
-        <textarea className="textarea" placeholder="Introduce yourself, describe your relevant experience…" value={message} onChange={e => setMessage(e.target.value)} style={{ minHeight: 120 }} />
+        <textarea className="textarea" placeholder="Introduce yourself, describe your relevant experienceâ€¦" value={message} onChange={e => setMessage(e.target.value)} style={{ minHeight: 120 }} />
       </Field>
       {error && <div className="text-sm mt-8" style={{ color: 'var(--coral)' }}>{(error as Error)?.message?.slice(0, 120)}</div>}
       <div className="row gap-8 mt-16">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <TxButton variant="primary" className="ml-auto" disabled={!message} loading={isPending} loadingText="Submitting…"
+        <TxButton variant="primary" className="ml-auto" disabled={!message} loading={isPending} loadingText="Submittingâ€¦"
           onClick={() => apply(listingId, message)}>
           Submit application (gas only)
         </TxButton>
@@ -198,7 +198,7 @@ function ApplyModal({ open, onClose, listingId, listingTitle }: {
   )
 }
 
-// ── Listing Detail ────────────────────────────────────────────────────────────
+// â”€â”€ Listing Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ListingDetail({ id, onBack }: { id: bigint; onBack: () => void }) {
   const { address } = useAccount()
   const { data: profile } = useMyProfile()
@@ -214,8 +214,8 @@ function ListingDetail({ id, onBack }: { id: bigint; onBack: () => void }) {
 
   if (!listingData) return (
     <div className="col gap-12 animate-in">
-      <button className="btn btn-ghost btn-sm" style={{ width: 'fit-content' }} onClick={onBack}>← Back</button>
-      <div className="card muted text-sm">Loading…</div>
+      <button className="btn btn-ghost btn-sm" style={{ width: 'fit-content' }} onClick={onBack}>â† Back</button>
+      <div className="card muted text-sm">Loadingâ€¦</div>
     </div>
   )
 
@@ -227,12 +227,12 @@ function ListingDetail({ id, onBack }: { id: bigint; onBack: () => void }) {
   return (
     <div className="col gap-16 animate-in">
       <div className="row gap-12 mb-8">
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back</button>
+        <button className="btn btn-ghost btn-sm" onClick={onBack}>â† Back</button>
         <span className={`badge ${listingType === 0 ? 'badge-job' : 'badge-skill'}`}>
           {listingType === 0 ? 'JOB' : 'SKILL'}
         </span>
-        {tier === 2 && <span className="badge badge-disputed">⚡ Super Hot</span>}
-        {tier === 1 && <span className="badge badge-gold">🔥 Hot</span>}
+        {tier === 2 && <span className="badge badge-disputed">âš¡ Super Hot</span>}
+        {tier === 1 && <span className="badge badge-gold">ðŸ”¥ Hot</span>}
       </div>
       <div className="card">
         <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>{title as string}</h2>
@@ -248,7 +248,7 @@ function ListingDetail({ id, onBack }: { id: bigint; onBack: () => void }) {
           </div>
           <div>
             <div className="section-label">Posted by</div>
-            <div className="mono text-sm">{(owner as string).slice(0, 6)}…{(owner as string).slice(-4)}</div>
+            <div className="mono text-sm">{(owner as string).slice(0, 6)}â€¦{(owner as string).slice(-4)}</div>
           </div>
           <div>
             <div className="section-label">Status</div>
@@ -268,21 +268,21 @@ function ListingDetail({ id, onBack }: { id: bigint; onBack: () => void }) {
   )
 }
 
-// ── Demo listing data (mock for display) ─────────────────────────────────────
+// â”€â”€ Demo listing data (mock for display) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MOCK_SUPER: any[] = [
-  { id: 1n, owner: '0xABC', listingType: 0, tier: 2, title: 'Senior Solidity Developer — DeFi Protocol', description: 'Looking for expert to audit and optimize our AMM smart contracts. Must have experience with Uniswap v4 and Foundry. Long-term engagement possible.', tags: 'solidity,defi,audit,foundry', budget: 3000n * 10n ** 18n, createdAt: 1711000000n, expiresAt: 0n, active: true, ownerName: 'DeFiProtocol Inc', ownerX: '@defiprotocol' },
+  { id: 1n, owner: '0xABC', listingType: 0, tier: 2, title: 'Senior Solidity Developer â€” DeFi Protocol', description: 'Looking for expert to audit and optimize our AMM smart contracts. Must have experience with Uniswap v4 and Foundry. Long-term engagement possible.', tags: 'solidity,defi,audit,foundry', budget: 3000n * 10n ** 18n, createdAt: 1711000000n, expiresAt: 0n, active: true, ownerName: 'DeFiProtocol Inc', ownerX: '@defiprotocol' },
 ]
 const MOCK_HOT: any[] = [
   { id: 2n, owner: '0x111', listingType: 1, tier: 1, title: 'Full-stack Web3 Engineer available', description: '5 years Web3 experience. React, Next.js, Wagmi, Solidity. Available for long-term projects or hourly contracts.', tags: 'react,wagmi,typescript,nextjs', budget: 0n, createdAt: 1710900000n, expiresAt: 0n, active: true, ownerName: 'dev.eth', ownerX: '@deveth' },
-  { id: 3n, owner: '0x222', listingType: 0, tier: 1, title: 'Smart Contract Auditor needed — NFT marketplace', description: 'Need security audit for our NFT marketplace before mainnet launch. Scope: 3 contracts, ~1500 LOC total.', tags: 'audit,nft,security,solidity', budget: 5000n * 10n ** 18n, createdAt: 1710800000n, expiresAt: 0n, active: true, ownerName: 'NFTLabs', ownerX: '@nftlabs' },
+  { id: 3n, owner: '0x222', listingType: 0, tier: 1, title: 'Smart Contract Auditor needed â€” NFT marketplace', description: 'Need security audit for our NFT marketplace before mainnet launch. Scope: 3 contracts, ~1500 LOC total.', tags: 'audit,nft,security,solidity', budget: 5000n * 10n ** 18n, createdAt: 1710800000n, expiresAt: 0n, active: true, ownerName: 'NFTLabs', ownerX: '@nftlabs' },
 ]
 const MOCK_NORMAL: any[] = [
-  { id: 4n, owner: '0x333', listingType: 1, tier: 0, title: 'UI/UX Designer — Web3 dApps', description: 'Specializing in crypto-native interfaces. Figma, design systems, user research for DeFi products.', tags: 'design,figma,ux,web3', budget: 0n, createdAt: 1710700000n, expiresAt: 0n, active: true, ownerName: 'designr.eth', ownerX: '@designreth' },
+  { id: 4n, owner: '0x333', listingType: 1, tier: 0, title: 'UI/UX Designer â€” Web3 dApps', description: 'Specializing in crypto-native interfaces. Figma, design systems, user research for DeFi products.', tags: 'design,figma,ux,web3', budget: 0n, createdAt: 1710700000n, expiresAt: 0n, active: true, ownerName: 'designr.eth', ownerX: '@designreth' },
   { id: 5n, owner: '0x444', listingType: 0, tier: 0, title: 'Backend developer for blockchain indexer', description: 'Node.js developer to build event indexer with PostgreSQL. Must know ethers.js and be comfortable with EVM events.', tags: 'nodejs,postgres,ethers,indexer', budget: 2000n * 10n ** 18n, createdAt: 1710600000n, expiresAt: 0n, active: true, ownerName: 'ChainIndex', ownerX: '@chainindex' },
-  { id: 6n, owner: '0x555', listingType: 1, tier: 0, title: 'Solidity tutor — beginner to intermediate', description: 'Teaching smart contract development. English and Vietnamese. 100+ students. Flexible schedule.', tags: 'teaching,solidity,beginner,web3', budget: 0n, createdAt: 1710500000n, expiresAt: 0n, active: true, ownerName: 'teach.eth', ownerX: '@teacheth' },
+  { id: 6n, owner: '0x555', listingType: 1, tier: 0, title: 'Solidity tutor â€” beginner to intermediate', description: 'Teaching smart contract development. English and Vietnamese. 100+ students. Flexible schedule.', tags: 'teaching,solidity,beginner,web3', budget: 0n, createdAt: 1710500000n, expiresAt: 0n, active: true, ownerName: 'teach.eth', ownerX: '@teacheth' },
 ]
 
-// ── Main MarketplaceTab ───────────────────────────────────────────────────────
+// â”€â”€ Main MarketplaceTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function MarketplaceTab() {
   const { address } = useAccount()
   const { data: profile } = useMyProfile()
@@ -307,8 +307,8 @@ export function MarketplaceTab() {
     <div className="col gap-16 animate-in">
       <div className="row mb-8">
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700 }}>Rao vặt</h2>
-          <p className="muted mt-4 text-sm">On-chain job board · Link X &amp; Gmail · 3 listing tiers</p>
+          <h2 style={{ fontSize: 20, fontWeight: 700 }}>Rao váº·t</h2>
+          <p className="muted mt-4 text-sm">On-chain job board Â· Link X &amp; Gmail Â· 3 listing tiers</p>
         </div>
         <div className="row gap-8 ml-auto">
           {!hasProfile ? (
@@ -324,7 +324,7 @@ export function MarketplaceTab() {
       {hasProfile && (
         <div className="card" style={{ padding: '12px 16px' }}>
           <div className="row gap-12">
-            <div style={{ fontSize: 22 }}>{userType === 0 ? '🏢' : '👤'}</div>
+            <div style={{ fontSize: 22 }}>{userType === 0 ? 'ðŸ¢' : 'ðŸ‘¤'}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{(profile as any)[2]}</div>
               <div className="row gap-8 mt-4 text-xs muted2 mono">
@@ -357,7 +357,7 @@ export function MarketplaceTab() {
       {/* Super Hot */}
       {supers.length > 0 && (
         <div>
-          <div className="section-label mb-8" style={{ color: 'var(--coral)' }}>⚡ Featured listings</div>
+          <div className="section-label mb-8" style={{ color: 'var(--coral)' }}>âš¡ Featured listings</div>
           {supers.map(l => <ListingCard key={String(l.id)} data={l} onClick={() => setDetailId(l.id)} />)}
         </div>
       )}
@@ -365,7 +365,7 @@ export function MarketplaceTab() {
       {/* Hot */}
       {hots.length > 0 && (
         <div>
-          <div className="section-label mb-8" style={{ color: 'var(--gold)' }}>🔥 Hot listings</div>
+          <div className="section-label mb-8" style={{ color: 'var(--gold)' }}>ðŸ”¥ Hot listings</div>
           {hots.map(l => <ListingCard key={String(l.id)} data={l} onClick={() => setDetailId(l.id)} />)}
         </div>
       )}
@@ -373,13 +373,13 @@ export function MarketplaceTab() {
       {/* Normal */}
       {normals.length > 0 && (
         <div>
-          <div className="section-label mb-8">📝 Standard listings</div>
+          <div className="section-label mb-8">ðŸ“ Standard listings</div>
           {normals.map(l => <ListingCard key={String(l.id)} data={l} onClick={() => setDetailId(l.id)} />)}
         </div>
       )}
 
       {supers.length === 0 && hots.length === 0 && normals.length === 0 && (
-        <EmptyState icon="📋" title="No listings found" desc="Be the first to post in this category." />
+        <EmptyState icon="ðŸ“‹" title="No listings found" desc="Be the first to post in this category." />
       )}
 
       <RegisterModal open={registerOpen} onClose={() => setRegisterOpen(false)} />

@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;500;600;700;800&display=swap');
 
-/* ── Variables ── */
+/* â”€â”€ Variables â”€â”€ */
 :root {
   --bg:       #080c14;
   --bg2:      #0d1421;
@@ -49,7 +49,7 @@
   --radius-xl: 18px;
 }
 
-/* ── Reset ── */
+/* â”€â”€ Reset â”€â”€ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
 body {
@@ -63,13 +63,13 @@ a { color: inherit; text-decoration: none; }
 button { font-family: var(--sans); }
 input, textarea, select { font-family: var(--sans); }
 
-/* ── Scrollbar ── */
+/* â”€â”€ Scrollbar â”€â”€ */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border3); }
 
-/* ── Animations ── */
+/* â”€â”€ Animations â”€â”€ */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
@@ -89,7 +89,7 @@ input, textarea, select { font-family: var(--sans); }
 
 .animate-in { animation: fade-in 0.2s ease; }
 
-/* ── Layout ── */
+/* â”€â”€ Layout â”€â”€ */
 .app-layout {
   display: flex;
   flex-direction: column;
@@ -105,7 +105,7 @@ input, textarea, select { font-family: var(--sans); }
   animation: fade-in 0.25s ease;
 }
 
-/* ── Header ── */
+/* â”€â”€ Header â”€â”€ */
 .header {
   display: flex;
   align-items: center;
@@ -143,7 +143,7 @@ input, textarea, select { font-family: var(--sans); }
 
 .header-right { display: flex; align-items: center; gap: 10px; }
 
-/* ── Navigation ── */
+/* â”€â”€ Navigation â”€â”€ */
 .nav-bar {
   display: flex;
   align-items: center;
@@ -176,7 +176,7 @@ input, textarea, select { font-family: var(--sans); }
   animation: pulse-dot 2.5s infinite;
 }
 
-/* ── Cards ── */
+/* â”€â”€ Cards â”€â”€ */
 .card {
   background: var(--bg2);
   border: 1px solid var(--border);
@@ -198,7 +198,7 @@ input, textarea, select { font-family: var(--sans); }
   margin-bottom: 12px;
 }
 
-/* ── Buttons ── */
+/* â”€â”€ Buttons â”€â”€ */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   padding: 9px 18px;
@@ -241,7 +241,7 @@ input, textarea, select { font-family: var(--sans); }
   border-radius: var(--radius-sm);
 }
 
-/* ── Badges ── */
+/* â”€â”€ Badges â”€â”€ */
 .badge {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 9px;
@@ -268,7 +268,7 @@ input, textarea, select { font-family: var(--sans); }
 .badge-job   { background: var(--teal-bg);   color: var(--teal);   border: 1px solid var(--teal-bd); }
 .badge-skill { background: var(--gold-bg);   color: var(--gold);   border: 1px solid var(--gold-bd); }
 
-/* ── Form fields ── */
+/* â”€â”€ Form fields â”€â”€ */
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-label {
   font-size: 10px; font-weight: 600;
@@ -298,12 +298,12 @@ input, textarea, select { font-family: var(--sans); }
 .select-input { appearance: none; cursor: pointer; }
 .input-disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Forms grid ── */
+/* â”€â”€ Forms grid â”€â”€ */
 .form-grid   { display: grid; gap: 14px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
 
-/* ── Stats ── */
+/* â”€â”€ Stats â”€â”€ */
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .stat-card {
   background: var(--bg2);
@@ -315,7 +315,7 @@ input, textarea, select { font-family: var(--sans); }
 .stat-value { font-size: 22px; font-weight: 700; font-family: var(--mono); }
 .stat-sub   { font-size: 11px; color: var(--text3); margin-top: 3px; }
 
-/* ── Chain info pill ── */
+/* â”€â”€ Chain info pill â”€â”€ */
 .chain-pill {
   display: flex; align-items: center; gap: 7px;
   padding: 5px 11px;
@@ -332,14 +332,14 @@ input, textarea, select { font-family: var(--sans); }
   animation: pulse-dot 2s infinite;
 }
 
-/* ── Wallet button (RainbowKit override area) ── */
+/* â”€â”€ Wallet button (RainbowKit override area) â”€â”€ */
 .wallet-area { display: flex; align-items: center; gap: 8px; }
 
-/* ── Divider ── */
+/* â”€â”€ Divider â”€â”€ */
 .divider { height: 1px; background: var(--border); margin: 16px 0; }
 .divider-sm { height: 1px; background: var(--border); margin: 10px 0; }
 
-/* ── Fee box ── */
+/* â”€â”€ Fee box â”€â”€ */
 .fee-box {
   background: var(--bg3);
   border: 1px solid var(--border);
@@ -359,7 +359,7 @@ input, textarea, select { font-family: var(--sans); }
 }
 .fee-muted { color: var(--text2); }
 
-/* ── Modal ── */
+/* â”€â”€ Modal â”€â”€ */
 .modal-backdrop {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.75);
@@ -385,7 +385,7 @@ input, textarea, select { font-family: var(--sans); }
   display: flex; align-items: center; justify-content: space-between;
 }
 
-/* ── NFT Cards ── */
+/* â”€â”€ NFT Cards â”€â”€ */
 .nft-card {
   border-radius: var(--radius-lg);
   padding: 20px;
@@ -409,7 +409,7 @@ input, textarea, select { font-family: var(--sans); }
 .nft-platinum{ background: var(--platinum-bg); border-color: var(--platinum-bd); }
 .nft-platinum::before{ background: var(--platinum); }
 
-/* ── Listing cards ── */
+/* â”€â”€ Listing cards â”€â”€ */
 .listing-normal { background: var(--bg2); border: 1px solid var(--border); }
 .listing-hot {
   background: linear-gradient(135deg, var(--gold-bg), var(--bg2));
@@ -424,7 +424,7 @@ input, textarea, select { font-family: var(--sans); }
   position: relative;
 }
 .listing-superhot::after {
-  content: '⚡ FEATURED';
+  content: 'âš¡ FEATURED';
   position: absolute; top: -1px; right: 14px;
   background: linear-gradient(90deg, var(--coral), var(--platinum));
   color: var(--bg);
@@ -433,11 +433,11 @@ input, textarea, select { font-family: var(--sans); }
   border-radius: 0 0 6px 6px;
 }
 
-/* ── Progress bar ── */
+/* â”€â”€ Progress bar â”€â”€ */
 .progress-bar { height: 4px; background: var(--bg4); border-radius: 2px; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
 
-/* ── Milestone ── */
+/* â”€â”€ Milestone â”€â”€ */
 .milestone-item {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 14px;
@@ -448,7 +448,7 @@ input, textarea, select { font-family: var(--sans); }
 }
 .milestone-item:hover { border-color: var(--border2); }
 
-/* ── Arbitrator row ── */
+/* â”€â”€ Arbitrator row â”€â”€ */
 .arb-row {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 16px;
@@ -461,7 +461,7 @@ input, textarea, select { font-family: var(--sans); }
 .arb-row:hover { border-color: var(--border2); }
 .arb-row.selected { border-color: var(--teal); background: var(--teal-bg); }
 
-/* ── Empty state ── */
+/* â”€â”€ Empty state â”€â”€ */
 .empty {
   text-align: center;
   padding: 56px 24px;
@@ -471,7 +471,7 @@ input, textarea, select { font-family: var(--sans); }
 .empty-title { font-size: 14px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
 .empty-desc  { font-size: 12px; line-height: 1.6; }
 
-/* ── Toast (simple) ── */
+/* â”€â”€ Toast (simple) â”€â”€ */
 .toast-wrap {
   position: fixed; bottom: 24px; right: 24px;
   display: flex; flex-direction: column; gap: 8px;
@@ -489,7 +489,7 @@ input, textarea, select { font-family: var(--sans); }
 .toast-success { border-color: var(--teal-bd); color: var(--teal); }
 .toast-error   { border-color: var(--coral-bd); color: var(--coral); }
 
-/* ── Utility ── */
+/* â”€â”€ Utility â”€â”€ */
 .row   { display: flex; align-items: center; }
 .col   { display: flex; flex-direction: column; }
 .gap-4 { gap: 4px; }
@@ -532,7 +532,7 @@ input, textarea, select { font-family: var(--sans); }
 .w-full  { width: 100%; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── Tx loading overlay ── */
+/* â”€â”€ Tx loading overlay â”€â”€ */
 .tx-loading {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 12px; padding: 32px;

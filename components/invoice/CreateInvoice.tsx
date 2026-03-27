@@ -12,7 +12,7 @@ import { Field, TxButton, Modal, FeeBox, TierBadge, EmptyState } from '@/compone
 import { ARBITRATOR_NFT_ABI } from '@/lib/contracts'
 import { useReadContract } from 'wagmi'
 
-// ── Arbitrator selector row ───────────────────────────────────────────────────
+// â”€â”€ Arbitrator selector row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ArbRow({
   addr, selected, onToggle, disabled,
 }: { addr: string; selected: boolean; onToggle: () => void; disabled: boolean }) {
@@ -38,16 +38,16 @@ function ArbRow({
       <span style={{ fontSize: 22 }}>{getTierIcon(tierNum)}</span>
       <div style={{ flex: 1 }}>
         <div className="row gap-8">
-          <span style={{ fontWeight: 600, fontSize: 13 }}>{addr.slice(0, 6)}…{addr.slice(-4)}</span>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>{addr.slice(0, 6)}â€¦{addr.slice(-4)}</span>
           <TierBadge tier={tierNum} />
         </div>
         {stats && (
           <div className="muted2 text-xs mono mt-4">
-            {String(stats[0])} invoices · {String(stats[1])} disputes resolved
+            {String(stats[0])} invoices Â· {String(stats[1])} disputes resolved
           </div>
         )}
       </div>
-      {selected && <span className="text-teal">✓</span>}
+      {selected && <span className="text-teal">âœ“</span>}
     </div>
   )
 }
@@ -82,7 +82,7 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
   const disputeDep = computeDisputeDeposit(totalWei)
   const lockAmount = totalWei + disputeDep
 
-  // Highest tier among selected arbs (for fee calc — simplified, uses 0.5/0.7/1%)
+  // Highest tier among selected arbs (for fee calc â€” simplified, uses 0.5/0.7/1%)
   const arbFeeBps = 50 // default gold; real calc done on-chain
   const arbFeeWei = (totalWei * BigInt(arbFeeBps)) / 10_000n
 
@@ -127,11 +127,11 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
   return (
     <div className="col gap-16 animate-in">
       <div className="row gap-12 mb-8">
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back</button>
+        <button className="btn btn-ghost btn-sm" onClick={onBack}>â† Back</button>
         <h2 style={{ fontSize: 18, fontWeight: 700 }}>Create Invoice</h2>
       </div>
 
-      {/* ── Parties ── */}
+      {/* â”€â”€ Parties â”€â”€ */}
       <div className="card">
         <div className="section-label mb-12">Parties</div>
         <div className="grid-2">
@@ -151,7 +151,7 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
           <Field label="Scope / description *" required>
             <textarea
               className="textarea"
-              placeholder="Describe the work, deliverables, and acceptance criteria…"
+              placeholder="Describe the work, deliverables, and acceptance criteriaâ€¦"
               value={content}
               onChange={e => setContent(e.target.value)}
               style={{ minHeight: 90 }}
@@ -160,7 +160,7 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
         </div>
       </div>
 
-      {/* ── Milestones ── */}
+      {/* â”€â”€ Milestones â”€â”€ */}
       <div className="card">
         <div className="row gap-12 mb-12">
           <div className="section-label" style={{ margin: 0 }}>Milestones</div>
@@ -182,14 +182,14 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
                   className="btn btn-ghost btn-icon btn-sm ml-auto"
                   style={{ fontSize: 14, color: 'var(--text3)' }}
                   onClick={() => removeMilestone(i)}
-                >✕</button>
+                >âœ•</button>
               )}
             </div>
             <div className="form-grid gap-12">
               <Field label="Description *">
                 <input
                   className="input"
-                  placeholder={`Phase ${i + 1} deliverable…`}
+                  placeholder={`Phase ${i + 1} deliverableâ€¦`}
                   value={m.desc}
                   onChange={e => updM(i, 'desc', e.target.value)}
                 />
@@ -215,11 +215,11 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
         ))}
       </div>
 
-      {/* ── Arbitrators ── */}
+      {/* â”€â”€ Arbitrators â”€â”€ */}
       <div className="card">
         <div className="row mb-12">
           <div className="section-label" style={{ margin: 0 }}>
-            Trọng tài ({selArbs.length}/5 selected, min 3)
+            Trá»ng tÃ i ({selArbs.length}/5 selected — min 3, max 5)
           </div>
           <button className="btn btn-ghost btn-sm ml-auto" onClick={() => setArbModalOpen(true)}>
             Select arbitrators
@@ -232,19 +232,19 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
           <div className="col gap-8">
             {selArbs.map(a => (
               <div key={a} className="row gap-8" style={{ padding: '8px 12px', background: 'var(--bg3)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 13, fontWeight: 500, fontFamily: 'var(--mono)' }}>{a.slice(0, 6)}…{a.slice(-4)}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, fontFamily: 'var(--mono)' }}>{a.slice(0, 6)}â€¦{a.slice(-4)}</span>
                 <button
                   className="btn btn-ghost btn-icon btn-sm ml-auto"
                   style={{ fontSize: 13 }}
                   onClick={() => toggleArb(a)}
-                >✕</button>
+                >âœ•</button>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* ── Fee breakdown ── */}
+      {/* â”€â”€ Fee breakdown â”€â”€ */}
       {total > 0 && (
         <FeeBox
           title="Payment breakdown"
@@ -264,7 +264,7 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
         </div>
       )}
 
-      {/* ── Actions ── */}
+      {/* â”€â”€ Actions â”€â”€ */}
       <div className="row gap-12">
         <button className="btn btn-ghost" onClick={onBack}>Cancel</button>
         <TxButton
@@ -272,7 +272,7 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
           className="ml-auto"
           disabled={!canSubmit}
           loading={isApproving || isPending}
-          loadingText={isApproving ? 'Approving USDC…' : 'Creating…'}
+          loadingText={isApproving ? 'Approving USDCâ€¦' : 'Creatingâ€¦'}
           onClick={handleSubmit}
         >
           {needsApproval
@@ -281,8 +281,8 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
         </TxButton>
       </div>
 
-      {/* ── Arbitrator modal ── */}
-      <Modal open={arbModalOpen} onClose={() => setArbModalOpen(false)} title="Select Arbitrators (3–5)">
+      {/* â”€â”€ Arbitrator modal â”€â”€ */}
+      <Modal open={arbModalOpen} onClose={() => setArbModalOpen(false)} title="Select arbitrators (3â€“5)">
         <div className="field mb-12">
           <label className="field-label">Add by wallet address</label>
           <div className="row gap-8">

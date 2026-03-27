@@ -19,10 +19,10 @@ export function Header() {
   return (
     <header className="header">
       <div className="logo">
-        <div className="logo-mark">⬡</div>
+        <div className="logo-mark">â¬¡</div>
         <div>
           <div className="logo-text">ArcInvoice</div>
-          <div className="logo-chain">Arc Testnet · 5042002</div>
+          <div className="logo-chain">Arc Testnet Â· 5042002</div>
         </div>
       </div>
 
@@ -34,7 +34,7 @@ export function Header() {
 
         {address && usdcBalance !== undefined && (
           <div className="chain-pill" style={{ color: 'var(--teal)' }}>
-            <span style={{ fontSize: 12 }}>💰</span>
+            <span style={{ fontSize: 12 }}>ðŸ’°</span>
             <span>{fmtUSDC(usdcBalance)}</span>
           </div>
         )}

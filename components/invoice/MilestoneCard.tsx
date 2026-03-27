@@ -57,7 +57,7 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
           <div style={{ fontSize: 13, fontWeight: 600 }}>{data.description}</div>
           <div className="row gap-8 mt-4">
             <span className="mono text-xs muted2">
-              {fmtDate(Number(data.startDate))} → {fmtDate(Number(data.dueDate))}
+              {fmtDate(Number(data.startDate))} â†’ {fmtDate(Number(data.dueDate))}
             </span>
             {overdue && status === 0 && (
               <span className="badge badge-disputed" style={{ fontSize: 9 }}>OVERDUE</span>
@@ -93,7 +93,7 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
             variant="primary"
             size="sm"
             loading={submitting}
-            loadingText="Submitting…"
+            loadingText="Submittingâ€¦"
             onClick={() => { submit(invoiceId, idx); setTimeout(onRefresh, 3000) }}
           >
             Submit milestone
@@ -107,16 +107,16 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
               variant="primary"
               size="sm"
               loading={approving}
-              loadingText="Approving…"
+              loadingText="Approvingâ€¦"
               onClick={() => { approve(invoiceId, idx); setTimeout(onRefresh, 3000) }}
             >
-              ✓ Approve &amp; Release
+              âœ“ Approve &amp; Release
             </TxButton>
             <TxButton
               variant="danger"
               size="sm"
               loading={disputing}
-              loadingText="Opening…"
+              loadingText="Openingâ€¦"
               onClick={() => { openDispute(invoiceId, idx); setTimeout(onRefresh, 3000) }}
             >
               Open Dispute
@@ -130,20 +130,20 @@ export function MilestoneCard({ invoiceId, index, data, client, vendor, onRefres
             variant="gold"
             size="sm"
             loading={claiming}
-            loadingText="Claiming…"
+            loadingText="Claimingâ€¦"
             onClick={() => { claim(invoiceId, idx); setTimeout(onRefresh, 3000) }}
           >
             Claim (Auto-release)
           </TxButton>
         )}
 
-        {/* Either party: open dispute on submitted */}
+        {/* Either party: Open Dispute on submitted */}
         {(isClient || isVendor) && status === 1 && !isClient && (
           <TxButton
             variant="danger"
             size="sm"
             loading={disputing}
-            loadingText="Opening…"
+            loadingText="Openingâ€¦"
             onClick={() => { openDispute(invoiceId, idx); setTimeout(onRefresh, 3000) }}
           >
             Open Dispute

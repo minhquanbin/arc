@@ -11,9 +11,9 @@ import { useToast } from '@/hooks/useToast'
 type Tab = 'invoice' | 'arbitrator' | 'marketplace'
 
 const TABS: { id: Tab; label: string; icon: string; dotColor: string }[] = [
-  { id: 'invoice',     label: 'Invoice',   icon: '🧾', dotColor: 'var(--teal)' },
-  { id: 'arbitrator',  label: 'Trọng tài', icon: '⚖️', dotColor: 'var(--gold)' },
-  { id: 'marketplace', label: 'Rao vặt',   icon: '📋', dotColor: 'var(--coral)' },
+  { id: 'invoice',     label: 'Invoice',   icon: 'ðŸ§¾', dotColor: 'var(--teal)' },
+  { id: 'arbitrator',  label: 'Trá»ng tÃ i', icon: 'âš–ï¸', dotColor: 'var(--gold)' },
+  { id: 'marketplace', label: 'Rao váº·t',   icon: 'ðŸ“‹', dotColor: 'var(--coral)' },
 ]
 
 export default function Home() {
@@ -41,7 +41,7 @@ export default function Home() {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer"
             className="chain-pill" style={{ fontSize: 11, textDecoration: 'none' }}>
-            🚰 Faucet
+            ðŸš° Faucet
           </a>
           <a href="https://testnet.arcscan.app" target="_blank" rel="noopener noreferrer"
             className="chain-pill" style={{ fontSize: 11, textDecoration: 'none' }}>
@@ -62,11 +62,11 @@ export default function Home() {
         background: 'var(--bg2)',
       }}>
         <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>
-          ArcInvoice · Arc Testnet 5042002 · USDC native gas · Built with Arc + Circle
+          ArcInvoice Â· Arc Testnet 5042002 Â· USDC native gas Â· Built with Arc + Circle
         </span>
         <a href="https://testnet.arcscan.app" target="_blank" rel="noopener noreferrer"
           style={{ fontSize: 11, color: 'var(--teal)', fontFamily: 'var(--mono)' }}>
-          arcscan.app ↗
+          arcscan.app â†—
         </a>
       </footer>
 

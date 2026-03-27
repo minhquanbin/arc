@@ -11,15 +11,15 @@ import { parseUSDC } from '@/lib/utils'
 
 const TIERS = [
   {
-    id: 0, key: 'gold', icon: 'ðŸ¥‡', title: 'Gold Arbitrator',
+    id: 0, key: 'gold', icon: 'ÃƒÂ°Ã…Â¸Ã‚Â¥Ã¢â‚¬Â¡', title: 'Gold Arbitrator',
     color: 'var(--gold)', cls: 'nft-gold',
     mintPrice: '200 USDC', upgradePriceWei: parseUSDC('200'),
     feePct: '0.5%',
-    req: 'Open to all â€” join the network',
+    req: 'Open to all ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â join the network',
     reqs: [] as string[],
   },
   {
-    id: 1, key: 'diamond', icon: 'ðŸ’Ž', title: 'Diamond Arbitrator',
+    id: 1, key: 'diamond', icon: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã…Â½', title: 'Diamond Arbitrator',
     color: 'var(--diamond)', cls: 'nft-diamond',
     mintPrice: '1,000 USDC upgrade', upgradePriceWei: parseUSDC('1000'),
     feePct: '0.7%',
@@ -27,7 +27,7 @@ const TIERS = [
     reqs: ['Hold Gold NFT', '10+ invoice completions'],
   },
   {
-    id: 2, key: 'platinum', icon: 'ðŸ’ ', title: 'Platinum Arbitrator',
+    id: 2, key: 'platinum', icon: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â ', title: 'Platinum Arbitrator',
     color: 'var(--platinum)', cls: 'nft-platinum',
     mintPrice: '5,000 USDC upgrade', upgradePriceWei: parseUSDC('5000'),
     feePct: '1.0%',
@@ -36,7 +36,7 @@ const TIERS = [
   },
 ]
 
-// â”€â”€ Mint / Upgrade modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Mint / Upgrade modal ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 function MintModal({ open, onClose, targetTier, currentTier, stats }: {
   open: boolean; onClose: () => void;
   targetTier: typeof TIERS[0];
@@ -46,7 +46,7 @@ function MintModal({ open, onClose, targetTier, currentTier, stats }: {
   const isMint = currentTier === undefined || currentTier === 0xff
   const priceWei = targetTier.upgradePriceWei
 
-  const { needsApproval, approve, isApproving } = useApproveUSDC(CONTRACTS.ARBITRATOR_NFT, priceWei)
+  const { needsApproval, approve, isApproving, isApproved } = useApproveUSDC(CONTRACTS.ARBITRATOR_NFT, priceWei)
   const { mintGold, isPending: mintPending, isSuccess: mintDone, error: mintErr } = useMintGold()
   const { upgrade: upgradeDiamond, isPending: upDPending, isSuccess: upDDone } = useUpgradeToDiamond()
   const { upgrade: upgradePlatinum, isPending: upPPending, isSuccess: upPDone } = useUpgradeToPlatinum()
@@ -92,7 +92,7 @@ function MintModal({ open, onClose, targetTier, currentTier, stats }: {
             return (
               <div key={i} className="fee-row">
                 <span className={met ? 'text-teal' : 'muted'}>
-                  {met ? 'âœ“' : 'â—‹'} {r}
+                  {met ? 'ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“' : 'ÃƒÂ¢Ã¢â‚¬â€Ã¢â‚¬Â¹'} {r}
                 </span>
                 {i === 1 && stats && (
                   <span className="mono text-xs muted2">
@@ -122,20 +122,20 @@ function MintModal({ open, onClose, targetTier, currentTier, stats }: {
           variant={targetTier.id === 0 ? 'gold' : targetTier.id === 1 ? 'diamond' : 'platinum'}
           className="ml-auto"
           loading={isApproving || isPending}
-          loadingText={isApproving ? 'Approving USDCâ€¦' : 'Confirmingâ€¦'}
+          loadingText={isApproving ? 'Approving USDCÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦' : 'ConfirmingÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦'}
           onClick={handleAction}
         >
           {needsApproval
             ? `Approve ${targetTier.mintPrice}`
-            : targetTier.id === 0 ? `Mint Gold â€” ${targetTier.mintPrice}`
-            : `Upgrade â€” ${targetTier.mintPrice}`}
+            : targetTier.id === 0 ? `Mint Gold ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ${targetTier.mintPrice}`
+            : `Upgrade ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ${targetTier.mintPrice}`}
         </TxButton>
       </div>
     </Modal>
   )
 }
 
-// â”€â”€ Main ArbitratorTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Main ArbitratorTab ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 export function ArbitratorTab() {
   const { address } = useAccount()
   const { data: statsData } = useMyArbitratorStats()
@@ -158,12 +158,12 @@ export function ArbitratorTab() {
     <div className="col gap-16 animate-in">
       <div className="row mb-8">
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700 }}>Trá»ng tÃ i</h2>
-          <p className="muted mt-4 text-sm">Max 10 NFTs Â· Unanimous voting Â· Non-transferable during disputes</p>
+          <h2 style={{ fontSize: 20, fontWeight: 700 }}>TrÃƒÂ¡Ã‚Â»Ã‚Âng tÃƒÆ’Ã‚Â i</h2>
+          <p className="muted mt-4 text-sm">Max 10 NFTs Ãƒâ€šÃ‚Â· Unanimous voting Ãƒâ€šÃ‚Â· Non-transferable during disputes</p>
         </div>
         <div className="chain-pill ml-auto">
           <span className="chain-dot" />
-          <span>{totalMinted !== undefined ? String(totalMinted) : 'â€”'}/10 slots</span>
+          <span>{totalMinted !== undefined ? String(totalMinted) : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}/10 slots</span>
         </div>
       </div>
 
@@ -213,7 +213,7 @@ export function ArbitratorTab() {
             <div className="divider-sm" />
             <div className="row gap-8 text-xs mono muted2">
               <span>Min invoices: <strong>{t.id === 0 ? '0' : t.id === 1 ? '10' : '20'}</strong></span>
-              <span>Â·</span>
+              <span>Ãƒâ€šÃ‚Â·</span>
               <span>Min disputes: <strong>{t.id < 2 ? '0' : '5'}</strong></span>
             </div>
           </div>
@@ -223,7 +223,7 @@ export function ArbitratorTab() {
       {/* Become arbitrator CTA */}
       {!isArbitrator && (
         <div className="card" style={{ border: '1px solid var(--gold-bd)', background: 'var(--gold-bg)', textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>ðŸ¥‡</div>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>ÃƒÂ°Ã…Â¸Ã‚Â¥Ã¢â‚¬Â¡</div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Become an Arbitrator</div>
           <p className="muted text-sm mb-16">
             Join as a Gold arbitrator for 200 USDC. Earn fees on every invoice you're named on.
@@ -234,7 +234,7 @@ export function ArbitratorTab() {
             loading={false}
             onClick={() => setMintModal(TIERS[0])}
           >
-            Mint Gold NFT â€” 200 USDC
+            Mint Gold NFT ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 200 USDC
           </TxButton>
         </div>
       )}
@@ -243,11 +243,11 @@ export function ArbitratorTab() {
       <FeeBox
         title="Fee schedule"
         rows={[
-          { label: 'Gold (0.5%) â€” per milestone, always earned when named on invoice', value: 'Always active', color: 'var(--gold)' },
-          { label: 'Diamond (0.7%) â€” per milestone', value: 'Always active', color: 'var(--diamond)' },
-          { label: 'Platinum (1.0%) â€” per milestone', value: 'Always active', color: 'var(--platinum)' },
-          { label: 'Dispute resolution â€” 5% of milestone (min 50 USDC), paid by loser', value: 'On dispute', color: 'var(--coral)' },
-          { label: 'Unanimous vote required â€” all arbitrators must agree', value: 'No majority voting' },
+          { label: 'Gold (0.5%) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â per milestone, always earned when named on invoice', value: 'Always active', color: 'var(--gold)' },
+          { label: 'Diamond (0.7%) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â per milestone', value: 'Always active', color: 'var(--diamond)' },
+          { label: 'Platinum (1.0%) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â per milestone', value: 'Always active', color: 'var(--platinum)' },
+          { label: 'Dispute resolution ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 5% of milestone (min 50 USDC), paid by loser', value: 'On dispute', color: 'var(--coral)' },
+          { label: 'Unanimous vote required ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â all arbitrators must agree', value: 'No majority voting' },
         ]}
       />
 

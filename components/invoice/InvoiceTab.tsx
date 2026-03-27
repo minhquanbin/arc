@@ -12,11 +12,11 @@ import { useApproveUSDC } from '@/hooks/useApproveUSDC'
 import { computeDisputeDeposit } from '@/lib/utils'
 import { useMyInvoiceIds, useArbitratorAddresses } from '@/hooks/useChainEvents'
 
-// ── Real invoice IDs from chain events ───────────────────────────────────────
+// â”€â”€ Real invoice IDs from chain events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Falls back to demo IDs when no wallet connected
 const DEMO_IDS = [1n, 2n, 3n, 4n]
 
-// ── Invoice Detail View ───────────────────────────────────────────────────────
+// â”€â”€ Invoice Detail View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function InvoiceDetail({ invoiceId, onBack }: { invoiceId: bigint; onBack: () => void }) {
   const { address } = useAccount()
   const { data: inv, refetch } = useInvoice(invoiceId)
@@ -26,8 +26,8 @@ function InvoiceDetail({ invoiceId, onBack }: { invoiceId: bigint; onBack: () =>
 
   if (!inv) return (
     <div className="col gap-12 animate-in">
-      <button className="btn btn-ghost btn-sm" style={{ width: 'fit-content' }} onClick={onBack}>← Back</button>
-      <div className="card"><div className="muted text-sm">Loading invoice…</div></div>
+      <button className="btn btn-ghost btn-sm" style={{ width: 'fit-content' }} onClick={onBack}>â† Back</button>
+      <div className="card"><div className="muted text-sm">Loading invoiceâ€¦</div></div>
     </div>
   )
 
@@ -46,7 +46,7 @@ function InvoiceDetail({ invoiceId, onBack }: { invoiceId: bigint; onBack: () =>
   return (
     <div className="col gap-16 animate-in">
       <div className="row gap-12 mb-8">
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back</button>
+        <button className="btn btn-ghost btn-sm" onClick={onBack}>â† Back</button>
         <h2 style={{ fontSize: 18, fontWeight: 700 }}>Invoice #{invoiceId.toString()}</h2>
         <InvoiceStatusBadge status={status as 0} />
       </div>
@@ -103,7 +103,7 @@ function InvoiceDetail({ invoiceId, onBack }: { invoiceId: bigint; onBack: () =>
             <TxButton
               variant="primary"
               loading={vendorApproving || accepting}
-              loadingText={vendorApproving ? 'Approving USDC…' : 'Accepting…'}
+              loadingText={vendorApproving ? 'Approving USDCâ€¦' : 'Acceptingâ€¦'}
               onClick={() => {
                 if (vendorNeedsApprove) approveVendor()
                 else { accept(invoiceId); setTimeout(refetch, 3000) }
@@ -121,7 +121,7 @@ function InvoiceDetail({ invoiceId, onBack }: { invoiceId: bigint; onBack: () =>
             variant="danger"
             size="sm"
             loading={cancelling}
-            loadingText="Cancelling…"
+            loadingText="Cancellingâ€¦"
             onClick={() => { cancel(invoiceId); setTimeout(onBack, 3000) }}
           >
             Cancel Invoice
@@ -132,7 +132,7 @@ function InvoiceDetail({ invoiceId, onBack }: { invoiceId: bigint; onBack: () =>
       {/* Arbitrator voting panel */}
       {status === 4 && isArbitrator && (
         <div className="card" style={{ border: '1px solid var(--coral-bd)', background: 'var(--coral-bg)' }}>
-          <div className="section-label mb-8">Dispute — Cast Your Vote</div>
+          <div className="section-label mb-8">Dispute â€” Cast Your Vote</div>
           <p className="muted text-sm mb-12">
             All arbitrators must vote unanimously. Your vote is final.
             Losing party pays 5% dispute fee.
@@ -145,19 +145,19 @@ function InvoiceDetail({ invoiceId, onBack }: { invoiceId: bigint; onBack: () =>
                   variant="primary"
                   size="sm"
                   loading={voting}
-                  loadingText="Voting…"
+                  loadingText="Votingâ€¦"
                   onClick={() => { vote(invoiceId, BigInt(i), true); setTimeout(refetch, 3000) }}
                 >
-                  ✓ Client wins (refund)
+                  âœ“ Client wins (refund)
                 </TxButton>
                 <TxButton
                   variant="gold"
                   size="sm"
                   loading={voting}
-                  loadingText="Voting…"
+                  loadingText="Votingâ€¦"
                   onClick={() => { vote(invoiceId, BigInt(i), false); setTimeout(refetch, 3000) }}
                 >
-                  ✓ Vendor wins (release)
+                  âœ“ Vendor wins (release)
                 </TxButton>
               </div>
             </div>
@@ -192,7 +192,7 @@ function MilestoneLoader({ invoiceId, index, client, vendor, onRefresh }: {
   const { data } = useMilestone(invoiceId, BigInt(index))
   if (!data) return (
     <div className="milestone-item">
-      <div className="muted2 text-xs">Loading milestone {index + 1}…</div>
+      <div className="muted2 text-xs">Loading milestone {index + 1}â€¦</div>
     </div>
   )
   const [description, amount, startDate, dueDate, submittedAt, status] = data
@@ -208,14 +208,14 @@ function MilestoneLoader({ invoiceId, index, client, vendor, onRefresh }: {
   )
 }
 
-// ── Invoice list row ──────────────────────────────────────────────────────────
+// â”€â”€ Invoice list row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function InvoiceRow({ id, onSelect }: { id: bigint; onSelect: () => void }) {
   const { data: inv } = useInvoice(id)
   const { address } = useAccount()
 
   if (!inv) return (
     <div style={{ padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg2)', marginBottom: 6, opacity: 0.5 }}>
-      <div className="muted2 text-xs mono">Invoice #{id.toString()} loading…</div>
+      <div className="muted2 text-xs mono">Invoice #{id.toString()} loadingâ€¦</div>
     </div>
   )
 
@@ -238,7 +238,7 @@ function InvoiceRow({ id, onSelect }: { id: bigint; onSelect: () => void }) {
       <span className="mono muted2 text-xs">#{id.toString()}</span>
       <div>
         <div style={{ fontSize: 12, fontWeight: 500 }}>
-          {shortenAddr(client as string)} → {shortenAddr(vendor as string)}
+          {shortenAddr(client as string)} â†’ {shortenAddr(vendor as string)}
         </div>
         {isMe && <span className="badge badge-active" style={{ fontSize: 9, marginTop: 4 }}>Your invoice</span>}
       </div>
@@ -251,7 +251,7 @@ function InvoiceRow({ id, onSelect }: { id: bigint; onSelect: () => void }) {
   )
 }
 
-// ── Main InvoiceTab ───────────────────────────────────────────────────────────
+// â”€â”€ Main InvoiceTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function InvoiceTab() {
   const { address } = useAccount()
   const [view, setView] = useState<'list' | 'create' | 'detail'>('list')
@@ -278,7 +278,7 @@ export function InvoiceTab() {
       <div className="row mb-8">
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>Invoices</h2>
-          <p className="muted mt-4 text-sm">USDC escrow · Milestone payments · Auto-release in 7 days</p>
+          <p className="muted mt-4 text-sm">USDC escrow Â· Milestone payments Â· Auto-release in 7 days</p>
         </div>
         <TxButton variant="primary" className="ml-auto" onClick={() => setView('create')}>
           + New Invoice
@@ -287,9 +287,9 @@ export function InvoiceTab() {
 
       {/* Stats */}
       <div className="stats-grid">
-        <StatCard label="Total USDC locked" value="—" sub="Connect wallet" />
-        <StatCard label="Active invoices" value="—" sub="As client or vendor" />
-        <StatCard label="Completed" value="—" sub="All time" />
+        <StatCard label="Total USDC locked" value="â€”" sub="Connect wallet" />
+        <StatCard label="Active invoices" value="â€”" sub="As client or vendor" />
+        <StatCard label="Completed" value="â€”" sub="All time" />
       </div>
 
       {/* Invoice list */}
@@ -302,7 +302,7 @@ export function InvoiceTab() {
         </div>
         <div className="mt-8">
           {!address ? (
-            <EmptyState icon="🔐" title="Connect your wallet" desc="Connect to see your invoices." />
+            <EmptyState icon="ðŸ”" title="Connect your wallet" desc="Connect to see your invoices." />
           ) : idsLoading ? (
             <div className="empty"><div className="spinner" style={{ margin: '0 auto' }} /></div>
           ) : (

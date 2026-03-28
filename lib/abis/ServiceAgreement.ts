@@ -1,0 +1,11 @@
+export const SERVICE_AGREEMENT_ABI = [
+  { name: "mintAgreement", type: "function", stateMutability: "nonpayable", inputs: [{ name: "client", type: "address" },{ name: "vendor", type: "address" },{ name: "contentHash", type: "bytes32" },{ name: "ipfsCID", type: "string" },{ name: "clientSig", type: "bytes" },{ name: "vendorSig", type: "bytes" },{ name: "clientNonce", type: "uint256" },{ name: "vendorNonce", type: "uint256" }], outputs: [{ name: "tokenId", type: "uint256" }] },
+  { name: "linkToInvoice", type: "function", stateMutability: "nonpayable", inputs: [{ name: "tokenId", type: "uint256" },{ name: "invoiceId", type: "uint256" }], outputs: [] },
+  { name: "getAgreement", type: "function", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ type: "tuple", components: [{ name: "tokenId", type: "uint256" },{ name: "client", type: "address" },{ name: "vendor", type: "address" },{ name: "contentHash", type: "bytes32" },{ name: "ipfsCID", type: "string" },{ name: "createdAt", type: "uint256" },{ name: "clientSigned", type: "bool" },{ name: "vendorSigned", type: "bool" },{ name: "invoiceId", type: "uint256" }] }] },
+  { name: "getAgreementDigest", type: "function", stateMutability: "view", inputs: [{ name: "client", type: "address" },{ name: "vendor", type: "address" },{ name: "contentHash", type: "bytes32" },{ name: "signerNonce", type: "uint256" }], outputs: [{ type: "bytes32" }] },
+  { name: "nonces", type: "function", stateMutability: "view", inputs: [{ name: "", type: "address" }], outputs: [{ type: "uint256" }] },
+  { name: "hashToTokenId", type: "function", stateMutability: "view", inputs: [{ name: "", type: "bytes32" }], outputs: [{ type: "uint256" }] },
+  { name: "totalSupply", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { name: "tokenURI", type: "function", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ type: "string" }] },
+  { name: "ownerOf", type: "function", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ type: "address" }] },
+] as const

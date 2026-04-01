@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useAccount } from "wagmi"
 import { TxButton, StatCard, Field, FeeBox } from "@/components/ui"
 import { shortenAddr, fmtDate } from "@/lib/utils"
@@ -71,8 +71,8 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [fields, setFields] = useState<AgreementFields>({ ...EMPTY, clientAddress: address ?? "" })
   const [clientSig, setClientSig] = useState<`0x${string}` | null>(null)
-  const [clientNonceUsed, setClientNonceUsed] = useState<bigint>(0n)
-  const [vendorNonceUsed, setVendorNonceUsed] = useState<bigint>(0n)
+  const clientNonceRef = useRef<bigint>(0n)
+  const vendorNonceRef = useRef<bigint>(0n)
   const [vendorSig, setVendorSig] = useState<`0x${string}` | null>(null)
   const [ipfsCID, setIpfsCID] = useState("")
   const [uploading, setUploading] = useState(false)
@@ -100,7 +100,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
       setStatusMsg("Signing...")
       const addr = isClient ? fields.clientAddress as Address : fields.vendorAddress as Address
       const nonce = await fetchNonceOnChain(addr, "0x63e8Ec1B2F9Cbf1AE30c868278f3F1D28a61d4b2" as Address)
-      setClientNonceUsed(nonce)
+      clientNonceRef.current = nonce
       const sig = await sign({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, nonce })
       if (isClient) setClientSig(sig)
       else setVendorSig(sig)
@@ -114,10 +114,10 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
     try {
       const sameWallet = fields.clientAddress.toLowerCase() === fields.vendorAddress.toLowerCase()
       const freshVNonce = await fetchNonceOnChain(fields.vendorAddress as Address, "0x63e8Ec1B2F9Cbf1AE30c868278f3F1D28a61d4b2" as Address)
-      const vNonce = sameWallet ? clientNonceUsed + 1n : freshVNonce
+      const vNonce = sameWallet ? clientNonceRef.current + 1n : freshVNonce
       const sig = await sign({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, nonce: vNonce })
       setVendorSig(sig)
-      setVendorNonceUsed(vNonce)
+      vendorNonceRef.current = vNonce
       setStep(4)
     } catch (e) { setStatusMsg("Error: " + (e as Error)?.message?.slice(0, 80)) }
   }
@@ -125,7 +125,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
   const handleMint = async () => {
     if (!clientSig || !vendorSig || !ipfsCID) return
     try {
-      await mint({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, ipfsCID, clientSig, vendorSig, clientNonce: clientNonceUsed, vendorNonce: vendorNonceUsed })
+      await mint({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, ipfsCID, clientSig, vendorSig, clientNonce: clientNonceRef.current, vendorNonce: vendorNonceRef.current })
     } catch (e) { setStatusMsg("Mint error: " + (e as Error)?.message?.slice(0, 80)) }
   }
 

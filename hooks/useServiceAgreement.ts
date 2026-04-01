@@ -131,6 +131,20 @@ export function useLinkAgreementToInvoice() {
   return { link, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
+export function useHashToTokenId(contentHash: string | undefined) {
+  return useReadContract({
+    address: CONTRACTS.SERVICE_AGREEMENT,
+    abi: SERVICE_AGREEMENT_ABI,
+    functionName: "hashToTokenId",
+    args: contentHash ? [contentHash as "0x${string}"] : undefined,
+    query: {
+      enabled: !!contentHash,
+      refetchInterval: 5000,
+      staleTime: 0,
+    },
+  })
+}
+
 // Read nonce directly from chain (bypasses stale cache)
 export async function fetchNonceOnChain(addr: Address, contractAddr: Address): Promise<bigint> {
   try {

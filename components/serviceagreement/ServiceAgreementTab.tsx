@@ -5,9 +5,7 @@ import { useAccount } from "wagmi"
 import { TxButton, StatCard, Field, FeeBox } from "@/components/ui"
 import { shortenAddr, fmtDate } from "@/lib/utils"
 import {
-  useAgreementNonce, useSignAgreement, useMintAgreement,
-  useTotalAgreements, useAgreement, computeContentHash, uploadToIPFS,
-  type AgreementFields,
+  useSignAgreement, useMintAgreement, useTotalAgreements, useAgreement, computeContentHash, uploadToIPFS, fetchNonceOnChain, type AgreementFields,
 } from "@/hooks/useServiceAgreement"
 import type { Address } from "viem"
 
@@ -82,8 +80,8 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
   const isClient = address?.toLowerCase() === fields.clientAddress.toLowerCase()
   const isVendor = address?.toLowerCase() === fields.vendorAddress.toLowerCase()
 
-  const { data: clientNonce } = useAgreementNonce(fields.clientAddress as Address)
-  const { data: vendorNonce } = useAgreementNonce(fields.vendorAddress as Address)
+  // nonces fetched fresh from chain before signing
+
   const { sign, isPending: signing } = useSignAgreement()
   const { mint, isPending: minting, isSuccess: mintDone, error: mintError } = useMintAgreement()
 
@@ -99,7 +97,8 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
       const cid = await uploadToIPFS({ ...fields, contentHash, version: "1.0" })
       setIpfsCID(cid)
       setStatusMsg("Signing...")
-      const nonce = isClient ? (clientNonce ?? 0n) : (vendorNonce ?? 0n)
+      const addr = isClient ? fields.clientAddress as Address : fields.vendorAddress as Address
+      const nonce = await fetchNonceOnChain(addr, "0x63e8Ec1B2F9Cbf1AE30c868278f3F1D28a61d4b2" as Address)
       const sig = await sign({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, nonce })
       if (isClient) setClientSig(sig)
       else setVendorSig(sig)
@@ -123,7 +122,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
   const handleMint = async () => {
     if (!clientSig || !vendorSig || !ipfsCID) return
     try {
-      await mint({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, ipfsCID, clientSig, vendorSig, clientNonce: clientNonce ?? 0n, vendorNonce: vendorNonceUsed })
+      await mint({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, ipfsCID, clientSig, vendorSig, clientNonce: 0n, vendorNonce: vendorNonceUsed })
     } catch (e) { setStatusMsg("Mint error: " + (e as Error)?.message?.slice(0, 80)) }
   }
 

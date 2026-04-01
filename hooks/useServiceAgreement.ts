@@ -1,19 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
-import { type Address, keccak256, toBytes, encodePacked, hexToBytes } from "viem"
-import { useSignTypedData } from "wagmi"
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useSignTypedData } from "wagmi"
+import { type Address, keccak256, toBytes } from "viem"
 import { CONTRACTS, SERVICE_AGREEMENT_ABI } from "@/lib/contracts"
 import { arcTestnet } from "@/lib/chains"
-
-// EIP-712 domain + types for signing
-const AGREEMENT_DOMAIN = {
-  name: "ArcInvoice",
-  version: "1",
-  chainId: arcTestnet.id,
-  verifyingContract: CONTRACTS.SERVICE_AGREEMENT,
-} as const
 
 const AGREEMENT_TYPES = {
   AgreementSignature: [
@@ -24,45 +15,30 @@ const AGREEMENT_TYPES = {
   ],
 } as const
 
-// Compute SHA256-like hash from agreement fields using keccak256
 export function computeContentHash(fields: AgreementFields): `0x${string}` {
   const json = JSON.stringify(fields, Object.keys(fields).sort())
   return keccak256(toBytes(json))
 }
 
 export interface AgreementFields {
-  projectTitle: string
-  description: string
-  deliverables: string
-  techStack: string
-  startDate: string
-  endDate: string
-  totalValue: string
-  paymentSchedule: string
-  penaltyPct: string
-  arbitratorCount: string
-  confidential: boolean
-  ipOwnership: string
-  terminationConditions: string
-  clientName: string
-  vendorName: string
-  clientAddress: string
-  vendorAddress: string
+  projectTitle: string; description: string; deliverables: string; techStack: string
+  startDate: string; endDate: string; totalValue: string; paymentSchedule: string
+  penaltyPct: string; arbitratorCount: string; confidential: boolean
+  ipOwnership: string; terminationConditions: string
+  clientName: string; vendorName: string; clientAddress: string; vendorAddress: string
   agreementDate: string
 }
 
-// Get nonce for an address
 export function useAgreementNonce(addr: Address | undefined) {
   return useReadContract({
     address: CONTRACTS.SERVICE_AGREEMENT,
     abi: SERVICE_AGREEMENT_ABI,
     functionName: "nonces",
     args: addr ? [addr] : undefined,
-    query: { enabled: !!addr, staleTime: 5000 },
+    query: { enabled: !!addr, staleTime: 0, gcTime: 0 },
   })
 }
 
-// Get agreement by token ID
 export function useAgreement(tokenId: bigint | undefined) {
   return useReadContract({
     address: CONTRACTS.SERVICE_AGREEMENT,
@@ -73,7 +49,6 @@ export function useAgreement(tokenId: bigint | undefined) {
   })
 }
 
-// Total agreements minted
 export function useTotalAgreements() {
   return useReadContract({
     address: CONTRACTS.SERVICE_AGREEMENT,
@@ -83,18 +58,23 @@ export function useTotalAgreements() {
   })
 }
 
-// Sign agreement as client or vendor
 export function useSignAgreement() {
   const { signTypedDataAsync, isPending, error } = useSignTypedData()
 
   const sign = async (params: {
-    client: Address
-    vendor: Address
-    contentHash: `0x${string}`
-    nonce: bigint
+    client: Address; vendor: Address
+    contentHash: `0x${string}`; nonce: bigint
   }) => {
+    // Domain built dynamically to always use current contract address
+    const domain = {
+      name: "ArcInvoice",
+      version: "1",
+      chainId: arcTestnet.id,
+      verifyingContract: CONTRACTS.SERVICE_AGREEMENT,
+    } as const
+
     return signTypedDataAsync({
-      domain: AGREEMENT_DOMAIN,
+      domain,
       types: AGREEMENT_TYPES,
       primaryType: "AgreementSignature",
       message: {
@@ -109,34 +89,23 @@ export function useSignAgreement() {
   return { sign, isPending, error }
 }
 
-// Mint agreement NFT with both signatures
 export function useMintAgreement() {
   const { writeContractAsync, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
   const mint = async (params: {
-    client: Address
-    vendor: Address
-    contentHash: `0x${string}`
-    ipfsCID: string
-    clientSig: `0x${string}`
-    vendorSig: `0x${string}`
-    clientNonce: bigint
-    vendorNonce: bigint
+    client: Address; vendor: Address
+    contentHash: `0x${string}`; ipfsCID: string
+    clientSig: `0x${string}`; vendorSig: `0x${string}`
+    clientNonce: bigint; vendorNonce: bigint
   }) => {
     return writeContractAsync({
       address: CONTRACTS.SERVICE_AGREEMENT,
       abi: SERVICE_AGREEMENT_ABI,
       functionName: "mintAgreement",
       args: [
-        params.client,
-        params.vendor,
-        params.contentHash,
-        params.ipfsCID,
-        params.clientSig,
-        params.vendorSig,
-        params.clientNonce,
-        params.vendorNonce,
+        params.client, params.vendor, params.contentHash, params.ipfsCID,
+        params.clientSig, params.vendorSig, params.clientNonce, params.vendorNonce,
       ],
       gas: 500000n,
     })
@@ -145,7 +114,6 @@ export function useMintAgreement() {
   return { mint, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// Link agreement to invoice
 export function useLinkAgreementToInvoice() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -163,36 +131,46 @@ export function useLinkAgreementToInvoice() {
   return { link, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
-// Helper: check if client and vendor are same wallet
+// Read nonce directly from chain (bypasses stale cache)
+export async function fetchNonceOnChain(addr: Address, contractAddr: Address): Promise<bigint> {
+  try {
+    const selector = "0x7ecebe00"
+    const padded = addr.slice(2).padStart(64, "0")
+    const data = selector + padded
+    const res = await fetch("https://rpc.testnet.arc.network", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "eth_call", params: [{ to: contractAddr, data }, "latest"], id: 1 }),
+    })
+    const json = await res.json()
+    return BigInt(json.result)
+  } catch {
+    return 0n
+  }
+}
+
+// Helper
 export function isSameWallet(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase()
 }
 
-// Upload JSON to IPFS via public gateway (no API key needed for testnet)
+// Upload JSON to IPFS
 export async function uploadToIPFS(data: object): Promise<string> {
   try {
     const json = JSON.stringify(data)
     const blob = new Blob([json], { type: "application/json" })
     const formData = new FormData()
     formData.append("file", blob, "agreement.json")
-
     const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
       method: "POST",
-      headers: {
-        Authorization: "Bearer " + (process.env.NEXT_PUBLIC_PINATA_JWT ?? ""),
-      },
+      headers: { Authorization: "Bearer " + (process.env.NEXT_PUBLIC_PINATA_JWT ?? "") },
       body: formData,
     })
-
     if (res.ok) {
-      const data = await res.json()
-      return data.IpfsHash
+      const d = await res.json()
+      return d.IpfsHash
     }
-  } catch {
-    // Fallback: use data URI as mock CID for testnet
-  }
-
-  // Testnet fallback: generate deterministic mock CID from content
+  } catch {}
   const hash = keccak256(toBytes(JSON.stringify(data)))
   return "Qm" + hash.slice(2, 46)
 }

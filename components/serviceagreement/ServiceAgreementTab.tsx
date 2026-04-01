@@ -71,6 +71,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [fields, setFields] = useState<AgreementFields>({ ...EMPTY, clientAddress: address ?? "" })
   const [clientSig, setClientSig] = useState<`0x${string}` | null>(null)
+  const [clientNonceUsed, setClientNonceUsed] = useState<bigint>(0n)
   const [vendorNonceUsed, setVendorNonceUsed] = useState<bigint>(0n)
   const [vendorSig, setVendorSig] = useState<`0x${string}` | null>(null)
   const [ipfsCID, setIpfsCID] = useState("")
@@ -99,6 +100,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
       setStatusMsg("Signing...")
       const addr = isClient ? fields.clientAddress as Address : fields.vendorAddress as Address
       const nonce = await fetchNonceOnChain(addr, "0x63e8Ec1B2F9Cbf1AE30c868278f3F1D28a61d4b2" as Address)
+      setClientNonceUsed(nonce)
       const sig = await sign({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, nonce })
       if (isClient) setClientSig(sig)
       else setVendorSig(sig)
@@ -110,7 +112,9 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
 
   const handleVendorSign = async () => {
     try {
-      const vNonce = await fetchNonceOnChain(fields.vendorAddress as Address, "0x63e8Ec1B2F9Cbf1AE30c868278f3F1D28a61d4b2" as Address)
+      const sameWallet = fields.clientAddress.toLowerCase() === fields.vendorAddress.toLowerCase()
+      const freshVNonce = await fetchNonceOnChain(fields.vendorAddress as Address, "0x63e8Ec1B2F9Cbf1AE30c868278f3F1D28a61d4b2" as Address)
+      const vNonce = sameWallet ? clientNonceUsed + 1n : freshVNonce
       const sig = await sign({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, nonce: vNonce })
       setVendorSig(sig)
       setVendorNonceUsed(vNonce)
@@ -121,7 +125,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
   const handleMint = async () => {
     if (!clientSig || !vendorSig || !ipfsCID) return
     try {
-      await mint({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, ipfsCID, clientSig, vendorSig, clientNonce: 0n, vendorNonce: vendorNonceUsed })
+      await mint({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, ipfsCID, clientSig, vendorSig, clientNonce: clientNonceUsed, vendorNonce: vendorNonceUsed })
     } catch (e) { setStatusMsg("Mint error: " + (e as Error)?.message?.slice(0, 80)) }
   }
 

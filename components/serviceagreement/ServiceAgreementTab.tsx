@@ -12,7 +12,8 @@ import { CONTRACTS } from "@/lib/contracts"
 import { Field, TxButton, StatCard, FeeBox } from "@/components/ui"
 import { shortenAddr, fmtDate } from "@/lib/utils"
 
-// ?? Storage helpers ???????????????????????????????????????????????????????????
+// ---- Storage helpers --------------------------------------------------------
+
 const PREFIX = "arc_agreement_"
 
 interface DraftState {
@@ -49,8 +50,7 @@ function listDrafts(): DraftState[] {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key?.startsWith(PREFIX)) {
-        const d = JSON.parse(localStorage.getItem(key)!)
-        drafts.push(d)
+        drafts.push(JSON.parse(localStorage.getItem(key)!))
       }
     }
     return drafts.sort((a, b) => b.createdAt - a.createdAt)
@@ -61,7 +61,29 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase()
 }
 
-// ?? Empty form ????????????????????????????????????????????????????????????????
+// Encode draft into a shareable URL query param
+function encodeDraftToUrl(draft: DraftState): string {
+  try {
+    const json = JSON.stringify(draft)
+    const encoded = btoa(encodeURIComponent(json))
+    return window.location.origin + window.location.pathname + "?agreement=" + encoded
+  } catch { return "" }
+}
+
+// Decode draft from URL on page load (vendor flow)
+function decodeDraftFromUrl(): DraftState | null {
+  try {
+    if (typeof window === "undefined") return null
+    const params = new URLSearchParams(window.location.search)
+    const encoded = params.get("agreement")
+    if (!encoded) return null
+    const json = decodeURIComponent(atob(encoded))
+    return JSON.parse(json)
+  } catch { return null }
+}
+
+// ---- Empty form defaults ----------------------------------------------------
+
 const EMPTY: AgreementFields = {
   projectTitle: "", description: "", deliverables: "", techStack: "",
   startDate: "", endDate: "", totalValue: "", paymentSchedule: "milestone",
@@ -71,7 +93,8 @@ const EMPTY: AgreementFields = {
   agreementDate: new Date().toISOString().split("T")[0],
 }
 
-// ?? Agreement Detail ??????????????????????????????????????????????????????????
+// ---- Agreement Detail -------------------------------------------------------
+
 function AgreementDetail({ tokenId, onBack }: { tokenId: bigint; onBack: () => void }) {
   const { data: ag } = useAgreement(tokenId)
   if (!ag) return (
@@ -115,7 +138,8 @@ function AgreementDetail({ tokenId, onBack }: { tokenId: bigint; onBack: () => v
   )
 }
 
-// ?? Create / Sign Agreement ???????????????????????????????????????????????????
+// ---- Create / Sign Agreement ------------------------------------------------
+
 function CreateAgreement({ initialDraft, onBack, onDone }: {
   initialDraft?: DraftState; onBack: () => void; onDone: () => void
 }) {
@@ -132,13 +156,19 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
   const [statusMsg, setStatusMsg] = useState("")
   const [copied, setCopied] = useState(false)
 
-  const clientNonceRef = useRef<bigint>(initialDraft?.clientNonce ? BigInt(initialDraft.clientNonce) : 0n)
-  const vendorNonceRef = useRef<bigint>(initialDraft?.vendorNonce ? BigInt(initialDraft.vendorNonce) : 0n)
+  const clientNonceRef = useRef<bigint>(
+    initialDraft?.clientNonce ? BigInt(initialDraft.clientNonce) : 0n
+  )
+  const vendorNonceRef = useRef<bigint>(
+    initialDraft?.vendorNonce ? BigInt(initialDraft.vendorNonce) : 0n
+  )
 
-  const isClient = !!address && fields.clientAddress !== "" && address.toLowerCase() === fields.clientAddress.toLowerCase()
-  const isVendor = !!address && fields.vendorAddress !== "" && address.toLowerCase() === fields.vendorAddress.toLowerCase()
+  const isClient = !!address && fields.clientAddress !== "" &&
+    address.toLowerCase() === fields.clientAddress.toLowerCase()
+  const isVendor = !!address && fields.vendorAddress !== "" &&
+    address.toLowerCase() === fields.vendorAddress.toLowerCase()
+
   const contentHash = computeContentHash(fields)
-
   const { sign, isPending: signing } = useSignAgreement()
   const { mint, isPending: minting, isSuccess: mintDone, error: mintError } = useMintAgreement()
 
@@ -155,8 +185,23 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
     })
   }
 
+  const getDraft = (): DraftState => ({
+    id: agreementId, fields, contentHash, ipfsCID,
+    clientSig, vendorSig,
+    clientNonce: clientNonceRef.current.toString(),
+    vendorNonce: vendorNonceRef.current.toString(),
+    step, createdAt: Date.now(),
+  })
+
   const upd = (k: keyof AgreementFields, v: string | boolean) =>
     setFields(p => ({ ...p, [k]: v }))
+
+  const copyShareLink = () => {
+    const url = encodeDraftToUrl(getDraft())
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 3000)
+  }
 
   const copyId = () => {
     navigator.clipboard.writeText(agreementId)
@@ -183,10 +228,10 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
         contentHash, nonce,
       })
       setClientSig(sig)
-      setStatusMsg("Client signed!")
       const newStep = 3 as const
       setStep(newStep)
       save({ clientSig: sig, ipfsCID: cid, clientNonce: nonce.toString(), step: newStep })
+      setStatusMsg("Client signed! Share the link with vendor.")
     } catch (e) { setStatusMsg("Error: " + (e as Error)?.message?.slice(0, 80)) }
     setUploading(false)
   }
@@ -206,10 +251,10 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
         contentHash, nonce,
       })
       setVendorSig(sig)
-      setStatusMsg("Vendor signed! Ready to mint.")
       const newStep = 4 as const
       setStep(newStep)
       save({ vendorSig: sig, vendorNonce: nonce.toString(), step: newStep })
+      setStatusMsg("Vendor signed! Ready to mint.")
     } catch (e) { setStatusMsg("Error: " + (e as Error)?.message?.slice(0, 80)) }
   }
 
@@ -231,27 +276,21 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
 
   return (
     <div className="col gap-16 animate-in">
+
+      {/* Header */}
       <div className="row gap-12 mb-4">
         <button className="btn btn-ghost btn-sm" onClick={() => { save(); onBack() }}>Back</button>
         <h2 style={{ fontSize: 18, fontWeight: 700 }}>Service Agreement</h2>
-        {/* Agreement ID badge - always visible */}
-        <div className="row gap-8 ml-auto" style={{
-          background: "var(--bg3)", border: "1px solid var(--border)",
-          borderRadius: 8, padding: "6px 12px", alignItems: "center",
-        }}>
+        <div className="row gap-8 ml-auto" style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px", alignItems: "center" }}>
           <span className="muted text-xs">Agreement ID:</span>
-          <span className="mono" style={{ fontSize: 14, fontWeight: 800, color: "var(--teal)", letterSpacing: 2 }}>
-            {agreementId}
-          </span>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={copyId} style={{ fontSize: 11 }}>
-            {copied ? "[OK]" : "[Copy]"}
-          </button>
+          <span className="mono" style={{ fontSize: 14, fontWeight: 800, color: "var(--teal)", letterSpacing: 2 }}>{agreementId}</span>
+          <button className="btn btn-ghost btn-icon btn-sm" onClick={copyId} style={{ fontSize: 11 }}>[Copy]</button>
         </div>
       </div>
 
       {/* Step indicator */}
       <div className="row gap-8 mb-4">
-        {[["1","Fill form"],["2","Review"],["3","Client signs"],["4","Vendor signs + Mint"]].map(([n, label]) => (
+        {[["1","Fill form"],["2","Review"],["3","Client signs"],["4","Vendor + Mint"]].map(([n, label]) => (
           <div key={n} className="row gap-6" style={{ alignItems: "center" }}>
             <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: step >= Number(n) ? "var(--teal)" : "var(--bg4)", border: "1px solid " + (step >= Number(n) ? "var(--teal)" : "var(--border2)"), color: step >= Number(n) ? "var(--bg)" : "var(--text3)" }}>{n}</div>
             <span style={{ fontSize: 11, color: step >= Number(n) ? "var(--text)" : "var(--text3)" }}>{label}</span>
@@ -260,27 +299,25 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
         ))}
       </div>
 
-      {/* Wallet + role indicator */}
+      {/* Wallet status */}
       <div className="fee-box" style={{ padding: "8px 14px" }}>
         <div className="row gap-8">
           <span className="muted text-xs">Connected:</span>
           <span className="mono text-xs">{address ? shortenAddr(address) : "Not connected"}</span>
           {isClient && <span className="badge badge-active" style={{ fontSize: 9 }}>CLIENT</span>}
           {isVendor && <span className="badge badge-gold" style={{ fontSize: 9 }}>VENDOR</span>}
-          {!isClient && !isVendor && address && <span className="muted2 text-xs">(observer)</span>}
+          {!isClient && !isVendor && address && <span className="muted2 text-xs">(not a party)</span>}
         </div>
       </div>
 
-      {/* STEP 1 */}
+      {/* STEP 1: Form */}
       {step === 1 && (
         <>
           <div className="card">
             <div className="section-label mb-12">Section 1 - Parties</div>
             <div className="form-grid gap-12">
               <div className="grid-2">
-                <Field label="Client full name *">
-                  <input className="input" placeholder="Company or individual" value={fields.clientName} onChange={e => upd("clientName", e.target.value)} />
-                </Field>
+                <Field label="Client full name *"><input className="input" placeholder="Company or individual" value={fields.clientName} onChange={e => upd("clientName", e.target.value)} /></Field>
                 <Field label="Client wallet *" hint="Must match MetaMask when client signs">
                   <div className="row gap-8">
                     <input className="input grow" placeholder="0x..." value={fields.clientAddress} onChange={e => upd("clientAddress", e.target.value)} />
@@ -289,34 +326,22 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
                 </Field>
               </div>
               <div className="grid-2">
-                <Field label="Vendor full name *">
-                  <input className="input" placeholder="Company or individual" value={fields.vendorName} onChange={e => upd("vendorName", e.target.value)} />
-                </Field>
+                <Field label="Vendor full name *"><input className="input" placeholder="Company or individual" value={fields.vendorName} onChange={e => upd("vendorName", e.target.value)} /></Field>
                 <Field label="Vendor wallet *" hint="Vendor connects this wallet to sign">
                   <input className="input" placeholder="0x..." value={fields.vendorAddress} onChange={e => upd("vendorAddress", e.target.value)} />
                 </Field>
               </div>
-              <Field label="Effective date *">
-                <input className="input" type="date" value={fields.agreementDate} onChange={e => upd("agreementDate", e.target.value)} />
-              </Field>
+              <Field label="Effective date *"><input className="input" type="date" value={fields.agreementDate} onChange={e => upd("agreementDate", e.target.value)} /></Field>
             </div>
           </div>
 
           <div className="card">
             <div className="section-label mb-12">Section 2 - Scope of Work</div>
             <div className="form-grid gap-12">
-              <Field label="Project title *">
-                <input className="input" placeholder="e.g. DeFi Smart Contract Development" value={fields.projectTitle} onChange={e => upd("projectTitle", e.target.value)} />
-              </Field>
-              <Field label="Detailed description *">
-                <textarea className="textarea" style={{ minHeight: 100 }} placeholder="Full description of work..." value={fields.description} onChange={e => upd("description", e.target.value)} />
-              </Field>
-              <Field label="Deliverables *" hint="One per line">
-                <textarea className="textarea" style={{ minHeight: 80 }} placeholder={"1. Audit report\n2. Unit tests\n3. Deployment"} value={fields.deliverables} onChange={e => upd("deliverables", e.target.value)} />
-              </Field>
-              <Field label="Technology stack">
-                <input className="input" placeholder="Solidity, Foundry, React, Wagmi..." value={fields.techStack} onChange={e => upd("techStack", e.target.value)} />
-              </Field>
+              <Field label="Project title *"><input className="input" placeholder="e.g. DeFi Smart Contract Development" value={fields.projectTitle} onChange={e => upd("projectTitle", e.target.value)} /></Field>
+              <Field label="Detailed description *"><textarea className="textarea" style={{ minHeight: 100 }} placeholder="Full description of work..." value={fields.description} onChange={e => upd("description", e.target.value)} /></Field>
+              <Field label="Deliverables *" hint="One per line"><textarea className="textarea" style={{ minHeight: 80 }} placeholder={"1. Audit report\n2. Unit tests\n3. Deployment"} value={fields.deliverables} onChange={e => upd("deliverables", e.target.value)} /></Field>
+              <Field label="Technology stack"><input className="input" placeholder="Solidity, Foundry, React, Wagmi..." value={fields.techStack} onChange={e => upd("techStack", e.target.value)} /></Field>
             </div>
           </div>
 
@@ -367,7 +392,7 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
                 <select className="select-input" value={fields.ipOwnership} onChange={e => upd("ipOwnership", e.target.value)}>
                   <option value="client">Client owns IP upon full payment</option>
                   <option value="vendor">Vendor retains IP, grants license</option>
-                  <option value="shared">Shared (50/50)</option>
+                  <option value="shared">Shared ownership (50/50)</option>
                 </select>
               </Field>
               <Field label="Confidentiality (NDA)">
@@ -397,7 +422,7 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
         </>
       )}
 
-      {/* STEP 2 */}
+      {/* STEP 2: Review */}
       {step === 2 && (
         <>
           <div className="card">
@@ -425,7 +450,7 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
               {fields.terminationConditions && <><br /><p><strong>TERMINATION:</strong> {fields.terminationConditions}</p></>}
               <br />
               <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                <p>On-chain: Arc blockchain (Chain ID 5042002) | ERC-721 | EIP-712</p>
+                <p>On-chain: Arc blockchain (Chain ID 5042002) | ERC-721 | EIP-712 signatures</p>
               </div>
             </div>
           </div>
@@ -436,10 +461,10 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
               loadingText={uploading ? "Uploading to IPFS..." : "Signing..."}
               disabled={!isClient}
               onClick={handleClientSign}>
-              {isClient ? "Upload to IPFS and Sign as Client" : "Connect CLIENT wallet to sign"}
+              {isClient ? "Upload and Sign as Client" : "Connect client wallet (" + shortenAddr(fields.clientAddress) + ")"}
             </TxButton>
           </div>
-          {!isClient && (
+          {!isClient && fields.clientAddress && (
             <div style={{ padding: "10px 14px", background: "var(--coral-bg)", border: "1px solid var(--coral-bd)", borderRadius: 8, fontSize: 12, color: "var(--coral)" }}>
               Switch MetaMask to client wallet: {fields.clientAddress}
             </div>
@@ -447,7 +472,7 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
         </>
       )}
 
-      {/* STEP 3 - waiting for vendor */}
+      {/* STEP 3: Waiting for vendor */}
       {step === 3 && (
         <div className="col gap-12">
           <div className="card" style={{ border: "1px solid var(--teal-bd)", background: "var(--teal-bg)" }}>
@@ -455,49 +480,46 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
             <FeeBox rows={[
               { label: "Client (" + shortenAddr(fields.clientAddress) + ")", value: "[OK] Signed", color: "var(--teal)" },
               { label: "Vendor (" + shortenAddr(fields.vendorAddress) + ")", value: "[ ] Pending", color: "var(--text3)" },
-              { label: "IPFS CID", value: ipfsCID.slice(0, 20) + "..." },
+              { label: "IPFS CID", value: ipfsCID.slice(0, 24) + "..." },
             ]} />
           </div>
 
           {/* Share with vendor */}
           <div className="card" style={{ border: "1px solid var(--gold-bd)", background: "var(--gold-bg)" }}>
-            <div className="section-label mb-8" style={{ color: "var(--gold)" }}>Send Agreement ID to vendor</div>
+            <div className="section-label mb-8" style={{ color: "var(--gold)" }}>Share with vendor to sign</div>
             <p className="muted text-sm mb-12">
-              Vendor needs to open <strong>arc-dun-two.vercel.app</strong>, connect their wallet, go to Service Agreement tab, enter this ID and sign.
+              Send the vendor this link. They open it, connect their wallet, and sign.
             </p>
-            <div className="row gap-12" style={{ alignItems: "center" }}>
-              <div style={{
-                flex: 1, background: "var(--bg2)", borderRadius: 8, padding: "12px 16px",
-                border: "1px solid var(--border)",
-              }}>
+            <div className="col gap-8">
+              {/* Big ID display */}
+              <div style={{ background: "var(--bg2)", borderRadius: 8, padding: "12px 16px", border: "1px solid var(--border)" }}>
                 <div className="muted text-xs mb-4">Agreement ID</div>
                 <div className="mono" style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: "var(--text)" }}>
                   {agreementId}
                 </div>
               </div>
-              <div className="col gap-8">
-                <button className="btn btn-ghost btn-sm" onClick={copyId}>
-                  {copied ? "[OK] Copied!" : "[Copy] ID"}
+              <div className="row gap-8">
+                <button className="btn btn-ghost btn-sm" onClick={copyId} style={{ fontSize: 12 }}>
+                  [Copy] ID only
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => {
-                  const msg = "Please sign Service Agreement " + agreementId + " on arc-dun-two.vercel.app -- Go to Service Agreement tab, enter ID: " + agreementId + " and connect wallet: " + fields.vendorAddress
-                  navigator.clipboard.writeText(msg)
-                }}>
-                  [Copy] Message
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={copyShareLink}
+                  style={{ fontSize: 12 }}>
+                  {copied ? "[OK] Link copied!" : "[Copy] Share Link (recommended)"}
                 </button>
               </div>
-            </div>
-            <div className="divider mt-12" />
-            <div className="muted text-xs mt-8">
-              Vendor wallet: <span className="mono">{fields.vendorAddress}</span>
+              <div className="muted text-xs mt-4">
+                Vendor wallet: <span className="mono">{fields.vendorAddress}</span>
+              </div>
             </div>
           </div>
 
-          {/* If vendor is connected here */}
+          {/* If vendor wallet is already connected */}
           {isVendor && (
             <div className="card" style={{ border: "1px solid var(--teal-bd)", background: "var(--teal-bg)", textAlign: "center", padding: 24 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Vendor wallet detected</div>
-              <p className="muted text-sm mb-12">Switch MetaMask to vendor wallet and sign below.</p>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Vendor wallet connected</div>
+              <p className="muted text-sm mb-12">You are now connected as vendor. Click below to sign.</p>
               <TxButton variant="primary" loading={signing} loadingText="Signing..." onClick={handleVendorSign}>
                 Sign as Vendor ({shortenAddr(fields.vendorAddress)})
               </TxButton>
@@ -505,14 +527,14 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
           )}
 
           {statusMsg && (
-            <div style={{ padding: "8px 12px", background: "var(--bg3)", borderRadius: 8, fontSize: 12, fontFamily: "var(--mono)", color: statusMsg.startsWith("Error") ? "var(--coral)" : "var(--text2)" }}>
+            <div style={{ padding: "8px 12px", background: "var(--bg3)", borderRadius: 8, fontSize: 12, fontFamily: "var(--mono)", color: statusMsg.startsWith("Error") ? "var(--coral)" : "var(--teal)" }}>
               {statusMsg}
             </div>
           )}
         </div>
       )}
 
-      {/* STEP 4 - mint */}
+      {/* STEP 4: Mint */}
       {step === 4 && (
         <div className="col gap-16">
           <div className="card" style={{ border: "1px solid var(--teal-bd)", background: "var(--teal-bg)", textAlign: "center", padding: 32 }}>
@@ -539,10 +561,15 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
   )
 }
 
-// ?? Agreement Row ?????????????????????????????????????????????????????????????
+// ---- Agreement List Row -----------------------------------------------------
+
 function AgreementRow({ tokenId, onSelect }: { tokenId: bigint; onSelect: () => void }) {
   const { data: ag } = useAgreement(tokenId)
-  if (!ag) return <div style={{ padding: "12px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg2)", marginBottom: 6, opacity: 0.5 }}><div className="muted2 text-xs mono">Agreement #{tokenId.toString()} loading...</div></div>
+  if (!ag) return (
+    <div style={{ padding: "12px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg2)", marginBottom: 6, opacity: 0.5 }}>
+      <div className="muted2 text-xs mono">Agreement #{tokenId.toString()} loading...</div>
+    </div>
+  )
   return (
     <div onClick={onSelect} className="card-hover"
       style={{ display: "grid", gridTemplateColumns: "56px 1fr 100px 90px", gap: 12, alignItems: "center", padding: "12px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg2)", marginBottom: 6, cursor: "pointer" }}>
@@ -557,13 +584,25 @@ function AgreementRow({ tokenId, onSelect }: { tokenId: bigint; onSelect: () => 
   )
 }
 
-// ?? Main Tab ??????????????????????????????????????????????????????????????????
+// ---- Main Tab ---------------------------------------------------------------
+
 export function ServiceAgreementTab() {
   const { address } = useAccount()
   const { data: total } = useTotalAgreements()
-  const [view, setView] = useState<"list" | "create" | "detail">("list")
+
+  // Auto-detect if vendor opened a shared link
+  const [activeDraft, setActiveDraft] = useState<DraftState | undefined>(() => {
+    const ud = decodeDraftFromUrl()
+    if (ud) { saveDraft(ud); return ud }
+    return undefined
+  })
+
+  const [view, setView] = useState<"list" | "create" | "detail">(() => {
+    if (decodeDraftFromUrl()) return "create"
+    return "list"
+  })
+
   const [selectedId, setSelectedId] = useState<bigint | null>(null)
-  const [activeDraft, setActiveDraft] = useState<DraftState | undefined>()
   const [lookupId, setLookupId] = useState("")
   const [lookupError, setLookupError] = useState("")
 
@@ -576,7 +615,7 @@ export function ServiceAgreementTab() {
     const id = lookupId.trim().toUpperCase()
     const draft = loadDraft(id)
     if (!draft) {
-      setLookupError("Agreement ID not found. Make sure client saved the draft on this browser, or ask client to share the full link.")
+      setLookupError("ID not found locally. Ask client to share the full link using [Copy] Share Link button.")
       return
     }
     setLookupError("")
@@ -591,6 +630,7 @@ export function ServiceAgreementTab() {
       onDone={() => { setActiveDraft(undefined); setView("list") }}
     />
   )
+
   if (view === "detail" && selectedId !== null) return (
     <AgreementDetail tokenId={selectedId} onBack={() => setView("list")} />
   )
@@ -602,22 +642,26 @@ export function ServiceAgreementTab() {
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>Service Agreements</h2>
           <p className="muted mt-4 text-sm">ERC-721 NFT - EIP-712 dual signature - IPFS storage</p>
         </div>
-        <TxButton variant="primary" className="ml-auto" onClick={() => { setActiveDraft(undefined); setView("create") }}>
+        <TxButton variant="primary" className="ml-auto"
+          onClick={() => { setActiveDraft(undefined); setView("create") }}>
           + New Agreement
         </TxButton>
       </div>
 
-      {/* Vendor: enter agreement ID */}
+      {/* Vendor: enter agreement ID or open shared link */}
       <div className="card" style={{ border: "1px solid var(--border2)" }}>
-        <div className="section-label mb-8">Enter Agreement ID to sign as vendor</div>
-        <p className="muted text-sm mb-12">Client sends you a 6-character ID. Enter it here to load and sign the agreement.</p>
+        <div className="section-label mb-8">Sign as vendor -- enter Agreement ID</div>
+        <p className="muted text-sm mb-12">
+          If client sent you only the ID (not the full link), enter it here.
+          For best results, ask client to use the <strong>[Copy] Share Link</strong> button.
+        </p>
         <div className="row gap-8">
           <input
             className="input"
             placeholder="e.g. A1B2C3"
             value={lookupId}
             onChange={e => setLookupId(e.target.value.toUpperCase())}
-            style={{ maxWidth: 200, fontFamily: "var(--mono)", fontSize: 18, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase" }}
+            style={{ maxWidth: 180, fontFamily: "var(--mono)", fontSize: 18, fontWeight: 700, letterSpacing: 3 }}
             maxLength={6}
             onKeyDown={e => e.key === "Enter" && handleLookup()}
           />
@@ -630,17 +674,17 @@ export function ServiceAgreementTab() {
         )}
       </div>
 
-      {/* Pending drafts */}
+      {/* Pending drafts on this browser */}
       {pendingDrafts.length > 0 && (
         <div className="card" style={{ border: "1px solid var(--gold-bd)", background: "var(--gold-bg)" }}>
           <div className="section-label mb-8" style={{ color: "var(--gold)" }}>Pending drafts on this browser</div>
           {pendingDrafts.map(d => (
-            <div key={d.id} className="row gap-12" style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+            <div key={d.id} className="row gap-12" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
               <div style={{ flex: 1 }}>
                 <span className="mono" style={{ fontSize: 14, fontWeight: 700, letterSpacing: 2, color: "var(--teal)" }}>{d.id}</span>
                 <span className="muted2 text-xs ml-8">{d.fields.projectTitle || "Untitled"}</span>
               </div>
-              <span className="muted2 text-xs">Step {d.step}/4</span>
+              <span className="badge" style={{ fontSize: 9 }}>Step {d.step}/4</span>
               <div className="row gap-8">
                 <button className="btn btn-ghost btn-sm" style={{ color: "var(--coral)", fontSize: 11 }}
                   onClick={() => { clearDraft(d.id); window.location.reload() }}>
@@ -661,13 +705,14 @@ export function ServiceAgreementTab() {
         <StatCard label="IPFS backed" value={total !== undefined ? String(total) : "--"} sub="Permanent storage" />
       </div>
 
+      {/* How it works */}
       <div className="card" style={{ border: "1px solid var(--border2)" }}>
         <div className="section-label mb-12">How it works</div>
         <div className="grid-3">
           {[
-            ["1", "Client creates and signs", "Fill 6-section form, get Agreement ID, sign with client wallet, send ID to vendor"],
-            ["2", "Vendor signs", "Vendor enters ID on this page, connects their wallet, signs the same agreement"],
-            ["3", "Mint NFT", "Either party mints -- IPFS storage, ERC-721 NFT on Arc blockchain"],
+            ["1","Client creates and signs","Fill 6 sections, get Agreement ID, sign with client wallet, send share link to vendor"],
+            ["2","Vendor signs","Vendor opens shared link or enters ID, connects wallet, signs"],
+            ["3","Mint NFT","Either party mints -- full JSON on IPFS, ERC-721 on Arc"],
           ].map(([n, t, d]) => (
             <div key={n} style={{ textAlign: "center", padding: "12px 8px" }}>
               <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--teal-bg)", border: "1px solid var(--teal-bd)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px", fontSize: 13, fontWeight: 700, color: "var(--teal)" }}>{n}</div>

@@ -114,7 +114,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
     try {
       const sameWallet = fields.clientAddress.toLowerCase() === fields.vendorAddress.toLowerCase()
       const freshVNonce = await fetchNonceOnChain(fields.vendorAddress as Address, "0x63e8Ec1B2F9Cbf1AE30c868278f3F1D28a61d4b2" as Address)
-      const vNonce = sameWallet ? clientNonceRef.current + 1n : freshVNonce
+      const vNonce = sameWallet ? clientNonceRef.current : freshVNonce
       const sig = await sign({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, nonce: vNonce })
       setVendorSig(sig)
       vendorNonceRef.current = vNonce

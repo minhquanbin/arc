@@ -5,9 +5,11 @@ import { useAccount } from "wagmi"
 import type { Address } from "viem"
 import {
   useSignAgreement, useMintAgreement, useTotalAgreements,
-  useAgreement, computeContentHash, uploadToIPFS, fetchNonceOnChain,
+  useAgreement, useHashToTokenId, computeContentHash, uploadToIPFS, fetchNonceOnChain,
   type AgreementFields,
 } from "@/hooks/useServiceAgreement"
+import { useReadContract } from "wagmi"
+import { SERVICE_AGREEMENT_ABI } from "@/lib/contracts"
 import { CONTRACTS } from "@/lib/contracts"
 import { Field, TxButton, StatCard, FeeBox } from "@/components/ui"
 import { shortenAddr, fmtDate } from "@/lib/utils"
@@ -170,6 +172,9 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
 
   const contentHash = computeContentHash(fields)
   const { sign, isPending: signing } = useSignAgreement()
+
+  // Poll on-chain for minted tokenId (client watches while vendor mints)
+  const { data: mintedTokenId } = useHashToTokenId(step >= 3 ? contentHash : undefined)
   const { mint, isPending: minting, isSuccess: mintDone, error: mintError } = useMintAgreement()
 
   if (mintDone) { clearDraft(agreementId); onDone(); return null }
@@ -271,7 +276,16 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
         clientNonce: clientNonceRef.current,
         vendorNonce: vendorNonceRef.current,
       })
-    } catch (e) { setStatusMsg("Mint error: " + (e as Error)?.message?.slice(0, 80)) }
+    } catch (e) {
+      const msg = (e as Error)?.message ?? ""
+      if (msg.includes("already minted")) {
+        setStatusMsg("Agreement already minted on-chain! Check the agreements list.")
+        clearDraft(agreementId)
+        setTimeout(onDone, 2000)
+      } else {
+        setStatusMsg("Mint error: " + msg.slice(0, 80))
+      }
+    }
   }
 
   return (
@@ -515,6 +529,59 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
             </div>
           </div>
 
+          {/* Client waiting view */}
+          {isClient && !isVendor && (
+            <div className="col gap-12">
+              {mintedTokenId && mintedTokenId > 0n ? (
+                // Agreement minted! Show link options
+                <div className="card" style={{ border: "1px solid var(--teal-bd)", background: "var(--teal-bg)", textAlign: "center", padding: 24 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8, color: "var(--teal)" }}>
+                    Agreement minted as NFT #{mintedTokenId.toString()}
+                  </div>
+                  <p className="muted text-sm mb-16">
+                    Vendor has signed and minted the agreement. You can now link it to an invoice.
+                  </p>
+                  <FeeBox rows={[
+                    { label: "Token ID", value: "#" + mintedTokenId.toString(), color: "var(--teal)" },
+                    { label: "Client", value: shortenAddr(fields.clientAddress), color: "var(--teal)" },
+                    { label: "Vendor", value: shortenAddr(fields.vendorAddress), color: "var(--teal)" },
+                    { label: "IPFS", value: ipfsCID.slice(0, 20) + "...", color: "var(--text2)" },
+                  ]} />
+                  <div className="row gap-8 mt-16" style={{ justifyContent: "center" }}>
+                    <a href={"https://testnet.arcscan.app/token/" + process.env.NEXT_PUBLIC_SERVICE_AGREEMENT_ADDRESS + "/instance/" + mintedTokenId.toString()}
+                      target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+                      View on ArcScan
+                    </a>
+                    <button className="btn btn-primary btn-sm" onClick={() => { clearDraft(agreementId); onDone() }}>
+                      Go to list
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Still waiting
+                <div className="card" style={{ border: "1px solid var(--border2)", textAlign: "center", padding: 24 }}>
+                  <div className="row gap-8 mb-12" style={{ justifyContent: "center" }}>
+                    <div className="spinner" style={{ width: 20, height: 20 }} />
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>Waiting for vendor to sign and mint...</div>
+                  </div>
+                  <p className="muted text-sm mb-12">
+                    Vendor: <span className="mono">{shortenAddr(fields.vendorAddress)}</span>
+                  </p>
+                  <p className="muted text-xs">
+                    Checking on-chain every 5 seconds automatically.
+                  </p>
+                  <div className="divider mt-12" />
+                  <p className="muted text-xs mt-8">
+                    Share link sent? If not, click below:
+                  </p>
+                  <button className="btn btn-ghost btn-sm mt-8" onClick={copyShareLink}>
+                    {copied ? "[OK] Copied!" : "[Copy] Share Link"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* If vendor wallet is already connected */}
           {isVendor && (
             <div className="card" style={{ border: "1px solid var(--teal-bd)", background: "var(--teal-bg)", textAlign: "center", padding: 24 }}>
@@ -539,7 +606,10 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
         <div className="col gap-16">
           <div className="card" style={{ border: "1px solid var(--teal-bd)", background: "var(--teal-bg)", textAlign: "center", padding: 32 }}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Both signatures collected</div>
-            <p className="muted text-sm mb-16">Ready to mint as ERC-721 NFT on Arc blockchain.</p>
+            <p className="muted text-sm mb-16">
+              Ready to mint as ERC-721 NFT. <strong>Either party can mint.</strong>
+              Vendor can mint directly here -- client does not need to be involved.
+            </p>
             <FeeBox rows={[
               { label: "Client (" + shortenAddr(fields.clientAddress) + ")", value: "[OK] Signed", color: "var(--teal)" },
               { label: "Vendor (" + shortenAddr(fields.vendorAddress) + ")", value: "[OK] Signed", color: "var(--teal)" },

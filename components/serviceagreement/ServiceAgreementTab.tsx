@@ -73,6 +73,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [fields, setFields] = useState<AgreementFields>({ ...EMPTY, clientAddress: address ?? "" })
   const [clientSig, setClientSig] = useState<`0x${string}` | null>(null)
+  const [vendorNonceUsed, setVendorNonceUsed] = useState<bigint>(0n)
   const [vendorSig, setVendorSig] = useState<`0x${string}` | null>(null)
   const [ipfsCID, setIpfsCID] = useState("")
   const [uploading, setUploading] = useState(false)
@@ -110,8 +111,11 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
 
   const handleVendorSign = async () => {
     try {
-      const sig = await sign({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, nonce: vendorNonce ?? 0n })
+      const sameWallet = fields.clientAddress.toLowerCase() === fields.vendorAddress.toLowerCase()
+      const vNonce = sameWallet ? (clientNonce ?? 0n) + 1n : (vendorNonce ?? 0n)
+      const sig = await sign({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, nonce: vNonce })
       setVendorSig(sig)
+      setVendorNonceUsed(vNonce)
       setStep(4)
     } catch (e) { setStatusMsg("Error: " + (e as Error)?.message?.slice(0, 80)) }
   }
@@ -119,7 +123,7 @@ function CreateAgreement({ onBack, onDone }: { onBack: () => void; onDone: () =>
   const handleMint = async () => {
     if (!clientSig || !vendorSig || !ipfsCID) return
     try {
-      await mint({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, ipfsCID, clientSig, vendorSig, clientNonce: clientNonce ?? 0n, vendorNonce: vendorNonce ?? 0n })
+      await mint({ client: fields.clientAddress as Address, vendor: fields.vendorAddress as Address, contentHash, ipfsCID, clientSig, vendorSig, clientNonce: clientNonce ?? 0n, vendorNonce: vendorNonceUsed })
     } catch (e) { setStatusMsg("Mint error: " + (e as Error)?.message?.slice(0, 80)) }
   }
 

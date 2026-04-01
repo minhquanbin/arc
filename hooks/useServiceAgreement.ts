@@ -163,6 +163,11 @@ export function useLinkAgreementToInvoice() {
   return { link, hash, isPending: isPending || isConfirming, isSuccess, error }
 }
 
+// Helper: check if client and vendor are same wallet
+export function isSameWallet(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase()
+}
+
 // Upload JSON to IPFS via public gateway (no API key needed for testnet)
 export async function uploadToIPFS(data: object): Promise<string> {
   try {

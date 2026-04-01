@@ -168,10 +168,45 @@ export function isSameWallet(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase()
 }
 
-// Upload JSON to IPFS
+// Upload JSON to IPFS using nft.storage (free, no API key needed for small files)
 export async function uploadToIPFS(data: object): Promise<string> {
+  const json = JSON.stringify(data)
+
+  // Try nft.storage w3s gateway (free, no auth)
   try {
-    const json = JSON.stringify(data)
+    const blob = new Blob([json], { type: "application/json" })
+    const res = await fetch("https://api.nft.storage/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + (process.env.NEXT_PUBLIC_NFT_STORAGE_KEY ?? ""),
+      },
+      body: json,
+    })
+    if (res.ok) {
+      const d = await res.json()
+      return d.value?.cid ?? d.cid
+    }
+  } catch {}
+
+  // Try web3.storage (free tier)
+  try {
+    const res = await fetch("https://api.web3.storage/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + (process.env.NEXT_PUBLIC_WEB3_STORAGE_KEY ?? ""),
+      },
+      body: json,
+    })
+    if (res.ok) {
+      const d = await res.json()
+      return d.cid
+    }
+  } catch {}
+
+  // Try Pinata
+  try {
     const blob = new Blob([json], { type: "application/json" })
     const formData = new FormData()
     formData.append("file", blob, "agreement.json")
@@ -185,6 +220,9 @@ export async function uploadToIPFS(data: object): Promise<string> {
       return d.IpfsHash
     }
   } catch {}
-  const hash = keccak256(toBytes(JSON.stringify(data)))
-  return "Qm" + hash.slice(2, 46)
+
+  // Fallback: encode content as data URI stored in tokenURI directly
+  // Return a special prefix so UI knows to decode it
+  const encoded = btoa(encodeURIComponent(json))
+  return "data:application/json;base64," + encoded
 }

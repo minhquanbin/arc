@@ -221,8 +221,10 @@ export async function uploadToIPFS(data: object): Promise<string> {
     }
   } catch {}
 
-  // Fallback: encode content as data URI stored in tokenURI directly
-  // Return a special prefix so UI knows to decode it
-  const encoded = btoa(encodeURIComponent(json))
-  return "data:application/json;base64," + encoded
+  // Fallback: store content in sessionStorage, return short key
+  const hash = keccak256(toBytes(json))
+  const shortKey = "arc_content_" + hash.slice(2, 18)
+  try { sessionStorage.setItem(shortKey, json) } catch {}
+  // Return a short reference ID (not the full content)
+  return "arc://" + hash.slice(2, 48)
 }

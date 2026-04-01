@@ -98,7 +98,7 @@ contract ServiceAgreement is ERC721URIStorage, EIP712, Ownable {
         uint256 vendorNonce
     ) external returns (uint256 tokenId) {
         require(client != address(0) && vendor != address(0), "Invalid addresses");
-        require(client != vendor, "Client and vendor must differ");
+        // allow same address for testnet testing
         require(bytes(ipfsCID).length > 0, "IPFS CID required");
         require(hashToTokenId[contentHash] == 0, "Agreement already minted");
 

@@ -94,6 +94,7 @@ export const ARBITRATOR_NFT_ABI = [
   { name: 'GOLD_PRICE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { name: 'DIAMOND_PRICE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { name: 'PLATINUM_PRICE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'getArbitrators', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address[]' }] },
   // Events
   {
     name: 'GoldMinted',

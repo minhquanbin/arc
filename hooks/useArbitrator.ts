@@ -108,34 +108,45 @@ export function useAllArbitrators(): string[] {
 
     async function fetch() {
       try {
-        const [goldLogs, diamondLogs, platinumLogs] = await Promise.all([
-          client!.getLogs({
-            address: CONTRACTS.ARBITRATOR_NFT,
-            event: { type: "event", name: "GoldMinted", inputs: [{ name: "arbitrator", type: "address", indexed: true }] },
-            fromBlock: 0n, toBlock: "latest",
-          }).catch(() => []),
-          client!.getLogs({
-            address: CONTRACTS.ARBITRATOR_NFT,
-            event: { type: "event", name: "UpgradedToDiamond", inputs: [{ name: "arbitrator", type: "address", indexed: true }] },
-            fromBlock: 0n, toBlock: "latest",
-          }).catch(() => []),
-          client!.getLogs({
-            address: CONTRACTS.ARBITRATOR_NFT,
-            event: { type: "event", name: "UpgradedToPlatinum", inputs: [{ name: "arbitrator", type: "address", indexed: true }] },
-            fromBlock: 0n, toBlock: "latest",
-          }).catch(() => []),
-        ])
-        if (cancelled) return
+        const CHUNK = 9000n
+        const latestBlock = await client!.getBlockNumber()
 
+        // Arc contract deployed around block 34,100,000
+        const deployBlock = 34100000n
         const seen = new Set<string>()
-        platinumLogs.forEach(l => { const a = (l.args as any).arbitrator; if (a) seen.add(a.toLowerCase()) })
-        diamondLogs.forEach(l => { const a = (l.args as any).arbitrator; if (a) seen.add(a.toLowerCase()) })
-        goldLogs.forEach(l => { const a = (l.args as any).arbitrator; if (a) seen.add(a.toLowerCase()) })
 
-        const list = Array.from(seen)
-        if (!cancelled) setArbitrators(list.length > 0 ? list : [])
-      } catch {
-        if (!cancelled) setArbitrators([])
+        const eventDefs = [
+          { name: "GoldMinted",        inputs: [{ name: "arbitrator", type: "address", indexed: true }] },
+          { name: "UpgradedToDiamond", inputs: [{ name: "arbitrator", type: "address", indexed: true }] },
+          { name: "UpgradedToPlatinum",inputs: [{ name: "arbitrator", type: "address", indexed: true }] },
+        ] as const
+
+        // Scan in 9000-block chunks from deploy block to latest
+        for (let from = deployBlock; from <= latestBlock; from += CHUNK) {
+          if (cancelled) return
+          const to = from + CHUNK - 1n > latestBlock ? latestBlock : from + CHUNK - 1n
+
+          await Promise.all(eventDefs.map(async (ev) => {
+            try {
+              const logs = await client!.getLogs({
+                address: CONTRACTS.ARBITRATOR_NFT,
+                event: { type: "event", name: ev.name, inputs: ev.inputs as any },
+                fromBlock: from,
+                toBlock: to,
+              })
+              logs.forEach(l => {
+                const a = (l.args as any).arbitrator
+                if (a) seen.add((a as string).toLowerCase())
+              })
+            } catch {}
+          }))
+        }
+
+        if (!cancelled) {
+          setArbitrators(Array.from(seen))
+        }
+      } catch (e) {
+        console.error("useAllArbitrators error:", e)
       }
     }
 

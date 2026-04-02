@@ -177,7 +177,16 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
   const { data: mintedTokenId } = useHashToTokenId(step >= 3 ? contentHash : undefined)
   const { mint, isPending: minting, isSuccess: mintDone, error: mintError } = useMintAgreement()
 
-  if (mintDone) { clearDraft(agreementId); onDone(); return null }
+  if (mintDone) {
+    // Save contract content permanently before clearing draft
+    try {
+      const contentKey = "arc_contract_" + agreementId
+      localStorage.setItem(contentKey, JSON.stringify(fields))
+    } catch {}
+    clearDraft(agreementId)
+    onDone()
+    return null
+  }
 
   // Already minted on-chain (detected on reload)
   if (mintedTokenId && mintedTokenId > 0n && step >= 3) {
@@ -253,7 +262,14 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
               target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
               ArcScan
             </a>
-            <button className="btn btn-primary btn-sm" onClick={() => { clearDraft(agreementId); onDone() }}>
+            <button className="btn btn-primary btn-sm" onClick={() => {
+              try {
+                const contentKey = "arc_contract_" + agreementId
+                localStorage.setItem(contentKey, JSON.stringify(fields))
+              } catch {}
+              clearDraft(agreementId)
+              onDone()
+            }}>
               Done
             </button>
           </div>
@@ -714,6 +730,81 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
   )
 }
 
+// ---- View contract content helper
+function viewContractContent(agreementId: string, fields?: AgreementFields) {
+  const w = window.open("", "_blank")
+  if (!w) return
+
+  let f: AgreementFields | null = fields ?? null
+  if (!f) {
+    try {
+      const saved = localStorage.getItem("arc_contract_" + agreementId)
+      if (saved) f = JSON.parse(saved)
+    } catch {}
+  }
+
+  if (!f) {
+    w.document.write("<pre style=font-family:monospace;padding:40px>Contract content not available locally.\nAgreement ID: " + agreementId + "\n\nThe content was stored in the share link.\nAsk the other party to share the original link to view full content.</pre>")
+    return
+  }
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Service Agreement - ` + agreementId + `</title>
+    <style>
+      body { font-family: Georgia, serif; padding: 60px; max-width: 800px; margin: 0 auto; color: #111; line-height: 1.8 }
+      h1 { font-size: 22px; text-align: center; margin-bottom: 8px }
+      .id { text-align: center; color: #666; font-size: 13px; margin-bottom: 40px; font-family: monospace }
+      h2 { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #555; border-bottom: 1px solid #ddd; padding-bottom: 6px; margin-top: 32px }
+      .row { display: flex; gap: 40px; margin: 8px 0 }
+      .label { font-weight: bold; min-width: 140px; color: #444; font-size: 13px }
+      .value { flex: 1; font-size: 13px; white-space: pre-wrap }
+      .footer { margin-top: 60px; padding-top: 20px; border-top: 2px solid #111; font-size: 11px; color: #666 }
+      .sig-box { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px }
+      .sig { border-top: 1px solid #111; padding-top: 8px; font-size: 12px }
+    </style></head><body>
+    <h1>SERVICE AGREEMENT</h1>
+    <div class=id>Agreement ID: ` + agreementId + ` | Effective: ` + f.agreementDate + `</div>
+
+    <h2>1. Parties</h2>
+    <div class=row><div class=label>Client</div><div class=value>` + f.clientName + `<br>` + f.clientAddress + `</div></div>
+    <div class=row><div class=label>Vendor</div><div class=value>` + f.vendorName + `<br>` + f.vendorAddress + `</div></div>
+
+    <h2>2. Scope of Work</h2>
+    <div class=row><div class=label>Project</div><div class=value>` + f.projectTitle + `</div></div>
+    <div class=row><div class=label>Description</div><div class=value>` + f.description + `</div></div>
+    <div class=row><div class=label>Deliverables</div><div class=value>` + f.deliverables + `</div></div>
+    <div class=row><div class=label>Tech Stack</div><div class=value>` + (f.techStack || "Not specified") + `</div></div>
+
+    <h2>3. Timeline</h2>
+    <div class=row><div class=label>Start Date</div><div class=value>` + f.startDate + `</div></div>
+    <div class=row><div class=label>End Date</div><div class=value>` + f.endDate + `</div></div>
+
+    <h2>4. Payment Terms</h2>
+    <div class=row><div class=label>Total Value</div><div class=value>` + f.totalValue + ` USDC</div></div>
+    <div class=row><div class=label>Schedule</div><div class=value>` + f.paymentSchedule + `</div></div>
+    <div class=row><div class=label>Late Penalty</div><div class=value>` + f.penaltyPct + `% per week</div></div>
+
+    <h2>5. Dispute Resolution</h2>
+    <div class=row><div class=label>Arbitrators</div><div class=value>` + f.arbitratorCount + ` arbitrators (unanimous vote required)</div></div>
+    <div class=row><div class=label>Dispute Fee</div><div class=value>5% of milestone value, paid by losing party (min 50 USDC)</div></div>
+
+    <h2>6. Terms and Conditions</h2>
+    <div class=row><div class=label>IP Ownership</div><div class=value>` + f.ipOwnership + `</div></div>
+    <div class=row><div class=label>Confidentiality</div><div class=value>` + (f.confidential ? "NDA applies -- both parties agree to keep information confidential" : "Public work -- no NDA") + `</div></div>
+    <div class=row><div class=label>Termination</div><div class=value>` + (f.terminationConditions || "Either party may terminate with 14 days written notice") + `</div></div>
+
+    <div class=sig-box>
+      <div class=sig>CLIENT SIGNATURE<br>` + f.clientName + `<br>` + f.clientAddress + `<br>Signed via EIP-712 on Arc blockchain</div>
+      <div class=sig>VENDOR SIGNATURE<br>` + f.vendorName + `<br>` + f.vendorAddress + `<br>Signed via EIP-712 on Arc blockchain</div>
+    </div>
+
+    <div class=footer>
+      This agreement is recorded on Arc Testnet (Chain ID 5042002) as an ERC-721 NFT.<br>
+      Both parties have signed using EIP-712 cryptographic signatures.<br>
+      Agreement ID: ` + agreementId + ` | Generated by ArcInvoice
+    </div>
+    </body></html>`)
+}
+
 // ---- Agreement List Row -----------------------------------------------------
 
 function AgreementRow({ tokenId, onSelect }: { tokenId: bigint; onSelect: () => void }) {
@@ -723,16 +814,45 @@ function AgreementRow({ tokenId, onSelect }: { tokenId: bigint; onSelect: () => 
       <div className="muted2 text-xs mono">Agreement #{tokenId.toString()} loading...</div>
     </div>
   )
+
+  // Try to find saved content from localStorage
+  // Search all arc_contract_* keys for matching client+vendor
+  const findAgreementId = (): string | null => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key?.startsWith("arc_contract_")) {
+          const saved = JSON.parse(localStorage.getItem(key)!)
+          if (saved.clientAddress?.toLowerCase() === ag.client.toLowerCase() &&
+              saved.vendorAddress?.toLowerCase() === ag.vendor.toLowerCase()) {
+            return key.replace("arc_contract_", "")
+          }
+        }
+      }
+    } catch {}
+    return null
+  }
+
   return (
-    <div onClick={onSelect} className="card-hover"
-      style={{ display: "grid", gridTemplateColumns: "56px 1fr 100px 90px", gap: 12, alignItems: "center", padding: "12px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg2)", marginBottom: 6, cursor: "pointer" }}>
-      <span className="mono muted2 text-xs">#{String(ag.tokenId)}</span>
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 500 }}>{shortenAddr(ag.client)} -- {shortenAddr(ag.vendor)}</div>
-        <div className="mono muted2 text-xs mt-4">{ag.ipfsCID.slice(0, 16)}...</div>
+    <div style={{ padding: "12px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg2)", marginBottom: 6 }}>
+      <div className="row gap-12" style={{ alignItems: "center" }}>
+        <span className="mono muted2 text-xs" style={{ minWidth: 40 }}>#{String(ag.tokenId)}</span>
+        <div style={{ flex: 1, cursor: "pointer" }} onClick={onSelect}>
+          <div style={{ fontSize: 12, fontWeight: 500 }}>{shortenAddr(ag.client)} -- {shortenAddr(ag.vendor)}</div>
+          <div className="mono muted2 text-xs mt-4">{ag.ipfsCID.slice(0, 20)}...</div>
+        </div>
+        <span className="badge badge-active">SIGNED</span>
+        <span className="mono muted2 text-xs">{fmtDate(Number(ag.createdAt))}</span>
+        <button
+          className="btn btn-ghost btn-sm"
+          style={{ fontSize: 11, flexShrink: 0 }}
+          onClick={() => {
+            const id = findAgreementId()
+            viewContractContent(id ?? String(ag.tokenId))
+          }}>
+          View
+        </button>
       </div>
-      <span className="badge badge-active">SIGNED</span>
-      <span className="mono muted2 text-xs">{fmtDate(Number(ag.createdAt))}</span>
     </div>
   )
 }

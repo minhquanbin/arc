@@ -163,6 +163,24 @@ export async function fetchNonceOnChain(addr: Address, contractAddr: Address): P
   }
 }
 
+// Create a compact readable summary for on-chain storage and arbitrator viewing
+export function createContractSummary(fields: AgreementFields, agreementId: string): string {
+  return [
+    "SERVICE AGREEMENT " + agreementId,
+    "Project: " + fields.projectTitle,
+    "Client: " + fields.clientName + " " + fields.clientAddress,
+    "Vendor: " + fields.vendorName + " " + fields.vendorAddress,
+    "Date: " + fields.agreementDate,
+    "Value: " + fields.totalValue + " USDC",
+    "Timeline: " + fields.startDate + " to " + fields.endDate,
+    "Payment: " + fields.paymentSchedule,
+    "IP: " + fields.ipOwnership,
+    "NDA: " + (fields.confidential ? "Yes" : "No"),
+    "Arbitrators: " + fields.arbitratorCount,
+    "Chain: Arc 5042002",
+  ].join(" | ")
+}
+
 // Helper
 export function isSameWallet(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase()

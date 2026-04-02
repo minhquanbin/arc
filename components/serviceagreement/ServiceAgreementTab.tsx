@@ -5,7 +5,7 @@ import { useAccount } from "wagmi"
 import type { Address } from "viem"
 import {
   useSignAgreement, useMintAgreement, useTotalAgreements,
-  useAgreement, useHashToTokenId, computeContentHash, uploadToIPFS, fetchNonceOnChain,
+  useAgreement, useHashToTokenId, useLinkAgreementToInvoice, computeContentHash, uploadToIPFS, fetchNonceOnChain,
   type AgreementFields,
 } from "@/hooks/useServiceAgreement"
 import { useReadContract } from "wagmi"
@@ -921,30 +921,18 @@ export function ServiceAgreementTab() {
         </TxButton>
       </div>
 
-      {/* Vendor: enter agreement ID or open shared link */}
-      <div className="card" style={{ border: "1px solid var(--border2)" }}>
-        <div className="section-label mb-8">Sign as vendor -- enter Agreement ID</div>
-        <p className="muted text-sm mb-12">
-          If client sent you only the ID (not the full link), enter it here.
-          For best results, ask client to use the <strong>[Copy] Share Link</strong> button.
+      {/* Vendor: how to sign */}
+      <div className="card" style={{ border: "1px solid var(--gold-bd)", background: "var(--gold-bg)" }}>
+        <div className="section-label mb-8" style={{ color: "var(--gold)" }}>Vendor -- how to sign an agreement</div>
+        <p className="muted text-sm mb-8">
+          Client must share the full link using the <strong>[Copy] Share Link</strong> button.
+          Open that link to load and sign the agreement.
         </p>
-        <div className="row gap-8">
-          <input
-            className="input"
-            placeholder="e.g. A1B2C3"
-            value={lookupId}
-            onChange={e => setLookupId(e.target.value.toUpperCase())}
-            style={{ maxWidth: 180, fontFamily: "var(--mono)", fontSize: 18, fontWeight: 700, letterSpacing: 3 }}
-            maxLength={6}
-            onKeyDown={e => e.key === "Enter" && handleLookup()}
-          />
-          <TxButton variant="primary" disabled={lookupId.length < 6} onClick={handleLookup}>
-            Load Agreement
-          </TxButton>
+        <div className="fee-box" style={{ fontSize: 12 }}>
+          <div className="fee-row"><span className="muted">Step 1</span><span>Client fills form and clicks [Copy] Share Link</span></div>
+          <div className="fee-row"><span className="muted">Step 2</span><span>Vendor opens the link, connects wallet, signs</span></div>
+          <div className="fee-row"><span className="muted">Step 3</span><span>Vendor mints NFT -- agreement recorded on-chain</span></div>
         </div>
-        {lookupError && (
-          <div className="mt-8" style={{ fontSize: 12, color: "var(--coral)" }}>{lookupError}</div>
-        )}
       </div>
 
       {/* Pending drafts on this browser */}

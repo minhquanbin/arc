@@ -12,17 +12,11 @@ import { useApproveUSDC } from "@/hooks/useApproveUSDC"
 import { computeDisputeDeposit } from "@/lib/utils"
 import { useMyInvoiceIds } from "@/hooks/useChainEvents"
 import { ARBITRATOR_NFT_ABI } from "@/lib/contracts"
+import { useAllArbitrators } from "@/hooks/useArbitrator"
 
 const DEMO_IDS = [1n, 2n, 3n, 4n]
 
-// Hook load arbitrators tu GoldMinted events via getLogs
-function useKnownArbitrators(): string[] {
-  // Hardcode known arbitrators on testnet
-  // In prod: fetch from GoldMinted events
-  return [
-    "0xcC9Eb37734922410FB2617D4F8212A76C44AD1A0",
-  ]
-}
+
 
 function InvoiceDetail({ invoiceId, onBack }: { invoiceId: bigint; onBack: () => void }) {
   const { address } = useAccount()
@@ -206,7 +200,7 @@ export function InvoiceTab() {
   const [view, setView] = useState<"list" | "create" | "detail">("list")
   const [selectedId, setSelectedId] = useState<bigint | null>(null)
   const { ids: chainIds, loading: idsLoading } = useMyInvoiceIds()
-  const knownArbitrators = useKnownArbitrators()
+  const knownArbitrators = useAllArbitrators()
 
   const displayIds = address && chainIds.length > 0 ? chainIds : DEMO_IDS
 

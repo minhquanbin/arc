@@ -96,49 +96,123 @@ const EMPTY: AgreementFields = {
 }
 
 // ---- Agreement Detail -------------------------------------------------------
+// ---- Agreement Detail -------------------------------------------------------
 
 function AgreementDetail({ tokenId, onBack }: { tokenId: bigint; onBack: () => void }) {
   const { data: ag } = useAgreement(tokenId)
+  const { address } = useAccount()
+  const [showLink, setShowLink] = useState(false)
+  const [invoiceInput, setInvoiceInput] = useState("")
+  const { link, isPending: linking, isSuccess: linked } = useLinkAgreementToInvoice()
+
   if (!ag) return (
     <div className="col gap-12 animate-in">
       <button className="btn btn-ghost btn-sm" style={{ width: "fit-content" }} onClick={onBack}>Back</button>
       <div className="card muted text-sm">Loading...</div>
     </div>
   )
+
+  const isClient = !!(address && ag.client && address.toLowerCase() === ag.client.toLowerCase())
+
+  const getContent = (): AgreementFields | null => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (!key) continue
+        if (key.startsWith("arc_contract_") || key.startsWith("arc_agreement_")) {
+          const saved = JSON.parse(localStorage.getItem(key) ?? "{}")
+          const f = saved.fields ?? saved
+          if (f?.clientAddress?.toLowerCase() === ag.client.toLowerCase() &&
+              f?.vendorAddress?.toLowerCase() === ag.vendor.toLowerCase()) {
+            return f as AgreementFields
+          }
+        }
+      }
+    } catch {}
+    return null
+  }
+
+  const openContract = () => {
+    const f = getContent()
+    const w = window.open("", "_blank")
+    if (!w) return
+    if (!f) {
+      w.document.write("<html><body style=font-family:monospace;padding:40px><h2>Agreement #" + String(ag.tokenId) + "</h2><p>Client: " + ag.client + "</p><p>Vendor: " + ag.vendor + "</p><p>Content Hash: " + ag.contentHash + "</p><p>Content not available in this browser. Both parties signed this hash via EIP-712.</p></body></html>")
+      return
+    }
+    w.document.write("<!DOCTYPE html><html><head><title>Service Agreement #" + String(ag.tokenId) + "</title><style>body{font-family:Georgia,serif;padding:60px;max-width:800px;margin:0 auto;line-height:1.8;color:#111}h1{text-align:center;font-size:22px}h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#555;border-bottom:1px solid #ddd;padding-bottom:4px;margin-top:28px}.row{display:flex;gap:32px;margin:8px 0}.label{font-weight:bold;min-width:130px;color:#444;font-size:13px}.val{flex:1;font-size:13px;white-space:pre-wrap}.footer{margin-top:48px;padding-top:16px;border-top:2px solid #111;font-size:11px;color:#666}.sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px}.sig{border-top:1px solid #111;padding-top:8px;font-size:12px}</style></head><body><h1>SERVICE AGREEMENT</h1><p style=text-align:center;color:#666;font-size:13px>Token #" + String(ag.tokenId) + " | " + f.agreementDate + "</p><h2>Parties</h2><div class=row><div class=label>Client</div><div class=val>" + f.clientName + "<br>" + f.clientAddress + "</div></div><div class=row><div class=label>Vendor</div><div class=val>" + f.vendorName + "<br>" + f.vendorAddress + "</div></div><h2>Scope of Work</h2><div class=row><div class=label>Project</div><div class=val>" + f.projectTitle + "</div></div><div class=row><div class=label>Description</div><div class=val>" + f.description + "</div></div><div class=row><div class=label>Deliverables</div><div class=val>" + f.deliverables + "</div></div><div class=row><div class=label>Tech Stack</div><div class=val>" + (f.techStack||"N/A") + "</div></div><h2>Timeline</h2><div class=row><div class=label>Start</div><div class=val>" + f.startDate + "</div></div><div class=row><div class=label>End</div><div class=val>" + f.endDate + "</div></div><h2>Payment</h2><div class=row><div class=label>Total</div><div class=val>" + f.totalValue + " USDC</div></div><div class=row><div class=label>Schedule</div><div class=val>" + f.paymentSchedule + "</div></div><div class=row><div class=label>Late Penalty</div><div class=val>" + f.penaltyPct + "% per week</div></div><h2>Dispute Resolution</h2><div class=row><div class=label>Arbitrators</div><div class=val>" + f.arbitratorCount + " (unanimous vote)</div></div><div class=row><div class=label>Dispute Fee</div><div class=val>5% of milestone, paid by losing party</div></div><h2>Terms</h2><div class=row><div class=label>IP Ownership</div><div class=val>" + f.ipOwnership + "</div></div><div class=row><div class=label>NDA</div><div class=val>" + (f.confidential?"Applies":"Not applicable") + "</div></div><div class=row><div class=label>Termination</div><div class=val>" + (f.terminationConditions||"Either party may terminate with 14 days written notice") + "</div></div><div class=sigs><div class=sig>CLIENT<br>" + f.clientName + "<br><small>" + f.clientAddress + "</small><br><small>Signed via EIP-712 on Arc blockchain</small></div><div class=sig>VENDOR<br>" + f.vendorName + "<br><small>" + f.vendorAddress + "</small><br><small>Signed via EIP-712 on Arc blockchain</small></div></div><div class=footer>Arc Testnet (Chain ID 5042002) | ERC-721 NFT #" + String(ag.tokenId) + " | Content Hash: " + ag.contentHash + "</div></body></html>")
+  }
+
   return (
     <div className="col gap-16 animate-in">
       <div className="row gap-12 mb-8">
         <button className="btn btn-ghost btn-sm" onClick={onBack}>Back</button>
         <h2 style={{ fontSize: 18, fontWeight: 700 }}>Agreement #{tokenId.toString()}</h2>
         <span className="badge badge-active">SIGNED</span>
+        <button className="btn btn-primary btn-sm ml-auto" onClick={openContract}>View Contract</button>
       </div>
+
       <div className="card">
         <div className="grid-3 mb-16">
           <div><div className="section-label">Token ID</div><div className="mono text-sm">#{String(ag.tokenId)}</div></div>
           <div><div className="section-label">Created</div><div className="text-sm">{fmtDate(Number(ag.createdAt))}</div></div>
-          <div><div className="section-label">Invoice</div><div className="mono text-sm">{ag.invoiceId > 0n ? "#" + String(ag.invoiceId) : "Not linked"}</div></div>
+          <div>
+            <div className="section-label">Invoice</div>
+            <div className="mono text-sm" style={{ color: ag.invoiceId > 0n ? "var(--teal)" : "var(--text3)" }}>
+              {ag.invoiceId > 0n ? "Invoice #" + String(ag.invoiceId) : "Not linked"}
+            </div>
+          </div>
         </div>
         <div className="divider" />
         <div className="grid-2 mt-12">
-          <div><div className="section-label">Client</div><div className="mono text-sm">{shortenAddr(ag.client)}</div><span className="badge badge-active mt-4">Signed</span></div>
-          <div><div className="section-label">Vendor</div><div className="mono text-sm">{shortenAddr(ag.vendor)}</div><span className="badge badge-active mt-4">Signed</span></div>
+          <div><div className="section-label">Client</div><div className="mono text-sm">{ag.client}</div><span className="badge badge-active mt-4">Signed</span></div>
+          <div><div className="section-label">Vendor</div><div className="mono text-sm">{ag.vendor}</div><span className="badge badge-active mt-4">Signed</span></div>
         </div>
         <div className="divider mt-12" />
         <div className="mt-12">
-          <div className="section-label mb-8">Content Hash</div>
+          <div className="section-label mb-4">Content Hash</div>
           <div className="mono text-xs muted2" style={{ wordBreak: "break-all" }}>{ag.contentHash}</div>
         </div>
-        <div className="mt-12">
-          <div className="section-label mb-8">IPFS Document</div>
-          <div className="row gap-8">
-            <div className="mono text-xs muted2 grow" style={{ wordBreak: "break-all" }}>{ag.ipfsCID}</div>
-            <a href={"https://ipfs.io/ipfs/" + ag.ipfsCID} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">View</a>
-          </div>
+        <div className="mt-12 row gap-8">
+          <a href={"https://testnet.arcscan.app/token/" + process.env.NEXT_PUBLIC_SERVICE_AGREEMENT_ADDRESS + "/instance/" + String(ag.tokenId)}
+            target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">ArcScan</a>
         </div>
       </div>
+
+      {isClient && ag.invoiceId === 0n && (
+        <div className="card" style={{ border: "1px solid var(--teal-bd)", background: "var(--teal-bg)" }}>
+          <div className="section-label mb-8">Link to Invoice</div>
+          <p className="muted text-sm mb-12">After creating an invoice for this project, link it here. Arbitrators will see this agreement when reviewing disputes.</p>
+          {!showLink ? (
+            <button className="btn btn-primary btn-sm" onClick={() => setShowLink(true)}>Link to Invoice</button>
+          ) : (
+            <div className="row gap-8">
+              <input className="input" type="number" min="1" placeholder="Invoice ID (e.g. 1)"
+                value={invoiceInput} onChange={e => setInvoiceInput(e.target.value)} style={{ maxWidth: 200 }} />
+              <TxButton variant="primary" size="sm" disabled={!invoiceInput} loading={linking} loadingText="Linking..."
+                onClick={() => link(tokenId, BigInt(invoiceInput))}>Confirm</TxButton>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowLink(false)}>Cancel</button>
+            </div>
+          )}
+          {linked && <div className="text-sm mt-8 text-teal">Linked successfully!</div>}
+        </div>
+      )}
+
+      {!isClient && (
+        <div className="card" style={{ border: "1px solid var(--border2)" }}>
+          <div className="section-label mb-8">For Arbitrators</div>
+          <p className="muted text-sm mb-8">Verify this agreement on ArcScan. The content hash proves both parties signed the exact same document.</p>
+          <div className="fee-box" style={{ fontSize: 11 }}>
+            <div className="fee-row"><span className="muted">Client signed</span><span className="text-teal">[OK] EIP-712</span></div>
+            <div className="fee-row"><span className="muted">Vendor signed</span><span className="text-teal">[OK] EIP-712</span></div>
+            <div className="fee-row"><span className="muted">Linked Invoice</span><span>{ag.invoiceId > 0n ? "#" + String(ag.invoiceId) : "Not linked"}</span></div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
 
 // ---- Create / Sign Agreement ------------------------------------------------
 

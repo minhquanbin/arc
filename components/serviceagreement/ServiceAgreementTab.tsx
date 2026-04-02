@@ -179,6 +179,89 @@ function CreateAgreement({ initialDraft, onBack, onDone }: {
 
   if (mintDone) { clearDraft(agreementId); onDone(); return null }
 
+  // Already minted on-chain (detected on reload)
+  if (mintedTokenId && mintedTokenId > 0n && step >= 3) {
+    return (
+      <div className="col gap-16 animate-in">
+        <div className="row gap-12 mb-4">
+          <button className="btn btn-ghost btn-sm" onClick={() => { clearDraft(agreementId); onBack() }}>Back</button>
+          <h2 style={{ fontSize: 18, fontWeight: 700 }}>Service Agreement - {agreementId}</h2>
+        </div>
+        <div className="card" style={{ border: "1px solid var(--teal-bd)", background: "var(--teal-bg)", textAlign: "center", padding: 32 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: "var(--teal)" }}>
+            Agreement minted as NFT #{mintedTokenId.toString()}
+          </div>
+          <p className="muted text-sm mb-20">
+            Both parties have signed. This agreement is permanently recorded on Arc blockchain.
+          </p>
+          <FeeBox rows={[
+            { label: "Token ID", value: "#" + mintedTokenId.toString(), color: "var(--teal)", total: true },
+            { label: "Client", value: shortenAddr(fields.clientAddress), color: "var(--teal)" },
+            { label: "Vendor", value: shortenAddr(fields.vendorAddress), color: "var(--teal)" },
+            { label: "Status", value: "Signed and minted on-chain", color: "var(--teal)" },
+          ]} />
+          <div className="row gap-8 mt-20" style={{ justifyContent: "center", flexWrap: "wrap" }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => {
+              const w = window.open()
+              if (!w) return
+              const f = fields
+              w.document.write(`
+                <html><head><title>Service Agreement - ` + agreementId + `</title>
+                <style>body{font-family:monospace;padding:40px;max-width:800px;margin:0 auto;line-height:1.8}
+                h1{font-size:20px;margin-bottom:24px}
+                .section{margin:20px 0;padding:16px;border:1px solid #ddd;border-radius:8px}
+                .label{font-weight:bold;color:#555;font-size:12px;text-transform:uppercase}
+                .value{margin-top:4px;white-space:pre-wrap}</style></head>
+                <body>
+                <h1>SERVICE AGREEMENT - ` + agreementId + `</h1>
+                <div class=section>
+                  <div class=label>Project</div><div class=value>` + f.projectTitle + `</div>
+                  <div class=label>Date</div><div class=value>` + f.agreementDate + `</div>
+                </div>
+                <div class=section>
+                  <div class=label>Client</div><div class=value>` + f.clientName + ` (` + f.clientAddress + `)</div>
+                  <div class=label>Vendor</div><div class=value>` + f.vendorName + ` (` + f.vendorAddress + `)</div>
+                </div>
+                <div class=section>
+                  <div class=label>Scope</div><div class=value>` + f.description + `</div>
+                  <div class=label>Deliverables</div><div class=value>` + f.deliverables + `</div>
+                  <div class=label>Tech Stack</div><div class=value>` + f.techStack + `</div>
+                </div>
+                <div class=section>
+                  <div class=label>Timeline</div><div class=value>` + f.startDate + ` to ` + f.endDate + `</div>
+                  <div class=label>Total Value</div><div class=value>` + f.totalValue + ` USDC</div>
+                  <div class=label>Payment Schedule</div><div class=value>` + f.paymentSchedule + `</div>
+                  <div class=label>Late Penalty</div><div class=value>` + f.penaltyPct + `% per week</div>
+                </div>
+                <div class=section>
+                  <div class=label>Arbitrators</div><div class=value>` + f.arbitratorCount + ` (unanimous vote, 5% dispute fee)</div>
+                  <div class=label>IP Ownership</div><div class=value>` + f.ipOwnership + `</div>
+                  <div class=label>Confidentiality</div><div class=value>` + (f.confidential ? "NDA applies" : "Public work") + `</div>
+                  <div class=label>Termination</div><div class=value>` + (f.terminationConditions || "Not specified") + `</div>
+                </div>
+                <div class=section>
+                  <div class=label>On-chain</div>
+                  <div class=value>Arc blockchain (Chain ID 5042002) | ERC-721 NFT #` + mintedTokenId.toString() + ` | EIP-712 signatures</div>
+                  <div class=label>Agreement ID</div><div class=value>` + agreementId + `</div>
+                </div>
+                </body></html>
+              `)
+            }}>
+              View Contract
+            </button>
+            <a href={"https://testnet.arcscan.app/token/" + process.env.NEXT_PUBLIC_SERVICE_AGREEMENT_ADDRESS + "/instance/" + mintedTokenId.toString()}
+              target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+              ArcScan
+            </a>
+            <button className="btn btn-primary btn-sm" onClick={() => { clearDraft(agreementId); onDone() }}>
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const save = (overrides: Partial<DraftState> = {}) => {
     saveDraft({
       id: agreementId, fields, contentHash, ipfsCID,

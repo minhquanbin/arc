@@ -431,11 +431,16 @@ export function CreateInvoice({ onBack, knownArbitrators }: Props) {
           {knownArbitrators.length === 0 ? (
             <p className="muted text-sm">No arbitrators found on-chain. Add manually above.</p>
           ) : (
-            knownArbitrators.map(a => (
-              <ArbRow key={a} addr={a} selected={selArbs.includes(a)}
-                onToggle={() => toggleArb(a)}
-                disabled={selArbs.length >= 5 && !selArbs.includes(a)} />
-            ))
+            <>
+              <div className="muted2 text-xs mb-8">
+                Sorted by tier: Platinum then Diamond then Gold -- {knownArbitrators.length} arbitrator(s) found
+              </div>
+              {knownArbitrators.map(a => (
+                <ArbRow key={a} addr={a} selected={selArbs.includes(a)}
+                  onToggle={() => toggleArb(a)}
+                  disabled={selArbs.length >= 5 && !selArbs.includes(a)} />
+              ))}
+            </>
           )}
         </div>
         <div className="row mt-16">
